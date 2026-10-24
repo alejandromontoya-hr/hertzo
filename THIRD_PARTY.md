@@ -7,6 +7,8 @@ Hertzo se publica bajo licencia MIT. Estos son los componentes y datos de tercer
 | Componente | Versión | Licencia | Compatible con MIT | Uso |
 | --- | --- | --- | --- | --- |
 | [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) | 6.x | BSD-3-Clause | Sí (exige conservar el aviso de copyright) | Mapa interactivo |
+| [ITM de NTIA](https://github.com/NTIA/itm) (Longley-Rice) | v1.4, commit `183ad95` | Dominio público en EE. UU. (Título 15 U.S.C. §105); en otros países, permiso irrevocable y gratuito para usar, modificar y distribuir. Pide reconocer a NTIA y anotar cambios. Ver `engine/itm/LICENSE.md` | Sí | Motor de propagación (`engine/itm/`, sin modificar) |
+| Runtime de [Emscripten](https://emscripten.org) | 6.0.13 | MIT / University of Illinois NCSA | Sí | Código que carga el motor WebAssembly (`src/propagation/wasm/itm.mjs`) |
 
 ## Datos que se descargan en tiempo de ejecución
 
