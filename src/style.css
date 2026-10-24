@@ -74,16 +74,28 @@ body {
   color: var(--muted);
 }
 
+.site-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+}
+
+.site-details dt {
+  color: var(--muted);
+}
+
+.site-details dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .map {
   grid-area: map;
   position: relative;
-  display: grid;
-  place-items: center;
   min-height: 0;
-}
-
-.map-placeholder {
-  color: var(--muted);
 }
 
 .app-footer {

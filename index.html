@@ -16,14 +16,21 @@
         <p class="tagline">Simulador de propagación RF para radio profesional</p>
       </header>
 
-      <aside class="panel" aria-label="Parámetros del sitio">
+      <aside id="site-panel" class="panel" aria-label="Parámetros del sitio">
         <h2>Sitio</h2>
-        <p class="hint">Haz clic en el mapa para ubicar el sitio.</p>
+        <p class="hint" data-site-hint>Haz clic en el mapa para ubicar el sitio.</p>
+        <div data-site-details hidden>
+          <dl class="site-details">
+            <dt>Ubicación (lat, lon)</dt>
+            <dd data-site-location></dd>
+            <dt>Cota del terreno</dt>
+            <dd data-site-elevation></dd>
+          </dl>
+          <p class="hint">Arrastra el marcador para moverlo.</p>
+        </div>
       </aside>
 
-      <main id="map" class="map" aria-label="Mapa">
-        <p class="map-placeholder">Mapa</p>
-      </main>
+      <main id="map" class="map" aria-label="Mapa"></main>
 
       <footer class="app-footer">
         Herramienta de planificación: sus predicciones no reemplazan mediciones de campo ni

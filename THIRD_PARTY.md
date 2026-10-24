@@ -1,0 +1,24 @@
+# Componentes y datos de terceros
+
+Hertzo se publica bajo licencia MIT. Estos son los componentes y datos de terceros que usa, con su licencia y su compatibilidad con MIT.
+
+## Bibliotecas incluidas en el sitio
+
+| Componente | Versión | Licencia | Compatible con MIT | Uso |
+| --- | --- | --- | --- | --- |
+| [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) | 6.x | BSD-3-Clause | Sí (exige conservar el aviso de copyright) | Mapa interactivo |
+
+## Datos que se descargan en tiempo de ejecución
+
+No se copian al repositorio; el navegador los pide y los guarda en caché.
+
+| Datos | Fuente | Licencia / condiciones | Uso |
+| --- | --- | --- | --- |
+| Mapa base | [OpenStreetMap](https://www.openstreetmap.org/copyright) | ODbL; exige el crédito «colaboradores de OpenStreetMap» y respetar su [política de uso de teselas](https://operations.osmfoundation.org/policies/tiles/) | Fondo del mapa |
+| Terreno | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/), formato Terrarium | Datos abiertos; en Colombia la fuente es SRTM (NASA, dominio público). Créditos según la [lista de fuentes](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) | Relieve sombreado y cota del terreno |
+
+## Revisados y descartados
+
+| Componente | Licencia | Motivo |
+| --- | --- | --- |
+| [SPLAT!](https://www.qsl.net/kd2bd/splat.html) | GPL-2.0 | No compatible con MIT: obligaría a publicar Hertzo bajo GPL. Se usará el ITM de NTIA en su lugar. |
