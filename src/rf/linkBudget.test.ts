@@ -114,10 +114,21 @@ describe('talkInBudget (subida: radio → repetidora)', () => {
     expect(marginDb(b, 150)).toBeCloseTo(-1.3288, 4);
   });
 
-  it('el amplificador de torre suma su ganancia: con 12 dB llega −108,3288 dBm', () => {
+  // El amplificador de torre solo compensa las pérdidas de línea y
+  // multiacoplador; nunca deja ganancia neta en la cadena.
+  it('amplificador de 12 dB con 5,4 dB de pérdidas: compensa solo 5,4 dB y llega −114,9288 dBm', () => {
     const withTta = talkInBudget({ ...rx, towerAmplifierGainDb: 12 }, portable);
-    expect(withTta.rxGainsDb).toBe(12);
-    expect(receivedPowerDbm(withTta, 150)).toBeCloseTo(-108.3288, 4);
+    expect(withTta.rxGainsDb).toBeCloseTo(5.4, 10);
+    // 26,9212 − 150 + 8,15 + 5,4 − 5,4
+    expect(receivedPowerDbm(withTta, 150)).toBeCloseTo(-114.9288, 4);
+    expect(withTta.maxPathLossDb).toBeCloseTo(154.0712, 4);
+  });
+
+  it('amplificador de 3 dB con 5,4 dB de pérdidas: quedan 2,4 dB de pérdida neta, llega −117,3288 dBm', () => {
+    const withTta = talkInBudget({ ...rx, towerAmplifierGainDb: 3 }, portable);
+    expect(withTta.rxGainsDb).toBe(3);
+    // 26,9212 − 150 + 8,15 + 3 − 5,4
+    expect(receivedPowerDbm(withTta, 150)).toBeCloseTo(-117.3288, 4);
   });
 });
 

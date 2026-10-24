@@ -61,7 +61,7 @@ export interface LinkBudget {
   /** Potencia isotrópica radiada equivalente (dBm) = ERP + 2,15 dB. */
   eirpDbm: number;
   rxAntennaGainDbi: number;
-  /** Ganancias del lado que recibe, después de la antena (dB): amplificador de torre. */
+  /** Ganancia efectiva del amplificador de torre (dB), limitada a las pérdidas que compensa. */
   rxGainsDb: number;
   /** Pérdidas del lado que recibe (dB). */
   rxLossesDb: number;
@@ -96,6 +96,7 @@ export function talkOutBudget(tx: SiteTxChain, radio: RadioProfile): LinkBudget 
 
 /** Subida (talk-in): radio de usuario → receptor del sitio, en la frecuencia de RX. */
 export function talkInBudget(rx: SiteRxChain, radio: RadioProfile): LinkBudget {
+  const siteLossesDb = lineLossDb(rx.lineLengthM, rx.lineLossDbPer100m) + rx.multicouplerLossDb;
   return buildBudget({
     direction: 'talk-in',
     frequencyMHz: rx.frequencyMHz,
@@ -103,9 +104,10 @@ export function talkInBudget(rx: SiteRxChain, radio: RadioProfile): LinkBudget {
     txLossesDb: radio.bodyLossDb,
     txAntennaGainDbi: dbdToDbi(radio.antennaGainDbd),
     rxAntennaGainDbi: dbdToDbi(rx.antennaGainDbd),
-    // Provisional: la ganancia del amplificador de torre se suma tal cual.
-    rxGainsDb: rx.towerAmplifierGainDb,
-    rxLossesDb: lineLossDb(rx.lineLengthM, rx.lineLossDbPer100m) + rx.multicouplerLossDb,
+    // El amplificador de torre solo compensa las pérdidas de línea y multiacoplador; nunca
+    // deja ganancia neta (no mejora la sensibilidad más allá de la de la antena).
+    rxGainsDb: Math.min(rx.towerAmplifierGainDb, siteLossesDb),
+    rxLossesDb: siteLossesDb,
     sensitivityDbm: rx.receiverSensitivityDbm,
   });
 }
