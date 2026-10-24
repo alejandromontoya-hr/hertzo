@@ -23,6 +23,7 @@ const routes: Route[] = [
     title: titleOf('interiores'),
     load: () => import('./pages/indoor/indoorPage').then((m) => m.mountIndoorPage),
   },
+  { path: 'cavernas', title: titleOf('cavernas'), load: () => import('./pages/cave/cavePage').then((m) => m.mountCavePage) },
 ];
 
 const credits = document.getElementById('credits') as HTMLDialogElement;
