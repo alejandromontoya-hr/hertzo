@@ -1,17 +1,22 @@
+// Descarga de teselas de terreno con caché, y armado de lectores de cotas por zona.
+
+import { createTerrainSampler, type HeightTile, type TerrainSampler } from './sampler';
 import {
   TERRAIN_TILE_SIZE,
   TERRAIN_ZOOM,
-  bilinear,
   decodeTerrarium,
-  lonLatToWorldPixel,
   terrariumTileUrl,
+  tileCount,
+  tileKey,
+  tileRangeForBounds,
+  type Bounds,
 } from './tiles';
-
-/** Alturas de una tesela en metros, fila por fila (256 × 256). */
-export type ElevationTile = Float32Array;
 
 /** Caché persistente del navegador: una tesela descargada no se vuelve a pedir. */
 const CACHE_NAME = 'hertzo-terreno-v1';
+
+/** Teselas decodificadas que se guardan en memoria (~128 KB cada una: 400 ≈ 50 MB). */
+const MAX_TILES_IN_MEMORY = 400;
 
 async function fetchWithCache(url: string): Promise<Response> {
   if (typeof caches === 'undefined') return fetch(url);
@@ -23,7 +28,7 @@ async function fetchWithCache(url: string): Promise<Response> {
   return response;
 }
 
-async function decodeTile(blob: Blob): Promise<ElevationTile> {
+async function decodeTile(blob: Blob): Promise<HeightTile> {
   // Sin conversión de color: cualquier ajuste alteraría la altura codificada en el píxel.
   const bitmap = await createImageBitmap(blob, {
     colorSpaceConversion: 'none',
@@ -35,55 +40,68 @@ async function decodeTile(blob: Blob): Promise<ElevationTile> {
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close();
   const rgba = ctx.getImageData(0, 0, TERRAIN_TILE_SIZE, TERRAIN_TILE_SIZE).data;
-  const heights = new Float32Array(TERRAIN_TILE_SIZE * TERRAIN_TILE_SIZE);
+  // SRTM viene en metros enteros; redondear no pierde información y ocupa la mitad.
+  const heights = new Int16Array(TERRAIN_TILE_SIZE * TERRAIN_TILE_SIZE);
   for (let i = 0; i < heights.length; i++) {
-    heights[i] = decodeTerrarium(rgba[i * 4]!, rgba[i * 4 + 1]!, rgba[i * 4 + 2]!);
+    heights[i] = Math.round(decodeTerrarium(rgba[i * 4]!, rgba[i * 4 + 1]!, rgba[i * 4 + 2]!));
   }
   return heights;
 }
 
-const tiles = new Map<string, Promise<ElevationTile>>();
+/** Teselas en memoria, de la menos a la más usada recientemente. */
+const tiles = new Map<string, Promise<HeightTile>>();
 
 /** Tesela de alturas; las peticiones simultáneas a la misma tesela comparten la descarga. */
-export function getElevationTile(z: number, x: number, y: number): Promise<ElevationTile> {
-  const url = terrariumTileUrl(z, x, y);
-  let tile = tiles.get(url);
-  if (!tile) {
+export function getHeightTile(z: number, x: number, y: number): Promise<HeightTile> {
+  const key = tileKey(z, x, y);
+  let tile = tiles.get(key);
+  if (tile) {
+    tiles.delete(key); // se vuelve a insertar al final: es la más reciente
+  } else {
+    const url = terrariumTileUrl(z, x, y);
     tile = fetchWithCache(url).then(async (response) => {
       if (!response.ok) {
         throw new Error(`No se pudo descargar el terreno (${response.status}) en ${url}`);
       }
       return decodeTile(await response.blob());
     });
-    tile.catch(() => tiles.delete(url));
-    tiles.set(url, tile);
+    tile.catch(() => tiles.delete(key));
   }
+  tiles.set(key, tile);
+  while (tiles.size > MAX_TILES_IN_MEMORY) tiles.delete(tiles.keys().next().value!);
   return tile;
 }
 
-/** Altura de un píxel del mundo (coordenadas enteras en el zoom dado). */
-async function pixelHeight(zoom: number, px: number, py: number): Promise<number> {
-  const tileX = Math.floor(px / TERRAIN_TILE_SIZE);
-  const tileY = Math.floor(py / TERRAIN_TILE_SIZE);
-  const tile = await getElevationTile(zoom, tileX, tileY);
-  const col = px - tileX * TERRAIN_TILE_SIZE;
-  const row = py - tileY * TERRAIN_TILE_SIZE;
-  return tile[row * TERRAIN_TILE_SIZE + col]!;
+/**
+ * Descarga (o toma de la caché) todas las teselas de una zona y devuelve un lector de
+ * cotas que ya no espera nada. `onProgress` informa teselas listas sobre el total.
+ */
+export async function loadTerrain(
+  bounds: Bounds,
+  zoom = TERRAIN_ZOOM,
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<TerrainSampler> {
+  const range = tileRangeForBounds(bounds, zoom);
+  const total = tileCount(range);
+  const loadedTiles = new Map<string, HeightTile>();
+  let loaded = 0;
+  const requests: Promise<void>[] = [];
+  for (let x = range.minX; x <= range.maxX; x++) {
+    for (let y = range.minY; y <= range.maxY; y++) {
+      requests.push(
+        getHeightTile(zoom, x, y).then((tile) => {
+          loadedTiles.set(tileKey(zoom, x, y), tile);
+          onProgress?.(++loaded, total);
+        }),
+      );
+    }
+  }
+  await Promise.all(requests);
+  return createTerrainSampler(loadedTiles, zoom);
 }
 
-/** Cota del terreno en metros sobre el nivel del mar, interpolada entre los 4 píxeles vecinos. */
+/** Cota del terreno en metros sobre el nivel del mar en un punto. */
 export async function elevationAt(lon: number, lat: number, zoom = TERRAIN_ZOOM): Promise<number> {
-  // Cada píxel representa su centro, por eso se resta medio píxel antes de interpolar.
-  const { x, y } = lonLatToWorldPixel(lon, lat, zoom);
-  const fx0 = x - 0.5;
-  const fy0 = y - 0.5;
-  const x0 = Math.floor(fx0);
-  const y0 = Math.floor(fy0);
-  const [v00, v10, v01, v11] = await Promise.all([
-    pixelHeight(zoom, x0, y0),
-    pixelHeight(zoom, x0 + 1, y0),
-    pixelHeight(zoom, x0, y0 + 1),
-    pixelHeight(zoom, x0 + 1, y0 + 1),
-  ]);
-  return bilinear(v00, v10, v01, v11, fx0 - x0, fy0 - y0);
+  const sampler = await loadTerrain({ west: lon, south: lat, east: lon, north: lat }, zoom);
+  return sampler.heightAt(lon, lat);
 }

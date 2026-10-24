@@ -1,5 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { bilinear, decodeTerrarium, lonLatToWorldPixel, terrariumTileUrl } from './tiles';
+import {
+  bilinear,
+  decodeTerrarium,
+  lonLatToWorldPixel,
+  terrariumTileUrl,
+  tileCount,
+  tileRangeForBounds,
+} from './tiles';
+
+describe('tileRangeForBounds', () => {
+  it('en zoom 0 todo el mundo es una sola tesela', () => {
+    const r = tileRangeForBounds({ west: -80, south: 0, east: -70, north: 10 }, 0);
+    expect(r).toEqual({ zoom: 0, minX: 0, maxX: 0, minY: 0, maxY: 0 });
+  });
+
+  // Zoom 2: el mundo mide 1024 px; cada tesela cubre 90° de longitud.
+  // lon 10° → x = 190/360·1024 = 540,4 px y lon 80° → 739,6 px: tesela x = 2.
+  // lat 10° → y = 483,4 px (tesela 1); el ecuador → y = 512 px, que con el píxel de margen
+  // llega a 513 px (tesela 2). Resultado: x 2..2, y 1..2 = 2 teselas.
+  it('zoom 2, de lon 10° a 80° y lat 0° a 10°: 2 teselas', () => {
+    const r = tileRangeForBounds({ west: 10, south: 0, east: 80, north: 10 }, 2);
+    expect(r).toEqual({ zoom: 2, minX: 2, maxX: 2, minY: 1, maxY: 2 });
+    expect(tileCount(r)).toBe(2);
+  });
+
+  it('un punto justo en el borde de 4 teselas pide las 4 (zoom 1, lon 0°, lat 0°)', () => {
+    const r = tileRangeForBounds({ west: 0, south: 0, east: 0, north: 0 }, 1);
+    expect(r).toEqual({ zoom: 1, minX: 0, maxX: 1, minY: 0, maxY: 1 });
+  });
+});
 
 describe('decodeTerrarium', () => {
   it('128,0,0 es el nivel del mar (32768 − 32768 = 0 m)', () => {

@@ -28,6 +28,13 @@
               <dd data-site-elevation></dd>
             </dl>
             <p class="hint">Arrastra el marcador para moverlo.</p>
+            <button type="button" class="button" data-profile-toggle aria-pressed="false">
+              Ver perfil del terreno
+            </button>
+            <p class="hint" data-profile-hint hidden>
+              Haz clic en el mapa para elegir el otro extremo del perfil; también puedes
+              arrastrarlo. Mientras tanto, los clics no mueven el sitio.
+            </p>
           </div>
         </section>
 
@@ -52,7 +59,10 @@
         </section>
       </aside>
 
-      <main id="map" class="map" aria-label="Mapa"></main>
+      <main class="map-area">
+        <div id="map" class="map" aria-label="Mapa"></div>
+        <section id="profile-chart" class="profile-chart" aria-label="Perfil del terreno" hidden></section>
+      </main>
 
       <footer class="app-footer">
         Herramienta de planificación: sus predicciones no reemplazan mediciones de campo ni

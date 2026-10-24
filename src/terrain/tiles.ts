@@ -36,6 +36,49 @@ export function lonLatToWorldPixel(lon: number, lat: number, zoom: number): { x:
   return { x, y };
 }
 
+/** Rectángulo geográfico en grados. */
+export interface Bounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+export interface TileRange {
+  zoom: number;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+export function tileKey(z: number, x: number, y: number): string {
+  return `${z}/${x}/${y}`;
+}
+
+/**
+ * Teselas que cubren un rectángulo, con un píxel de margen alrededor: la interpolación
+ * bilineal cerca del borde necesita el píxel vecino, que puede estar en la tesela de al lado.
+ */
+export function tileRangeForBounds(bounds: Bounds, zoom: number): TileRange {
+  const maxPixel = TERRAIN_TILE_SIZE * 2 ** zoom - 1;
+  const nw = lonLatToWorldPixel(bounds.west, bounds.north, zoom);
+  const se = lonLatToWorldPixel(bounds.east, bounds.south, zoom);
+  const clamp = (px: number) => Math.min(maxPixel, Math.max(0, px));
+  const toTile = (px: number) => Math.floor(clamp(px) / TERRAIN_TILE_SIZE);
+  return {
+    zoom,
+    minX: toTile(nw.x - 1),
+    maxX: toTile(se.x + 1),
+    minY: toTile(nw.y - 1),
+    maxY: toTile(se.y + 1),
+  };
+}
+
+export function tileCount(range: TileRange): number {
+  return (range.maxX - range.minX + 1) * (range.maxY - range.minY + 1);
+}
+
 /**
  * Interpolación bilineal entre cuatro valores vecinos.
  * v00 arriba-izquierda, v10 arriba-derecha, v01 abajo-izquierda, v11 abajo-derecha;

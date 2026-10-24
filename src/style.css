@@ -221,10 +221,121 @@ body {
   text-align: right;
 }
 
-.map {
+.button {
+  margin: 0 0 8px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button[aria-pressed='true'] {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.map-area {
   grid-area: map;
   position: relative;
   min-height: 0;
+}
+
+/* Más específico que `.maplibregl-map { position: relative }` de MapLibre. */
+.map-area .map {
+  position: absolute;
+  inset: 0;
+}
+
+.profile-chart {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  /* Deja libres la escala y los créditos del mapa, que deben quedar visibles. */
+  bottom: 44px;
+  height: 210px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.15);
+}
+
+.profile-chart[hidden] {
+  display: none;
+}
+
+.profile-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 10px 0;
+  font-size: 0.85rem;
+}
+
+.profile-title {
+  font-weight: 600;
+}
+
+.profile-readout {
+  flex: 1;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-close {
+  padding: 0 6px;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.profile-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.profile-body svg {
+  display: block;
+}
+
+.profile-body .grid {
+  stroke: var(--border);
+}
+
+.profile-body .axis {
+  font-size: 11px;
+  fill: var(--muted);
+}
+
+.profile-body .terrain {
+  fill: #d8c7a3;
+}
+
+.profile-body .terrain-line {
+  fill: none;
+  stroke: #8a6d3b;
+  stroke-width: 1.5;
+}
+
+.profile-body .cursor {
+  stroke: #b54708;
+}
+
+.profile-body .cursor-dot {
+  fill: #b54708;
+}
+
+.profile-body .hit {
+  fill: transparent;
+  cursor: crosshair;
 }
 
 .app-footer {
