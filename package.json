@@ -1,0 +1,20 @@
+{
+  "name": "hertzo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Simulador web de propagación RF para radio profesional",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
