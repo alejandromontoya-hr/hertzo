@@ -18,6 +18,11 @@ const routes: Route[] = [
     load: () => import('./pages/cellular/cellularPage').then((m) => m.mountCellularPage),
   },
   { path: 'enlace', title: titleOf('enlace'), load: () => import('./pages/link/linkPage').then((m) => m.mountLinkPage) },
+  {
+    path: 'interiores',
+    title: titleOf('interiores'),
+    load: () => import('./pages/indoor/indoorPage').then((m) => m.mountIndoorPage),
+  },
 ];
 
 const credits = document.getElementById('credits') as HTMLDialogElement;
