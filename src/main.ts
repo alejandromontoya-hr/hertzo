@@ -1,6 +1,12 @@
 import './style.css';
 import { CoverageAbortedError, CoverageRunner, type CoverageResult } from './coverage/computeCoverage';
+import { DEFAULT_LEVEL_THRESHOLDS_DBM } from './coverage/colorScale';
 import { propagationInputs, sameInputs, type PropagationInputs } from './coverage/inputs';
+import { buildRasterGeometry, type RasterGeometry } from './coverage/raster';
+import { renderCoverage } from './coverage/render';
+import { createCoverageLayer } from './map/coverageLayer';
+import { createCoverageLegend, type LegendState } from './ui/coverageLegend';
+import { createHoverReadout, readoutLines } from './ui/hoverReadout';
 import {
   DEFAULT_RADIO_PROFILE_ID,
   DEFAULT_RADIUS_KM,
@@ -98,6 +104,7 @@ let radiusKm = DEFAULT_RADIUS_KM;
 const showBudget = createBudgetPanel(document.getElementById('budget')!);
 const onParametersChange = () => {
   showBudget(talkOutBudget(tx, radio), talkInBudget(rx, radio));
+  redrawCoverage();
   scheduleCoverage();
 };
 
@@ -153,6 +160,9 @@ async function runCoverage(inputs: PropagationInputs) {
   try {
     const result = await coverageRunner.run(inputs, coverageStatus.showProgress, abort.signal);
     coverage = result;
+    rasterGeometry = buildRasterGeometry(result.plan);
+    rasterPixels = new Uint8ClampedArray(rasterGeometry.width * rasterGeometry.height * 4);
+    redrawCoverage();
     coverageStatus.showDone(result);
     if (import.meta.env.DEV) Object.assign(window, { hertzoCoverage: coverage });
   } catch (error) {
@@ -162,5 +172,43 @@ async function runCoverage(inputs: PropagationInputs) {
     coverageStatus.showError(error instanceof Error ? error.message : String(error));
   }
 }
+
+// --- Mapas de bajada, subida y desbalance ---
+
+let legendState: LegendState = { view: 'talkOut', thresholdsDbm: [...DEFAULT_LEVEL_THRESHOLDS_DBM], opacity: 0.7 };
+let rasterGeometry: RasterGeometry | null = null;
+let rasterPixels: Uint8ClampedArray<ArrayBuffer> | null = null;
+
+const coverageLayer = createCoverageLayer(map, legendState.opacity);
+const legend = createCoverageLegend(document.getElementById('coverage-legend')!, legendState, (next) => {
+  const onlyOpacity =
+    next.view === legendState.view && next.thresholdsDbm.join() === legendState.thresholdsDbm.join();
+  legendState = next;
+  coverageLayer.setOpacity(next.opacity);
+  if (!onlyOpacity) redrawCoverage();
+});
+
+/** Vuelve a pintar el mapa visible con el último cálculo y el balance actual (sin recalcular). */
+function redrawCoverage() {
+  if (!coverage || !rasterGeometry || !rasterPixels) return;
+  const down = talkOutBudget(tx, radio);
+  const up = talkInBudget(rx, radio);
+  renderCoverage(rasterGeometry, coverage, legendState.view, down, up, legendState.thresholdsDbm, rasterPixels);
+  coverageLayer.draw(rasterGeometry, rasterPixels);
+  legend.update(legendState, legendState.view === 'talkIn' ? up.sensitivityDbm : down.sensitivityDbm);
+}
+
+const hoverReadout = createHoverReadout(document.getElementById('hover-readout')!);
+map.on('mousemove', (event) => {
+  const lines =
+    coverage &&
+    readoutLines(coverage, talkOutBudget(tx, radio), talkInBudget(rx, radio), {
+      lon: event.lngLat.lng,
+      lat: event.lngLat.lat,
+    });
+  if (lines) hoverReadout.show(lines, event.point.x, event.point.y);
+  else hoverReadout.hide();
+});
+map.on('mouseout', () => hoverReadout.hide());
 
 onParametersChange();

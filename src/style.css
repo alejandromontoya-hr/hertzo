@@ -256,6 +256,154 @@ body {
   inset: 0;
 }
 
+.legend {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 270px;
+  /* En celular deja libres los botones de acercar y alejar. */
+  max-width: calc(100% - 64px);
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.15);
+}
+
+.legend[hidden] {
+  display: none;
+}
+
+.legend-views {
+  display: flex;
+  margin-bottom: 6px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.legend-views button {
+  flex: 1;
+  padding: 4px 0;
+  font: inherit;
+  color: var(--accent);
+  background: var(--surface);
+  border: none;
+  cursor: pointer;
+}
+
+.legend-views button + button {
+  border-left: 1px solid var(--accent);
+}
+
+.legend-views button[aria-selected='true'] {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.legend-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.legend-rows {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.legend-rows li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  color: var(--muted);
+}
+
+.legend-swatch {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.legend-hatch {
+  background: repeating-linear-gradient(135deg, #373737 0 2px, transparent 2px 6px);
+  border: 1px solid var(--border);
+}
+
+.legend-thresholds {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+
+.legend-thresholds[hidden] {
+  display: none;
+}
+
+.legend-thresholds span {
+  flex: 1;
+}
+
+.legend-thresholds input {
+  width: 46px;
+  padding: 2px 4px;
+  font: inherit;
+  text-align: right;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.legend-thresholds input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.legend-opacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.legend-opacity input {
+  flex: 1;
+}
+
+.readout {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgb(255 255 255 / 0.95);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+}
+
+.readout[hidden] {
+  display: none;
+}
+
+.readout p {
+  margin: 1px 0;
+}
+
+.readout-title {
+  font-weight: 600;
+}
+
+.readout-warning {
+  color: var(--error);
+}
+
 .profile-chart {
   position: absolute;
   left: 10px;
