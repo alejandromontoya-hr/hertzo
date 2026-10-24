@@ -56,6 +56,43 @@ describe('onda de tierra (Sommerfeld-Norton, aproximación de Terman)', () => {
     expect(fieldAt(50, 1, 'media')).toBeCloseTo(53.2, 1);
   });
 
+  it('suelos secos con las constantes de la ITU (tabla 2 del Manual de onda de tierra, 2014)', () => {
+    expect(ground('seca')).toMatchObject({ sigmaSm: 0.001, epsilonR: 15 });
+    expect(ground('muy-seca')).toMatchObject({ sigmaSm: 0.0003, epsilonR: 7 });
+    expect(ground('roca')).toMatchObject({ sigmaSm: 0.0001, epsilonR: 3 });
+  });
+
+  // Tierra seca (1 mS/m, εr 15), 1 MHz, 50 km: x = 18; b = arctan(16/18), cos b = 0,74741, sen b = 0,66436;
+  // p = π·50 000 / (299,79·18)·0,74741 = 29,1090·0,74741 = 21,756;
+  // A = 8,5269 / 307,761 − 3,2982·e^(−13,598)·0,66436 = 0,027706 − 0,0000027 = 0,027703.
+  // E = 109,52 − 33,98 − 31,15 = 44,4 dBµV/m.
+  it('tierra seca, 1 MHz, 50 km: A ≈ 0,0277 y E ≈ 44,4 dBµV/m', () => {
+    const n = nortonAttenuation(50000, 1, ground('seca'));
+    expect(n.p).toBeCloseTo(21.756, 2);
+    expect(n.attenuation).toBeCloseTo(0.027703, 5);
+    expect(fieldAt(50, 1, 'seca')).toBeCloseTo(44.4, 1);
+  });
+
+  // Tierra muy seca (0,3 mS/m, εr 7), 1 MHz, 10 km: x = 5,4; b = arctan(8/5,4), cos b = 0,55947, sen b = 0,82886;
+  // p = π·10 000 / (299,79·5,4)·0,55947 = 19,4061·0,55947 = 10,857;
+  // A = 5,2571 / 83,582 − 2,3299·e^(−6,7856)·0,82886 = 0,062898 − 0,002183 = 0,060715.
+  it('tierra muy seca, 1 MHz, 10 km: A ≈ 0,0607', () => {
+    const n = nortonAttenuation(10000, 1, ground('muy-seca'));
+    expect(n.p).toBeCloseTo(10.857, 2);
+    expect(n.attenuation).toBeCloseTo(0.060715, 4);
+  });
+
+  // Roca (0,1 mS/m, εr 3), 1 MHz, 10 km: x = 1,8; b = arctan(4/1,8), cos b = 0,41036;
+  // p = π·10 000 / (299,79·1,8)·0,41036 = 58,218·0,41036 = 23,890;
+  // A = 9,1670 / 368,33 − (despreciable, e^(−14,93)) = 0,024888 → E = 300·0,024888/10 = 0,75 mV/m.
+  // Con εr 22 daba 2,7 mV/m: 11 dB de más.
+  it('roca, 1 MHz, 10 km: A ≈ 0,0249 y E ≈ 0,75 mV/m', () => {
+    const n = nortonAttenuation(10000, 1, ground('roca'));
+    expect(n.p).toBeCloseTo(23.89, 2);
+    expect(n.attenuation).toBeCloseTo(0.024888, 4);
+    expect(dbuvmToMvm(fieldAt(10, 1, 'roca'))).toBeCloseTo(0.747, 2);
+  });
+
   it('a igual distancia, el suelo seco atenúa más que el húmedo, y este más que el mar', () => {
     expect(fieldAt(50, 1, 'seca')).toBeLessThan(fieldAt(50, 1, 'humeda'));
     expect(fieldAt(50, 1, 'humeda')).toBeLessThan(fieldAt(50, 1, 'mar'));

@@ -15,16 +15,21 @@ export interface GroundType {
   epsilonR: number;
 }
 
-/** Tipos de suelo de las curvas de la ITU-R P.368. */
+/**
+ * Tipos de suelo de las curvas de la ITU-R P.368, con la conductividad y la permitividad de la
+ * tabla 2 del Manual de onda de tierra de la ITU (2014). En suelos secos la permitividad pesa
+ * tanto como la conductividad: con 0,1 mS/m, εr 3 en vez de 22 baja el campo a 30 km y 1 MHz
+ * de 0,47 a 0,07 mV/m.
+ */
 export const GROUND_TYPES: readonly GroundType[] = [
   { id: 'mar', label: 'Agua de mar (5 S/m)', sigmaSm: 5, epsilonR: 70 },
   { id: 'dulce', label: 'Agua dulce (3 mS/m)', sigmaSm: 0.003, epsilonR: 80 },
   { id: 'muy-humeda', label: 'Tierra muy húmeda (30 mS/m)', sigmaSm: 0.03, epsilonR: 40 },
   { id: 'humeda', label: 'Tierra húmeda (10 mS/m)', sigmaSm: 0.01, epsilonR: 30 },
   { id: 'media', label: 'Tierra media (3 mS/m)', sigmaSm: 0.003, epsilonR: 22 },
-  { id: 'seca', label: 'Tierra seca (1 mS/m)', sigmaSm: 0.001, epsilonR: 22 },
-  { id: 'muy-seca', label: 'Tierra muy seca o roca (0,3 mS/m)', sigmaSm: 0.0003, epsilonR: 22 },
-  { id: 'roca', label: 'Roca dura o ciudad densa (0,1 mS/m)', sigmaSm: 0.0001, epsilonR: 22 },
+  { id: 'seca', label: 'Tierra seca (1 mS/m)', sigmaSm: 0.001, epsilonR: 15 },
+  { id: 'muy-seca', label: 'Tierra muy seca o roca (0,3 mS/m)', sigmaSm: 0.0003, epsilonR: 7 },
+  { id: 'roca', label: 'Roca dura o ciudad densa (0,1 mS/m)', sigmaSm: 0.0001, epsilonR: 3 },
 ];
 
 export interface NortonResult {
