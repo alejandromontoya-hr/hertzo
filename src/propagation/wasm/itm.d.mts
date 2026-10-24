@@ -39,6 +39,7 @@ export interface ItmWasmModule {
     location: number,
     situation: number,
     outLossPointer: number,
+    outWarningsPointer: number,
   ): number;
 }
 

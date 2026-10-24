@@ -27,6 +27,9 @@ export const DEFAULT_RX_CHAIN: SiteRxChain = {
   receiverSensitivityDbm: -119,
 };
 
+/** Radio del cálculo de cobertura alrededor del sitio (km). */
+export const DEFAULT_RADIUS_KM = 50;
+
 export const CUSTOM_PROFILE_ID = 'personalizado';
 
 export const RADIO_PROFILES: readonly RadioProfile[] = [

@@ -1,7 +1,7 @@
 // Motor ITM (Longley-Rice) de NTIA, compilado a WebAssembly (ver engine/README.md).
 
 import createItmModule, { type ItmWasmModule } from './wasm/itm.mjs';
-import type { PropagationEngine, RadialRequest } from './engine';
+import type { PropagationEngine, RadialRequest, RadialResult } from './engine';
 
 /** Clima radioeléctrico del ITM. */
 export enum RadioClimate {
@@ -101,7 +101,7 @@ export interface Itm {
     params?: ItmParameters,
   ): PointToPointResult;
   /** Pérdidas a lo largo de un radial (ver `PropagationEngine.radialLoss`). */
-  radial(request: RadialRequest, params?: ItmParameters): Float32Array;
+  radial(request: RadialRequest, params?: ItmParameters): RadialResult;
 }
 
 function wrap(module: ItmWasmModule): Itm {
@@ -138,20 +138,25 @@ function wrap(module: ItmWasmModule): Itm {
       pfl[1] = r.stepM;
       pfl.set(r.elevationsM, 2);
       const pflPointer = copyPfl(pfl);
-      const outPointer = module._malloc(Math.max(1, count) * 4);
+      const lossPointer = module._malloc(Math.max(1, count) * 4);
+      const warningsPointer = module._malloc(Math.max(1, count) * 4);
       try {
         const code = module._hertzo_itm_radial(
           pflPointer, r.stride, r.txHeightM, r.rxHeightM, p.climate, p.refractivityN0,
           r.frequencyMHz, p.polarization, p.groundPermittivity, p.groundConductivitySm,
-          p.variabilityMode, p.timePct, p.locationPct, p.situationPct, outPointer,
+          p.variabilityMode, p.timePct, p.locationPct, p.situationPct, lossPointer, warningsPointer,
         );
         // En punto a punto los errores son de parámetros (altura, frecuencia...): fallan
         // en todos los puntos del radial.
         if (code >= FIRST_ERROR_CODE) throw new ItmError(code);
-        return module.HEAPF32.slice(outPointer / 4, outPointer / 4 + count);
+        return {
+          lossDb: module.HEAPF32.slice(lossPointer / 4, lossPointer / 4 + count),
+          warnings: module.HEAP32.slice(warningsPointer / 4, warningsPointer / 4 + count),
+        };
       } finally {
         module._free(pflPointer);
-        module._free(outPointer);
+        module._free(lossPointer);
+        module._free(warningsPointer);
       }
     },
   };

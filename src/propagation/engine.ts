@@ -19,12 +19,16 @@ export interface RadialRequest {
   stride: number;
 }
 
+/** Resultado de un radial. La posición k corresponde a la muestra (k + 1)·stride. */
+export interface RadialResult {
+  /** Pérdida básica de transmisión (dB, antenas isotrópicas); NaN donde el modelo no pudo calcular. */
+  lossDb: Float32Array;
+  /** Banderas de advertencia propias del motor en cada punto (0 = ninguna). */
+  warnings: Int32Array;
+}
+
 export interface PropagationEngine {
   readonly id: string;
   readonly name: string;
-  /**
-   * Pérdida básica de transmisión (dB, antenas isotrópicas) a lo largo del radial.
-   * La salida k corresponde a la muestra (k + 1)·stride; NaN donde el modelo no pudo calcular.
-   */
-  radialLoss(request: RadialRequest): Float32Array;
+  radialLoss(request: RadialRequest): RadialResult;
 }

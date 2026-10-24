@@ -27,12 +27,14 @@ EMSCRIPTEN_KEEPALIVE int hertzo_itm_p2p(double h_tx__meter, double h_rx__meter, 
 // perfil hasta ese punto no se copia. Se calcula cada `stride` muestras: la salida k
 // corresponde a la muestra (k + 1)·stride. Al terminar, pfl[0] queda como llegó.
 //
+// `out_warnings` recibe las banderas de advertencia del ITM de cada punto (Warnings.h).
+//
 // Devuelve 0 si todo salió bien o el primer código de error del ITM; los puntos con
 // error quedan en NaN.
 EMSCRIPTEN_KEEPALIVE int hertzo_itm_radial(double *pfl, int stride, double h_tx__meter, double h_rx__meter,
                                            int climate, double N_0, double f__mhz, int pol, double epsilon,
                                            double sigma, int mdvar, double time, double location,
-                                           double situation, float *out_loss__db) {
+                                           double situation, float *out_loss__db, int *out_warnings) {
     const double intervals = pfl[0];
     const int count = static_cast<int>(intervals) / stride;
     int first_error = 0;
@@ -48,6 +50,7 @@ EMSCRIPTEN_KEEPALIVE int hertzo_itm_radial(double *pfl, int stride, double h_tx_
         } else {
             out_loss__db[k] = static_cast<float>(loss);
         }
+        out_warnings[k] = static_cast<int>(warnings);
     }
     pfl[0] = intervals;
     return first_error;

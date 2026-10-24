@@ -74,11 +74,13 @@ describe('radial', () => {
   const request = { elevationsM, stepM: 100, txHeightM: 30, rxHeightM: 1.5, frequencyMHz: 860, stride: 5 };
 
   it('stride 5 sobre 100 tramos: 20 puntos (500 m, 1000 m, …, 10 km)', () => {
-    expect(itm.radial(request).length).toBe(20);
+    const { lossDb, warnings } = itm.radial(request);
+    expect(lossDb.length).toBe(20);
+    expect(warnings.length).toBe(20);
   });
 
   it('cada punto del radial coincide con el cálculo punto a punto hasta ese punto', () => {
-    const losses = itm.radial(request);
+    const losses = itm.radial(request).lossDb;
     for (const k of [0, 9, 19]) {
       const samples = (k + 1) * 5;
       const pfl = [samples, 100, ...elevationsM.slice(0, samples + 1)];
@@ -87,8 +89,14 @@ describe('radial', () => {
     }
   });
 
+  it('entrega las advertencias del ITM de cada punto: a 500 m hay distancia corta (0x0040)', () => {
+    const { warnings } = itm.radial(request);
+    // WARN__PATH_DISTANCE_TOO_SMALL_2: trayecto menor de 1 km.
+    expect(warnings[0]! & 0x0040).toBe(0x0040);
+  });
+
   it('detrás de la loma la pérdida es mayor que justo antes', () => {
-    const losses = itm.radial(request);
+    const losses = itm.radial(request).lossDb;
     // Punto 8 → muestra 45 (4,5 km, ladera de subida); punto 13 → muestra 70 (7 km, sombra).
     expect(losses[13]!).toBeGreaterThan(losses[8]! + 10);
   });
@@ -96,6 +104,6 @@ describe('radial', () => {
   it('el motor común (PropagationEngine) entrega lo mismo que el radial directo', async () => {
     const engine = await createItmEngine();
     expect(engine.id).toBe('itm');
-    expect(Array.from(engine.radialLoss(request))).toEqual(Array.from(itm.radial(request)));
+    expect(Array.from(engine.radialLoss(request).lossDb)).toEqual(Array.from(itm.radial(request).lossDb));
   });
 });
