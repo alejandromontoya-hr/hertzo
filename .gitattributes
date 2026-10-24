@@ -1,3 +1,5 @@
+# Finales de línea LF en el repositorio y en la copia de trabajo.
+* text=auto eol=lf
 # Los archivos generados y los datos de NTIA se guardan tal cual, sin convertir finales de línea.
 src/propagation/wasm/itm.mjs -text
 engine/itm/** -text

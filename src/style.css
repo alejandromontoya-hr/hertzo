@@ -274,9 +274,13 @@ body {
   color: var(--muted);
 }
 
-/* El selector de perfil usa todo el ancho para que el nombre no se corte. */
+/* Los selectores usan todo el ancho para que el nombre de la opción no se corte. */
 .field:has(select) {
   grid-template-columns: auto 1fr;
+}
+
+.field-select {
+  grid-template-columns: 1fr;
 }
 
 .field-input {
@@ -453,6 +457,10 @@ body {
   border: 1px solid var(--accent);
   border-radius: 4px;
   overflow: hidden;
+}
+
+.legend-views[hidden] {
+  display: none;
 }
 
 .legend-views button {

@@ -7,6 +7,11 @@ const titleOf = (path: string) => SCENARIOS.find((s) => s.path === path)!.title;
 const routes: Route[] = [
   { path: '', title: 'Escenarios', load: () => import('./pages/home').then((m) => m.mountHomePage) },
   { path: 'terreno', title: titleOf('terreno'), load: () => import('./pages/terrain/lmrPage').then((m) => m.mountLmrPage) },
+  {
+    path: 'radiodifusion',
+    title: titleOf('radiodifusion'),
+    load: () => import('./pages/broadcast/broadcastPage').then((m) => m.mountBroadcastPage),
+  },
 ];
 
 const credits = document.getElementById('credits') as HTMLDialogElement;

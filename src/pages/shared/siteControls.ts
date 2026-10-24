@@ -13,6 +13,8 @@ import type { MapPage } from './mapPage';
 export interface SiteControls {
   getSite(): LonLat | null;
   getRadiusKm(): number;
+  /** Cambia el radio de cálculo desde la página (por ejemplo al pasar de FM a AM). */
+  setRadiusKm(km: number): void;
 }
 
 export interface SiteControlsOptions {
@@ -83,19 +85,22 @@ export function createSiteControls(page: MapPage, options: SiteControlsOptions):
     () => !profileMode,
   );
 
-  page.find('[data-radius-field]').append(
-    createNumberField(
-      { key: 'radiusKm', label: 'Radio de cálculo', unit: 'km', min: 1, max: options.maxRadiusKm },
-      radiusKm,
-      (value) => {
-        radiusKm = value;
-        options.onChange();
-      },
-    ).element,
+  const radiusField = createNumberField(
+    { key: 'radiusKm', label: 'Radio de cálculo', unit: 'km', min: 1, max: options.maxRadiusKm },
+    radiusKm,
+    (value) => {
+      radiusKm = value;
+      options.onChange();
+    },
   );
+  page.find('[data-radius-field]').append(radiusField.element);
 
   return {
     getSite: () => site,
     getRadiusKm: () => radiusKm,
+    setRadiusKm(km) {
+      radiusKm = km;
+      radiusField.setValue(km);
+    },
   };
 }

@@ -9,6 +9,8 @@ export interface CoverageLayer {
   /** Muestra la imagen (RGBA) sobre el rectángulo de la geometría. */
   draw(geometry: RasterGeometry, pixels: Uint8ClampedArray<ArrayBuffer>): void;
   setOpacity(opacity: number): void;
+  /** Quita la imagen del mapa (por ejemplo al cambiar de servicio). */
+  clear(): void;
 }
 
 /** Capa de cobertura: un lienzo que MapLibre dibuja georreferenciado sobre el mapa. */
@@ -45,6 +47,10 @@ export function createCoverageLayer(map: MapLibreMap, initialOpacity: number): C
     setOpacity(next) {
       opacity = next;
       if (map.getLayer(SOURCE_ID)) map.setPaintProperty(SOURCE_ID, 'raster-opacity', opacity);
+    },
+    clear() {
+      if (map.getLayer(SOURCE_ID)) map.removeLayer(SOURCE_ID);
+      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
     },
   };
 }

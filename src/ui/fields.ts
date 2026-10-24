@@ -119,3 +119,26 @@ export function createFieldGroup<T extends object>(
     },
   };
 }
+
+/** Campo de selección con etiqueta (tipo de suelo, antena, modelo…). */
+export function createSelectField(
+  label: string,
+  options: readonly { id: string; label: string }[],
+  initial: string,
+  onChange: (id: string) => void,
+): { element: HTMLElement; setValue(id: string): void } {
+  const id = `campo-select-${++fieldCounter}`;
+  const element = document.createElement('div');
+  element.className = 'field field-select';
+  element.innerHTML = `<label for="${id}">${label}</label><select id="${id}"></select>`;
+  const select = element.querySelector('select')!;
+  for (const option of options) select.add(new Option(option.label, option.id));
+  select.value = initial;
+  select.addEventListener('change', () => onChange(select.value));
+  return {
+    element,
+    setValue(value) {
+      select.value = value;
+    },
+  };
+}
