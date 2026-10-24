@@ -22,7 +22,7 @@ import { AM_ANTENNAS, GROUND_TYPES, flatEarthLimitKm, groundwaveRangeKm } from '
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
-import type { PageContext } from '../router';
+import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindSegmented, coverageStatusHtml, createMapPage, segmentedHtml, siteSectionHtml } from '../shared/mapPage';
 import { createSiteControls } from '../shared/siteControls';
@@ -279,7 +279,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     legend.hide();
     zones.innerHTML = '<p class="hint">Calculando…</p>';
     buildStationForm();
-    history.replaceState(null, '', `#/radiodifusion?servicio=${service}`);
+    replaceQuery('servicio', service);
     onChange();
   });
 

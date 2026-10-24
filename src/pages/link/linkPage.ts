@@ -21,7 +21,7 @@ import { profileBounds, sampleProfile, type TerrainProfile } from '../../terrain
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { formatLonLat, formatMeters } from '../../ui/format';
 import { createLinkChart } from '../../ui/linkChart';
-import type { PageContext } from '../router';
+import { replaceQuery, type PageContext } from '../router';
 import { bindSegmented, createMapPage, segmentedHtml } from '../shared/mapPage';
 
 type LinkType = 'microondas' | 'radio';
@@ -361,7 +361,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     link = { ...PRESETS[type].params };
     lossModel = type === 'radio' ? 'itm' : 'difraccion';
     buildForms();
-    history.replaceState(null, '', `#/enlace?tipo=${type}`);
+    replaceQuery('tipo', type);
     schedule();
   });
 

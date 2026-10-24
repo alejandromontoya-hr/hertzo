@@ -33,7 +33,7 @@ import {
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
-import type { PageContext } from '../router';
+import { replaceQuery, type PageContext } from '../router';
 import { bindSegmented, segmentedHtml } from '../shared/mapPage';
 
 type Tool = 'select' | 'gallery' | 'antenna' | 'cable' | 'erase';
@@ -900,7 +900,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
       selection = null;
       drawing = [];
       readout.hide();
-      history.replaceState(null, '', `#/cavernas?escenario=${p.id}`);
+      replaceQuery('escenario', p.id);
       selectBand(p.band);
       planView.fit();
     });

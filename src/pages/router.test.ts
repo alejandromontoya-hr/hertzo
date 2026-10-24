@@ -1,19 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { parseHash } from './router';
+import { parseLocation } from './router';
 
-describe('parseHash', () => {
-  it('"#/terreno?banda=uhf" → página terreno, banda uhf', () => {
-    const { path, params } = parseHash('#/terreno?banda=uhf');
+describe('parseLocation', () => {
+  it('"/terreno" con "?banda=uhf" → página terreno, banda uhf', () => {
+    const { path, params } = parseLocation('/terreno', '?banda=uhf');
     expect(path).toBe('terreno');
     expect(params.get('banda')).toBe('uhf');
   });
 
-  it('sin hash es la portada', () => {
-    expect(parseHash('').path).toBe('');
-    expect(parseHash('#/').path).toBe('');
+  it('tolera barra final: "/cavernas/" → cavernas', () => {
+    expect(parseLocation('/cavernas/', '').path).toBe('cavernas');
   });
 
-  it('tolera barra final: "#/cavernas/" → cavernas', () => {
-    expect(parseHash('#/cavernas/').path).toBe('cavernas');
+  it('solo cuenta el primer tramo: "/interiores/index.html" → interiores', () => {
+    expect(parseLocation('/interiores/index.html', '').path).toBe('interiores');
+  });
+
+  it('la raíz no es ninguna simulación', () => {
+    expect(parseLocation('/', '').path).toBe('');
   });
 });

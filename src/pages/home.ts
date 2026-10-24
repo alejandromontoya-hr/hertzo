@@ -18,7 +18,7 @@ export function mountHomePage({ root }: PageContext): void {
         ${SCENARIOS.map(
           (s) => `
           <li class="scenario-card">
-            <a class="scenario-main" href="#/${s.path}">
+            <a class="scenario-main" href="/${s.path}">
               <span class="scenario-icon">${s.icon}</span>
               <span class="scenario-title">${s.title}</span>
               <span class="scenario-summary">${s.summary}</span>

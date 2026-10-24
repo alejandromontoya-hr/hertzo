@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Simulador web de propagación RF, gratuito y open source: radio profesional, radiodifusión, celular, enlaces, interiores y cavernas."
+    />
+    <title>Hertzo · Simulador de propagación RF</title>
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <a class="brand" href="/">Hertzo</a>
+        <nav class="crumbs" aria-label="Ubicación">
+          <a href="/escenarios" data-crumb-home>Escenarios</a>
+          <span data-crumb-current></span>
+        </nav>
+        <p class="tagline">Simulador abierto de propagación RF</p>
+      </header>
+
+      <main id="app" class="app-main"></main>
+
+      <footer class="app-footer">
+        <span>
+          Herramienta de planificación: sus predicciones no reemplazan mediciones de campo ni
+          estudios de ingeniería certificados.
+        </span>
+        <span class="footer-links">
+          <button type="button" class="link-button" data-open-credits>Créditos y licencias</button>
+          ·
+          <a href="https://github.com/alejandromontoya-hr/hertzo" target="_blank" rel="noopener">
+            Código abierto (MIT)
+          </a>
+        </span>
+      </footer>
+    </div>
+
+    <dialog id="credits" class="credits" aria-labelledby="credits-title">
+      <h2 id="credits-title">Créditos y licencias</h2>
+      <p>
+        Hertzo es software libre con licencia MIT ©&nbsp;2026 Alejandro Montoya.
+        <a href="https://github.com/alejandromontoya-hr/hertzo" target="_blank" rel="noopener">Código fuente</a>.
+      </p>
+      <p>
+        <strong>Aviso:</strong> Hertzo es una herramienta de planificación. Sus predicciones no
+        reemplazan mediciones de campo ni estudios de ingeniería certificados, en especial para
+        sistemas de misión crítica.
+      </p>
+
+      <h3>Modelo de propagación</h3>
+      <p>
+        Irregular Terrain Model (Longley-Rice) v1.4 de la National Telecommunications and
+        Information Administration (NTIA) de EE.&nbsp;UU.,
+        <a href="https://github.com/NTIA/itm" target="_blank" rel="noopener">github.com/NTIA/itm</a>.
+        Software de dominio público en EE.&nbsp;UU.; se usa sin modificaciones, compilado a
+        WebAssembly con Emscripten (MIT / NCSA).
+      </p>
+
+      <h3>Mapa base</h3>
+      <p>
+        ©&nbsp;<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">colaboradores de OpenStreetMap</a>,
+        datos con licencia ODbL. Visor de mapas
+        <a href="https://maplibre.org" target="_blank" rel="noopener">MapLibre GL JS</a> (BSD-3-Clause).
+      </p>
+
+      <h3>Terreno</h3>
+      <p>
+        <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles</a>
+        en AWS Open Data (Mapzen / Tilezen). Créditos exigidos por sus fuentes:
+      </p>
+      <ul>
+        <li>ArcticDEM terrain data DEM(s) were created from DigitalGlobe, Inc., imagery and funded under National Science Foundation awards 1043681, 1559691, and 1542736;</li>
+        <li>Australia terrain data © Commonwealth of Australia (Geoscience Australia) 2017;</li>
+        <li>Austria terrain data © offene Daten Österreichs – Digitales Geländemodell (DGM) Österreich;</li>
+        <li>Canada terrain data contains information licensed under the Open Government Licence – Canada;</li>
+        <li>Europe terrain data produced using Copernicus data and information funded by the European Union - EU-DEM layers;</li>
+        <li>Global ETOPO1 terrain data U.S. National Oceanic and Atmospheric Administration;</li>
+        <li>Mexico terrain data source: INEGI, Continental relief, 2016;</li>
+        <li>New Zealand terrain data Copyright 2011 Crown copyright (c) Land Information New Zealand and the New Zealand Government (All rights reserved);</li>
+        <li>Norway terrain data © Kartverket;</li>
+        <li>United Kingdom terrain data © Environment Agency copyright and/or database right 2015. All rights reserved;</li>
+        <li>United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey.</li>
+      </ul>
+
+      <form method="dialog">
+        <button type="submit" class="button">Cerrar</button>
+      </form>
+    </dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

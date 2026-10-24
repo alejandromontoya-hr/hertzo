@@ -1,15 +1,15 @@
 # Escenarios de simulación
 
-La portada de Hertzo pregunta «¿Qué quieres simular?» y cada respuesta abre una página con su propio modelo de propagación y su propio entorno. Este documento resume qué calcula cada una, con qué modelo y con qué valores por omisión.
+El selector de escenarios (`/escenarios`) pregunta «¿Qué quieres simular?» y cada respuesta abre una página con su propio modelo de propagación y su propio entorno. Este documento resume qué calcula cada una, con qué modelo y con qué valores por omisión.
 
-| Página | Ruta | Entorno | Modelo |
+| Página | Dirección | Entorno | Modelo |
 | --- | --- | --- | --- |
-| Radiocomunicaciones en terreno | `#/terreno?banda=vhf\|uhf\|700\|800` | Mapa con relieve SRTM | ITM (Longley-Rice) de NTIA |
-| Radiodifusión FM y AM | `#/radiodifusion?servicio=fm\|am` | Mapa con relieve | FM: ITM. AM: onda de tierra Sommerfeld-Norton |
-| Celular (LTE / 5G) | `#/celular?banda=700\|850\|1900\|aws\|2600\|3500` | Mapa con relieve | Okumura-Hata / COST-231, 3GPP 38.901 UMa o ITM |
-| Enlaces punto a punto | `#/enlace?tipo=microondas\|radio` | Mapa y perfil del enlace | Espacio libre + difracción Deygout + gases; ITM |
-| Interiores (WiFi) | `#/interiores?plano=casa\|apartamento\|oficina` | Editor de planos | Multipared COST-231 |
-| Cavernas, túneles y minas | `#/cavernas?escenario=mina\|tunel\|cueva` | Editor de galerías | Guía de onda de Emslie, curvas y cable radiante |
+| Radiocomunicaciones en terreno | `/terreno?banda=vhf\|uhf\|700\|800` | Mapa con relieve SRTM | ITM (Longley-Rice) de NTIA |
+| Radiodifusión FM y AM | `/radiodifusion?servicio=fm\|am` | Mapa con relieve | FM: ITM. AM: onda de tierra Sommerfeld-Norton |
+| Celular (LTE / 5G) | `/celular?banda=700\|850\|1900\|aws\|2600\|3500` | Mapa con relieve | Okumura-Hata / COST-231, 3GPP 38.901 UMa o ITM |
+| Enlaces punto a punto | `/enlace?tipo=microondas\|radio` | Mapa y perfil del enlace | Espacio libre + difracción Deygout + gases; ITM |
+| Interiores (WiFi) | `/interiores?plano=casa\|apartamento\|oficina` | Editor de planos | Multipared COST-231 |
+| Cavernas, túneles y minas | `/cavernas?escenario=mina\|tunel\|cueva` | Editor de galerías | Guía de onda de Emslie, curvas y cable radiante |
 
 Todas las fórmulas viven en módulos puros (`src/rf/`, `src/indoor/`, `src/cave/`) con pruebas que usan valores calculados a mano.
 

@@ -1,11 +1,11 @@
 import './style.css';
 import { startRouter, type Route } from './pages/router';
-import { SCENARIOS } from './pages/scenarios';
+import { CHOOSER_PATH, SCENARIOS } from './pages/scenarios';
 
 const titleOf = (path: string) => SCENARIOS.find((s) => s.path === path)!.title;
 
 const routes: Route[] = [
-  { path: '', title: 'Escenarios', load: () => import('./pages/home').then((m) => m.mountHomePage) },
+  { path: CHOOSER_PATH, title: 'Escenarios', load: () => import('./pages/home').then((m) => m.mountHomePage) },
   { path: 'terreno', title: titleOf('terreno'), load: () => import('./pages/terrain/lmrPage').then((m) => m.mountLmrPage) },
   {
     path: 'radiodifusion',
@@ -31,9 +31,9 @@ document.querySelector('[data-open-credits]')!.addEventListener('click', () => c
 
 const crumbCurrent = document.querySelector<HTMLElement>('[data-crumb-current]')!;
 
-startRouter(document.getElementById('app')!, routes, (route) => {
-  const isHome = route.path === '';
-  crumbCurrent.textContent = isHome ? '' : route.title;
-  crumbCurrent.hidden = isHome;
-  document.title = isHome ? 'Hertzo · Simulador de propagación RF' : `${route.title} · Hertzo`;
+void startRouter(document.getElementById('app')!, routes, CHOOSER_PATH, (route) => {
+  const isChooser = route.path === CHOOSER_PATH;
+  crumbCurrent.textContent = isChooser ? '' : route.title;
+  crumbCurrent.hidden = isChooser;
+  document.title = isChooser ? 'Hertzo · Simulador de propagación RF' : `${route.title} · Hertzo`;
 });

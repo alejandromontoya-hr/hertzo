@@ -20,7 +20,7 @@ import { createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
-import type { PageContext } from '../router';
+import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindSegmented, coverageStatusHtml, createMapPage, segmentedHtml, siteSectionHtml } from '../shared/mapPage';
 import { createSiteControls } from '../shared/siteControls';
@@ -128,7 +128,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     txForm.setValues(tx);
     rxForm.setValues(rx);
     showBandRange();
-    history.replaceState(null, '', `#/terreno?banda=${band.id}`);
+    replaceQuery('banda', band.id);
     onParametersChange();
   });
 

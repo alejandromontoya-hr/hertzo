@@ -26,7 +26,7 @@ import { wattsToDbm } from '../../rf/units';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
-import type { PageContext } from '../router';
+import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindSegmented, coverageStatusHtml, createMapPage, segmentedHtml, siteSectionHtml } from '../shared/mapPage';
 import { createSiteControls } from '../shared/siteControls';
@@ -380,7 +380,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       modelSelect.setValue(model);
     }
     showBand();
-    history.replaceState(null, '', `#/celular?banda=${band.id}`);
+    replaceQuery('banda', band.id);
     onGeometryChange();
   });
 

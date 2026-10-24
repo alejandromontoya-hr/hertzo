@@ -12,14 +12,19 @@ Todo corre en tu navegador: sin servidores, sin cuentas y sin costo.
 
 ## Escenarios
 
-| Escenario | Entorno | Qué calcula |
-| --- | --- | --- |
-| Radiocomunicaciones en terreno (VHF, UHF, 700, 800 MHz) | Mapa con relieve | Bajada, subida y desbalance de un sitio, con su balance de enlace (ITM de NTIA) |
-| Radiodifusión FM y AM | Mapa con relieve | Campo en dBµV/m y zonas de servicio; AM con onda de tierra según el suelo |
-| Celular LTE / 5G | Mapa con relieve | RSRP, mejor sector y SINR de un sitio con sectores (Hata, 3GPP 38.901 o ITM) |
-| Enlaces punto a punto | Mapa y perfil | Zona de Fresnel, difracción, nivel recibido, margen y disponibilidad |
-| Interiores WiFi (2,4, 5, 6 GHz) | Editor de planos | Mapa de calor con muros de distintos materiales y varios access points |
-| Cavernas, túneles y minas | Editor de galerías | Señal por la red de galerías, curvas y cable radiante |
+Cada simulación tiene su propia dirección. La raíz (`hertzo.site/`) queda libre para la página principal del sitio.
+
+| Dirección | Escenario | Entorno | Qué calcula |
+| --- | --- | --- | --- |
+| `/escenarios` | Selector «¿Qué quieres simular?» | — | Enlaces a cada escenario y sus variantes |
+| `/terreno` | Radiocomunicaciones en terreno (VHF, UHF, 700, 800 MHz) | Mapa con relieve | Bajada, subida y desbalance de un sitio, con su balance de enlace (ITM de NTIA) |
+| `/radiodifusion` | Radiodifusión FM y AM | Mapa con relieve | Campo en dBµV/m y zonas de servicio; AM con onda de tierra según el suelo |
+| `/celular` | Celular LTE / 5G | Mapa con relieve | RSRP, mejor sector y SINR de un sitio con sectores (Hata, 3GPP 38.901 o ITM) |
+| `/enlace` | Enlaces punto a punto | Mapa y perfil | Zona de Fresnel, difracción, nivel recibido, margen y disponibilidad |
+| `/interiores` | Interiores WiFi (2,4, 5, 6 GHz) | Editor de planos | Mapa de calor con muros de distintos materiales y varios access points |
+| `/cavernas` | Cavernas, túneles y minas | Editor de galerías | Señal por la red de galerías, curvas y cable radiante |
+
+Las variantes van como parámetros: `/terreno?banda=uhf`, `/radiodifusion?servicio=am`, `/interiores?plano=oficina`, `/cavernas?escenario=mina`.
 
 ## Desarrollo
 
@@ -40,7 +45,12 @@ npm run dev
 
 ## Publicar
 
-`npm run build` genera archivos estáticos en `dist/` que funcionan en cualquier hosting estático (Cloudflare Pages, GitHub Pages), en la raíz del dominio o en una subcarpeta. No necesita servidor propio ni claves.
+`npm run build` genera archivos estáticos en `dist/`:
+
+- `dist/index.html`: la raíz, vacía, para la página principal del sitio (su fuente es `index.html`).
+- `dist/<dirección>/index.html`: una copia de la app por cada dirección (`terreno`, `interiores`…), más `dist/404.html`. La fuente de la app es `simulador.html`.
+
+Así cualquier hosting estático (Cloudflare Pages, GitHub Pages) sirve `hertzo.site/interiores` sin reglas de reescritura ni claves. El sitio debe ir en la raíz del dominio: las rutas de los archivos son absolutas (`/assets/…`).
 
 ## Estructura
 

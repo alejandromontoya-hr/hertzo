@@ -27,7 +27,7 @@ import {
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
-import type { PageContext } from '../router';
+import { replaceQuery, type PageContext } from '../router';
 import { bindSegmented, segmentedHtml } from '../shared/mapPage';
 
 type Tool = 'select' | 'wall' | 'ap' | 'erase';
@@ -697,7 +697,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       selection = null;
       readout.hide();
       sizeFields.setValues({ widthM: plan.widthM, heightM: plan.heightM });
-      history.replaceState(null, '', `#/interiores?plano=${button.dataset.preset}`);
+      replaceQuery('plano', button.dataset.preset!);
       changed();
       planView.fit();
     });

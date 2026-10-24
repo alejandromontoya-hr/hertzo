@@ -1,5 +1,6 @@
-// Rutas de la app con `#` en la dirección (#/terreno?banda=uhf). Funciona en cualquier
-// hosting estático porque el servidor siempre entrega el mismo index.html.
+// Rutas de la app: cada simulación vive en su propia dirección (hertzo.site/interiores,
+// hertzo.site/terreno?banda=uhf). La compilación deja una copia de la app en la carpeta de
+// cada ruta, así cualquier hosting estático la sirve sin reglas de reescritura.
 
 export interface PageContext {
   root: HTMLElement;
@@ -15,46 +16,34 @@ export interface Route {
   load: () => Promise<MountPage>;
 }
 
-export interface ParsedHash {
+export interface ParsedLocation {
   path: string;
   params: URLSearchParams;
 }
 
-/** "#/terreno?banda=uhf" → { path: "terreno", params: banda=uhf } */
-export function parseHash(hash: string): ParsedHash {
-  const clean = hash.replace(/^#\/?/, '');
-  const [path = '', query = ''] = clean.split('?');
-  return { path: path.replace(/\/+$/, ''), params: new URLSearchParams(query) };
+/** "/terreno/" + "?banda=uhf" → { path: "terreno", params: banda=uhf }. Solo cuenta el primer tramo. */
+export function parseLocation(pathname: string, search: string): ParsedLocation {
+  const path = pathname.replace(/^\/+/, '').split('/')[0] ?? '';
+  return { path: decodeURIComponent(path), params: new URLSearchParams(search) };
 }
 
-export function startRouter(
+/** Cambia un parámetro de la dirección sin recargar (por ejemplo la banda elegida). */
+export function replaceQuery(key: string, value: string): void {
+  const params = new URLSearchParams(location.search);
+  params.set(key, value);
+  history.replaceState(null, '', `${location.pathname}?${params}`);
+}
+
+export async function startRouter(
   root: HTMLElement,
   routes: Route[],
+  fallbackPath: string,
   onNavigate: (route: Route) => void,
-): void {
-  let unmount: (() => void) | void;
-  let navigation = 0;
-
-  const show = async () => {
-    const { path, params } = parseHash(location.hash);
-    const route = routes.find((r) => r.path === path) ?? routes[0]!;
-    const current = ++navigation;
-    const mount = await route.load();
-    if (current !== navigation) return; // el usuario ya se fue a otra página
-    unmount?.();
-    root.replaceChildren();
-    root.scrollTop = 0;
-    onNavigate(route);
-    unmount = mount({ root, params });
-  };
-
-  window.addEventListener('hashchange', () => {
-    // Cambiar solo los parámetros de la misma página (por ejemplo la banda) no la vuelve a montar.
-    const { path } = parseHash(location.hash);
-    if (path === lastPath) return;
-    lastPath = path;
-    void show();
-  });
-  let lastPath = parseHash(location.hash).path;
-  void show();
+): Promise<void> {
+  const { path, params } = parseLocation(location.pathname, location.search);
+  const route = routes.find((r) => r.path === path) ?? routes.find((r) => r.path === fallbackPath)!;
+  if (route.path !== path) history.replaceState(null, '', `/${route.path}${location.search}`);
+  onNavigate(route);
+  const mount = await route.load();
+  mount({ root, params });
 }
