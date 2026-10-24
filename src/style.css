@@ -432,6 +432,28 @@ body {
   inset: 0;
 }
 
+.end-marker {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  cursor: grab;
+}
+
+.verdict {
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border-left: 4px solid;
+  background: var(--bg);
+}
+
 .legend {
   position: absolute;
   top: 10px;
@@ -665,6 +687,75 @@ body {
 
 .profile-body .cursor-dot {
   fill: #b54708;
+}
+
+.profile-body .link-fresnel {
+  fill: rgb(9 105 218 / 0.12);
+  stroke: rgb(9 105 218 / 0.5);
+  stroke-width: 1;
+}
+
+.profile-body .link-line {
+  fill: none;
+  stroke: #0969da;
+  stroke-width: 1.5;
+}
+
+.profile-body .link-sixty {
+  fill: none;
+  stroke: #0969da;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.profile-body .link-block {
+  fill: #cf222e;
+}
+
+.link-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 0 10px 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.link-key i {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.key-terrain {
+  background: #d8c7a3;
+}
+
+.key-line {
+  border-top: 2px solid #0969da;
+  height: 0 !important;
+}
+
+.key-fresnel {
+  background: rgb(9 105 218 / 0.15);
+  border: 1px solid rgb(9 105 218 / 0.5);
+}
+
+.key-sixty {
+  border-top: 1px dashed #0969da;
+  height: 0 !important;
+}
+
+.key-block {
+  width: 8px !important;
+  border-radius: 50%;
+  background: #cf222e;
+}
+
+.profile-chart.link-chart {
+  height: 250px;
 }
 
 .profile-body .hit {

@@ -17,6 +17,7 @@ const routes: Route[] = [
     title: titleOf('celular'),
     load: () => import('./pages/cellular/cellularPage').then((m) => m.mountCellularPage),
   },
+  { path: 'enlace', title: titleOf('enlace'), load: () => import('./pages/link/linkPage').then((m) => m.mountLinkPage) },
 ];
 
 const credits = document.getElementById('credits') as HTMLDialogElement;
