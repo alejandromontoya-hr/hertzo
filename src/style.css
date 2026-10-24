@@ -537,6 +537,43 @@ body {
   display: none;
 }
 
+.legend-toggle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.legend .legend-views,
+.legend .legend-title {
+  margin-right: 26px;
+}
+
+.legend.collapsed {
+  width: auto;
+  min-width: 150px;
+}
+
+.legend.collapsed .legend-rows,
+.legend.collapsed .legend-thresholds,
+.legend.collapsed .legend-opacity {
+  display: none;
+}
+
+.legend.collapsed .legend-title {
+  margin-bottom: 0;
+}
+
 .legend-views {
   display: flex;
   margin-bottom: 6px;

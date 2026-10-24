@@ -39,6 +39,7 @@ export interface MapLegend {
 /** Leyenda sobre el mapa: selector de vista, franjas de color, umbrales y opacidad. */
 export function createMapLegend(root: HTMLElement, callbacks: LegendCallbacks): MapLegend {
   root.innerHTML = `
+    <button type="button" class="legend-toggle" aria-expanded="true" aria-label="Plegar la leyenda">–</button>
     <div class="legend-views" role="tablist" aria-label="Mapa"></div>
     <p class="legend-title"></p>
     <ul class="legend-rows"></ul>
@@ -60,6 +61,17 @@ export function createMapLegend(root: HTMLElement, callbacks: LegendCallbacks): 
   let thresholdRange = { min: -150, max: 150, unit: '' };
 
   opacity.addEventListener('input', () => callbacks.onOpacity(Number(opacity.value)));
+
+  // Plegable: en pantallas angostas empieza plegada para no tapar el mapa o el plano.
+  const toggle = root.querySelector<HTMLButtonElement>('.legend-toggle')!;
+  const setCollapsed = (collapsed: boolean) => {
+    root.classList.toggle('collapsed', collapsed);
+    toggle.textContent = collapsed ? '+' : '–';
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', collapsed ? 'Mostrar la leyenda' : 'Plegar la leyenda');
+  };
+  toggle.addEventListener('click', () => setCollapsed(!root.classList.contains('collapsed')));
+  setCollapsed(window.matchMedia('(max-width: 720px)').matches);
 
   const buildThresholdInputs = (count: number) => {
     for (const input of thresholdInputs) input.remove();
