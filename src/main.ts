@@ -12,6 +12,11 @@ const routes: Route[] = [
     title: titleOf('radiodifusion'),
     load: () => import('./pages/broadcast/broadcastPage').then((m) => m.mountBroadcastPage),
   },
+  {
+    path: 'celular',
+    title: titleOf('celular'),
+    load: () => import('./pages/cellular/cellularPage').then((m) => m.mountCellularPage),
+  },
 ];
 
 const credits = document.getElementById('credits') as HTMLDialogElement;
