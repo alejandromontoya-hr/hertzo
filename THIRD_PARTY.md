@@ -17,10 +17,12 @@ No se copian al repositorio; el navegador los pide y los guarda en caché.
 | Datos | Fuente | Licencia / condiciones | Uso |
 | --- | --- | --- | --- |
 | Mapa base | [OpenStreetMap](https://www.openstreetmap.org/copyright) | ODbL; exige el crédito «colaboradores de OpenStreetMap» y respetar su [política de uso de teselas](https://operations.osmfoundation.org/policies/tiles/) | Fondo del mapa |
-| Terreno | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/), formato Terrarium | Datos abiertos; en Colombia la fuente es SRTM (NASA, dominio público). Créditos según la [lista de fuentes](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) | Relieve sombreado y cota del terreno |
+| Terreno | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/), formato Terrarium | Datos abiertos; en Colombia la fuente es SRTM (cortesía de USGS). Créditos exigidos según la [lista de fuentes](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) | Relieve sombreado y cota del terreno |
 
 ## Revisados y descartados
 
 | Componente | Licencia | Motivo |
 | --- | --- | --- |
-| [SPLAT!](https://www.qsl.net/kd2bd/splat.html) | GPL-2.0 | No compatible con MIT: obligaría a publicar Hertzo bajo GPL. Se usará el ITM de NTIA en su lugar. |
+| [SPLAT!](https://www.qsl.net/kd2bd/splat.html) | GPL-2.0 | No compatible con MIT: obligaría a publicar Hertzo bajo GPL. Se usa el ITM de NTIA en su lugar. |
+| [Signal-Server](https://github.com/Cloud-RF/Signal-Server) | GPL-2.0 | Mismo motivo que SPLAT!. |
+| [Meshtastic Site Planner](https://github.com/meshtastic/meshtastic-site-planner) | GPL-3.0 | Mismo motivo; solo se tomó como referencia de producto, sin copiar código. |

@@ -46,7 +46,7 @@ const style: StyleSpecification = {
       tileSize: 256,
       maxzoom: TERRAIN_MAX_ZOOM,
       attribution:
-        'Relieve: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Terrain Tiles</a> (SRTM, NASA)',
+        'Relieve: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Terrain Tiles</a> (SRTM y GMTED2010 de USGS, y otras fuentes; ver Créditos)',
     },
   },
   layers: [

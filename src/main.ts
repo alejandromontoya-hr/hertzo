@@ -29,6 +29,9 @@ import { createProfileChart } from './ui/profileChart';
 import { createSitePanel } from './ui/sitePanel';
 
 const map = createMap(document.getElementById('map')!);
+
+const credits = document.getElementById('credits') as HTMLDialogElement;
+document.querySelector('[data-open-credits]')!.addEventListener('click', () => credits.showModal());
 // Solo en desarrollo: acceso al mapa desde la consola para pruebas manuales.
 if (import.meta.env.DEV) Object.assign(window, { hertzoMap: map });
 
