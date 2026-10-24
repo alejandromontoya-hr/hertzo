@@ -5,73 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Simulador web de propagación RF, gratuito y open source, para radio profesional."
+      content="Simulador web de propagación RF, gratuito y open source: radio profesional, radiodifusión, celular, enlaces, interiores y cavernas."
     />
     <title>Hertzo · Simulador de propagación RF</title>
   </head>
   <body>
     <div class="app">
       <header class="app-header">
-        <h1 class="brand">Hertzo</h1>
-        <p class="tagline">Simulador de propagación RF para radio profesional</p>
+        <a class="brand" href="#/">Hertzo</a>
+        <nav class="crumbs" aria-label="Ubicación">
+          <a href="#/" data-crumb-home>Escenarios</a>
+          <span data-crumb-current></span>
+        </nav>
+        <p class="tagline">Simulador abierto de propagación RF</p>
       </header>
 
-      <aside class="panel" aria-label="Parámetros del sitio">
-        <section id="site-panel" class="panel-section">
-          <h2>Sitio</h2>
-          <p class="hint" data-site-hint>Haz clic en el mapa para ubicar el sitio.</p>
-          <div data-site-details hidden>
-            <dl class="site-details">
-              <dt>Ubicación (lat, lon)</dt>
-              <dd data-site-location></dd>
-              <dt>Cota del terreno</dt>
-              <dd data-site-elevation></dd>
-            </dl>
-            <p class="hint">Arrastra el marcador para moverlo.</p>
-            <button type="button" class="button" data-profile-toggle aria-pressed="false">
-              Ver perfil del terreno
-            </button>
-            <p class="hint" data-profile-hint hidden>
-              Haz clic en el mapa para elegir el otro extremo del perfil; también puedes
-              arrastrarlo. Mientras tanto, los clics no mueven el sitio.
-            </p>
-          </div>
-          <div id="radius-field" class="form"></div>
-        </section>
-
-        <section id="coverage-status" class="panel-section" hidden>
-          <h2>Cobertura</h2>
-          <progress max="1" value="0"></progress>
-          <p class="hint" data-coverage-text></p>
-        </section>
-
-        <details class="panel-section" open>
-          <summary>Radio de usuario</summary>
-          <div id="radio-form" class="form"></div>
-        </details>
-
-        <details class="panel-section">
-          <summary>Bajada (talk-out) · cadena de transmisión</summary>
-          <div id="tx-form" class="form"></div>
-        </details>
-
-        <details class="panel-section">
-          <summary>Subida (talk-in) · cadena de recepción</summary>
-          <div id="rx-form" class="form"></div>
-        </details>
-
-        <section class="panel-section">
-          <h2>Balance de enlace</h2>
-          <div id="budget"></div>
-        </section>
-      </aside>
-
-      <main class="map-area">
-        <div id="map" class="map" aria-label="Mapa"></div>
-        <section id="coverage-legend" class="legend" aria-label="Leyenda de cobertura" hidden></section>
-        <div id="hover-readout" class="readout" role="status" hidden></div>
-        <section id="profile-chart" class="profile-chart" aria-label="Perfil del terreno" hidden></section>
-      </main>
+      <main id="app" class="app-main"></main>
 
       <footer class="app-footer">
         <span>

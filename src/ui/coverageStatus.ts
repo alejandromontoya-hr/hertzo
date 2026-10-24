@@ -5,7 +5,8 @@ const integerFormat = new Intl.NumberFormat('es-CO');
 
 export interface CoverageStatus {
   showProgress(progress: CoverageProgress): void;
-  showDone(result: CoverageResult): void;
+  /** `detail` completa la frase, por ejemplo «bajada y subida». */
+  showDone(result: CoverageResult, detail?: string): void;
   showError(message: string): void;
 }
 
@@ -27,14 +28,14 @@ export function createCoverageStatus(root: HTMLElement): CoverageStatus {
         text.textContent = `Calculando radiales: ${integerFormat.format(p.done)} de ${integerFormat.format(p.total)}…`;
       }
     },
-    showDone(result) {
+    showDone(result, detail) {
       root.hidden = false;
       bar.hidden = true;
       const { plan } = result;
       text.textContent =
         `Listo en ${secondsFormat.format(result.elapsedMs / 1000)} s: ` +
-        `${integerFormat.format(plan.radialCount)} radiales × ${integerFormat.format(plan.pointsPerRadial)} puntos, ` +
-        `bajada y subida.`;
+        `${integerFormat.format(plan.radialCount)} radiales × ${integerFormat.format(plan.pointsPerRadial)} puntos` +
+        `${detail ? `, ${detail}` : ''}.`;
     },
     showError(message) {
       root.hidden = false;

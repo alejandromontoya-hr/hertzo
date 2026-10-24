@@ -50,16 +50,16 @@ export function createTxForm(
   container: HTMLElement,
   initial: SiteTxChain,
   onChange: (tx: SiteTxChain) => void,
-): void {
-  createFieldGroup(container, TX_FIELDS, initial, onChange);
+): { setValues(tx: SiteTxChain): void } {
+  return createFieldGroup(container, TX_FIELDS, initial, onChange);
 }
 
 export function createRxForm(
   container: HTMLElement,
   initial: SiteRxChain,
   onChange: (rx: SiteRxChain) => void,
-): void {
-  createFieldGroup(container, RX_FIELDS, initial, onChange);
+): { setValues(rx: SiteRxChain): void } {
+  return createFieldGroup(container, RX_FIELDS, initial, onChange);
 }
 
 /**

@@ -5,42 +5,42 @@
 // sobre ese resultado, así que cambiarlas no exige recalcular.
 
 import type { LonLat } from '../geo/geodesy';
+import type { EngineSpec } from '../propagation/engines';
 import type { RadioProfile, SiteRxChain, SiteTxChain } from '../rf/linkBudget';
+import type { CoverageRequest } from './computeCoverage';
 
-/** Un trayecto que calcula el motor, desde el sitio hacia el radio. */
+/** Un trayecto que calcula el motor, desde el sitio hacia el usuario. */
 export interface LinkGeometry {
   /** Altura de la antena del sitio (m). */
   siteHeightM: number;
-  /** Altura de la antena del radio (m). */
+  /** Altura de la antena del usuario (m). */
   radioHeightM: number;
   frequencyMHz: number;
 }
 
-export interface PropagationInputs {
-  site: LonLat;
-  radiusM: number;
-  talkOut: LinkGeometry;
-  talkIn: LinkGeometry;
-}
+/** Índices de los trayectos de un cálculo de radio profesional. */
+export const TALK_OUT = 0;
+export const TALK_IN = 1;
 
-export function propagationInputs(
+/** Solicitud de cobertura de un sitio de radio profesional: bajada y subida sobre el mismo terreno. */
+export function lmrCoverageRequest(
   site: LonLat,
   radiusM: number,
   tx: SiteTxChain,
   rx: SiteRxChain,
   radio: RadioProfile,
-): PropagationInputs {
+  engine: EngineSpec = { id: 'itm' },
+): CoverageRequest {
   return {
     site,
     radiusM,
-    // Bajada: de la antena TX del sitio al radio, en la frecuencia de TX.
-    talkOut: { siteHeightM: tx.antennaHeightM, radioHeightM: radio.heightM, frequencyMHz: tx.frequencyMHz },
-    // Subida: del radio a la antena RX del sitio, en la frecuencia de RX. La pérdida básica
-    // del ITM es recíproca, así que se calcula igual desde el sitio hacia afuera.
-    talkIn: { siteHeightM: rx.antennaHeightM, radioHeightM: radio.heightM, frequencyMHz: rx.frequencyMHz },
+    engine,
+    links: [
+      // Bajada: de la antena TX del sitio al radio, en la frecuencia de TX.
+      { siteHeightM: tx.antennaHeightM, radioHeightM: radio.heightM, frequencyMHz: tx.frequencyMHz },
+      // Subida: del radio a la antena RX del sitio, en la frecuencia de RX. La pérdida básica
+      // del ITM es recíproca, así que se calcula igual desde el sitio hacia afuera.
+      { siteHeightM: rx.antennaHeightM, radioHeightM: radio.heightM, frequencyMHz: rx.frequencyMHz },
+    ],
   };
-}
-
-export function sameInputs(a: PropagationInputs | null, b: PropagationInputs): boolean {
-  return a !== null && JSON.stringify(a) === JSON.stringify(b);
 }

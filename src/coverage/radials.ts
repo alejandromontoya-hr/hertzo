@@ -29,17 +29,30 @@ export interface RadialPlan {
 
 const roundUpTo = (value: number, multiple: number) => Math.ceil(value / multiple) * multiple;
 
-export function planRadials(site: LonLat, radiusM: number): RadialPlan {
-  const radialCount = roundUpTo(Math.max(360, Math.ceil((2 * Math.PI * radiusM) / MAX_ARC_SPACING_M)), 360);
-  const intervals = roundUpTo(Math.ceil(radiusM / RADIAL_STEP_M), LOSS_STRIDE);
+/** Resolución del cálculo. Por omisión, la del ITM: terreno cada 30 m y pérdida cada 90 m. */
+export interface PlanOptions {
+  /** Separación máxima entre muestras de terreno (m). */
+  stepM?: number;
+  /** Cada cuántas muestras se calcula la pérdida. */
+  stride?: number;
+  /** Separación máxima entre radiales vecinos en el borde (m). */
+  maxArcM?: number;
+}
+
+export function planRadials(site: LonLat, radiusM: number, options: PlanOptions = {}): RadialPlan {
+  const stepM = options.stepM ?? RADIAL_STEP_M;
+  const stride = options.stride ?? LOSS_STRIDE;
+  const maxArcM = options.maxArcM ?? MAX_ARC_SPACING_M;
+  const radialCount = roundUpTo(Math.max(360, Math.ceil((2 * Math.PI * radiusM) / maxArcM)), 360);
+  const intervals = roundUpTo(Math.ceil(radiusM / stepM), stride);
   return {
     site,
     radiusM,
     radialCount,
     samplesPerRadial: intervals + 1,
     stepM: radiusM / intervals,
-    stride: LOSS_STRIDE,
-    pointsPerRadial: intervals / LOSS_STRIDE,
+    stride,
+    pointsPerRadial: intervals / stride,
   };
 }
 

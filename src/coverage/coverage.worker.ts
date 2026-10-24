@@ -1,9 +1,21 @@
-// Hilo de cálculo de cobertura: corre el motor de propagación sobre tandas de radiales.
+// Hilo de cálculo de cobertura: corre el motor de propagación pedido sobre tandas de radiales.
 
-import { createItmEngine } from '../propagation/itm';
+import type { PropagationEngine } from '../propagation/engine';
+import { createEngine } from '../propagation/engines';
 import type { CoverageJob, CoverageJobReply } from './protocol';
 
-const enginePromise = createItmEngine();
+/** Motores ya creados, por su descripción: el mismo motor sirve para muchas tandas. */
+const engines = new Map<string, Promise<PropagationEngine>>();
+
+function engineFor(job: CoverageJob): Promise<PropagationEngine> {
+  const key = JSON.stringify(job.engine);
+  let engine = engines.get(key);
+  if (!engine) {
+    engine = createEngine(job.engine);
+    engines.set(key, engine);
+  }
+  return engine;
+}
 
 const reply = (message: CoverageJobReply, transfer: Transferable[] = []) =>
   (self as unknown as Worker).postMessage(message, transfer);
@@ -11,7 +23,7 @@ const reply = (message: CoverageJobReply, transfer: Transferable[] = []) =>
 self.addEventListener('message', async (event: MessageEvent<CoverageJob>) => {
   const job = event.data;
   try {
-    const engine = await enginePromise;
+    const engine = await engineFor(job);
     const points = Math.floor((job.samplesPerRadial - 1) / job.stride);
     const lossDb = job.links.map(() => new Float32Array(job.radialCount * points));
     const warnings = job.links.map(() => new Int32Array(job.radialCount * points));

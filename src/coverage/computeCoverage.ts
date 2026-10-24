@@ -1,16 +1,32 @@
-// Cálculo de cobertura de un sitio: descarga el terreno, reparte los radiales entre hilos
-// de cálculo y junta las pérdidas de bajada y subida.
+// Cálculo de cobertura de un sitio: descarga el terreno (si el motor lo usa), reparte los
+// radiales entre hilos de cálculo y junta una grilla de pérdidas por cada trayecto pedido.
 
+import type { LonLat } from '../geo/geodesy';
+import { engineNeedsTerrain, type EngineSpec } from '../propagation/engines';
 import { loadTerrain } from '../terrain/elevation';
 import type { TerrainSampler } from '../terrain/sampler';
-import type { PropagationInputs } from './inputs';
+import type { LinkGeometry } from './inputs';
 import type { CoverageJob, CoverageJobReply } from './protocol';
-import { circleBounds, planRadials, sampleRadial, type RadialPlan } from './radials';
+import { circleBounds, planRadials, sampleRadial, type PlanOptions, type RadialPlan } from './radials';
 
 /** Radiales por tanda: suficientes para que repartir no cueste más que calcular. */
 const RADIALS_PER_JOB = 24;
 
-/** Pérdidas de una dirección: una fila por radial, `pointsPerRadial` columnas. */
+/** Lo que hace falta para calcular: sitio, radio, trayectos, motor y resolución. */
+export interface CoverageRequest {
+  site: LonLat;
+  radiusM: number;
+  /** Trayectos sobre los mismos perfiles (por ejemplo bajada y subida). */
+  links: LinkGeometry[];
+  engine: EngineSpec;
+  plan?: PlanOptions;
+}
+
+export function sameRequest(a: CoverageRequest | null, b: CoverageRequest): boolean {
+  return a !== null && JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** Pérdidas de un trayecto: una fila por radial, `pointsPerRadial` columnas. */
 export interface CoverageGrid {
   lossDb: Float32Array;
   /** Banderas de advertencia del motor en cada punto (0 = ninguna). */
@@ -18,10 +34,10 @@ export interface CoverageGrid {
 }
 
 export interface CoverageResult {
-  inputs: PropagationInputs;
+  request: CoverageRequest;
   plan: RadialPlan;
-  talkOut: CoverageGrid;
-  talkIn: CoverageGrid;
+  /** Una grilla por trayecto, en el mismo orden de `request.links`. */
+  grids: CoverageGrid[];
   elapsedMs: number;
 }
 
@@ -41,6 +57,9 @@ function defaultWorkerCount(): number {
   return Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 4) - 1));
 }
 
+/** Terreno plano a 0 m para los motores que no usan el perfil. */
+const flatSampler: TerrainSampler = { zoom: 0, heightAt: () => 0 };
+
 /** Grupo de hilos de cálculo que se crea una vez y se reutiliza en cada cálculo. */
 export class CoverageRunner {
   private readonly workers: Worker[];
@@ -58,43 +77,54 @@ export class CoverageRunner {
   }
 
   async run(
-    inputs: PropagationInputs,
+    request: CoverageRequest,
     onProgress: (progress: CoverageProgress) => void,
     signal: AbortSignal,
   ): Promise<CoverageResult> {
     const started = performance.now();
-    const plan = planRadials(inputs.site, inputs.radiusM);
+    const plan = planRadials(request.site, request.radiusM, request.plan);
 
-    const sampler = await loadTerrain(circleBounds(inputs.site, inputs.radiusM), undefined, (done, total) =>
-      onProgress({ phase: 'terrain', done, total }),
-    );
+    const needsTerrain = engineNeedsTerrain(request.engine);
+    const sampler = needsTerrain
+      ? await loadTerrain(circleBounds(request.site, request.radiusM), undefined, (done, total) =>
+          onProgress({ phase: 'terrain', done, total }),
+        )
+      : flatSampler;
     if (signal.aborted) throw new CoverageAbortedError();
 
     const size = plan.radialCount * plan.pointsPerRadial;
-    const talkOut: CoverageGrid = { lossDb: new Float32Array(size), warnings: new Int32Array(size) };
-    const talkIn: CoverageGrid = { lossDb: new Float32Array(size), warnings: new Int32Array(size) };
-    const links = [inputs.talkOut, inputs.talkIn];
+    const grids: CoverageGrid[] = request.links.map(() => ({
+      lossDb: new Float32Array(size),
+      warnings: new Int32Array(size),
+    }));
 
-    await this.dispatch(plan, sampler, links, signal, (firstRadial, reply) => {
-      const offset = firstRadial * plan.pointsPerRadial;
-      talkOut.lossDb.set(reply.lossDb[0]!, offset);
-      talkOut.warnings.set(reply.warnings[0]!, offset);
-      talkIn.lossDb.set(reply.lossDb[1]!, offset);
-      talkIn.warnings.set(reply.warnings[1]!, offset);
-    }, (done) => onProgress({ phase: 'radials', done, total: plan.radialCount }));
+    await this.dispatch(
+      plan,
+      needsTerrain ? sampler : null,
+      request,
+      signal,
+      (firstRadial, reply) => {
+        const offset = firstRadial * plan.pointsPerRadial;
+        grids.forEach((grid, l) => {
+          grid.lossDb.set(reply.lossDb[l]!, offset);
+          grid.warnings.set(reply.warnings[l]!, offset);
+        });
+      },
+      (done) => onProgress({ phase: 'radials', done, total: plan.radialCount }),
+    );
 
-    return { inputs, plan, talkOut, talkIn, elapsedMs: performance.now() - started };
+    return { request, plan, grids, elapsedMs: performance.now() - started };
   }
 
   /**
    * Reparte tandas de radiales: cada hilo recibe una nueva en cuanto entrega la anterior.
    * Los perfiles de cada tanda se muestrean justo antes de enviarla, mientras los demás
-   * hilos calculan.
+   * hilos calculan. Sin `sampler` (motores sin terreno) se envía un perfil plano.
    */
   private dispatch(
     plan: RadialPlan,
-    sampler: TerrainSampler,
-    links: CoverageJob['links'],
+    sampler: TerrainSampler | null,
+    request: CoverageRequest,
     signal: AbortSignal,
     onResult: (firstRadial: number, reply: Extract<CoverageJobReply, { type: 'result' }>) => void,
     onProgress: (radialsDone: number) => void,
@@ -125,24 +155,27 @@ export class CoverageRunner {
         const radialCount = Math.min(RADIALS_PER_JOB, plan.radialCount - firstRadial);
         nextRadial += radialCount;
         const profiles = new Float32Array(radialCount * plan.samplesPerRadial);
-        for (let r = 0; r < radialCount; r++) {
-          sampleRadial(
-            sampler,
-            plan,
-            firstRadial + r,
-            profiles.subarray(r * plan.samplesPerRadial, (r + 1) * plan.samplesPerRadial),
-          );
+        if (sampler) {
+          for (let r = 0; r < radialCount; r++) {
+            sampleRadial(
+              sampler,
+              plan,
+              firstRadial + r,
+              profiles.subarray(r * plan.samplesPerRadial, (r + 1) * plan.samplesPerRadial),
+            );
+          }
         }
         const jobId = ++this.nextJobId;
         pending.set(jobId, firstRadial);
         const job: CoverageJob = {
           jobId,
+          engine: request.engine,
           profiles,
           radialCount,
           samplesPerRadial: plan.samplesPerRadial,
           stepM: plan.stepM,
           stride: plan.stride,
-          links,
+          links: request.links,
         };
         worker.postMessage(job, [profiles.buffer]);
       };
@@ -173,4 +206,12 @@ export class CoverageRunner {
       for (const worker of this.workers) sendNext(worker);
     });
   }
+}
+
+let sharedRunner: CoverageRunner | undefined;
+
+/** Hilos de cálculo compartidos por todas las páginas (se crean al primer uso). */
+export function getCoverageRunner(): CoverageRunner {
+  sharedRunner ??= new CoverageRunner();
+  return sharedRunner;
 }

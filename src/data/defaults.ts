@@ -27,6 +27,46 @@ export const DEFAULT_RX_CHAIN: SiteRxChain = {
   receiverSensitivityDbm: -119,
 };
 
+export type LmrBandId = 'vhf' | 'uhf' | '700' | '800';
+
+export interface LmrBand {
+  id: LmrBandId;
+  label: string;
+  /** Rango típico de la banda, para mostrar al usuario. */
+  range: string;
+  tx: SiteTxChain;
+  rx: SiteRxChain;
+}
+
+/**
+ * Valores de ejemplo por banda. La línea es de 7/8": ~1,4 dB/100 m a 150 MHz, ~2,6 a 460 MHz,
+ * ~3,6 a 770 MHz y ~3,9 a 860 MHz. Las frecuencias siguen la separación habitual de cada banda.
+ */
+export const LMR_BANDS: readonly LmrBand[] = [
+  {
+    id: 'vhf',
+    label: 'VHF',
+    range: '136–174 MHz',
+    tx: { ...DEFAULT_TX_CHAIN, frequencyMHz: 152, lineLossDbPer100m: 1.4, antennaGainDbd: 3 },
+    rx: { ...DEFAULT_RX_CHAIN, frequencyMHz: 157, lineLossDbPer100m: 1.4, antennaGainDbd: 3 },
+  },
+  {
+    id: 'uhf',
+    label: 'UHF',
+    range: '403–470 MHz',
+    tx: { ...DEFAULT_TX_CHAIN, frequencyMHz: 460, lineLossDbPer100m: 2.6 },
+    rx: { ...DEFAULT_RX_CHAIN, frequencyMHz: 465, lineLossDbPer100m: 2.6 },
+  },
+  {
+    id: '700',
+    label: '700 MHz',
+    range: '769–775 / 799–805 MHz',
+    tx: { ...DEFAULT_TX_CHAIN, frequencyMHz: 770, lineLossDbPer100m: 3.6 },
+    rx: { ...DEFAULT_RX_CHAIN, frequencyMHz: 800, lineLossDbPer100m: 3.6 },
+  },
+  { id: '800', label: '800 MHz', range: '851–869 / 806–824 MHz', tx: DEFAULT_TX_CHAIN, rx: DEFAULT_RX_CHAIN },
+];
+
 /** Radio del cálculo de cobertura alrededor del sitio (km). */
 export const DEFAULT_RADIUS_KM = 50;
 

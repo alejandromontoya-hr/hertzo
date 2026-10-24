@@ -72,6 +72,8 @@ describe('renderCoverage', () => {
     height: 1,
     coordinates: [[0, 0], [0, 0], [0, 0], [0, 0]],
     index: Int32Array.from([0, 1, -1]),
+    bearingDeg: new Float32Array(3),
+    distanceM: new Float32Array(3),
   };
   const grids = {
     talkOut: { lossDb: Float32Array.from([150, 140]), warnings: Int32Array.from([0, 0x0080]) },

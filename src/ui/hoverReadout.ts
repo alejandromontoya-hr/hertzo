@@ -1,5 +1,6 @@
 import type { CoverageResult } from '../coverage/computeCoverage';
 import { isLowConfidence } from '../coverage/colorScale';
+import { TALK_IN, TALK_OUT } from '../coverage/inputs';
 import { gridIndexAt } from '../coverage/raster';
 import { distanceM, type LonLat } from '../geo/geodesy';
 import { marginDb, receivedPowerDbm, type LinkBudget } from '../rf/linkBudget';
@@ -16,8 +17,10 @@ export function readoutLines(
 ): string[] | null {
   const g = gridIndexAt(coverage.plan, point);
   if (g < 0) return null;
-  const outLoss = coverage.talkOut.lossDb[g]!;
-  const inLoss = coverage.talkIn.lossDb[g]!;
+  const down = coverage.grids[TALK_OUT]!;
+  const up = coverage.grids[TALK_IN]!;
+  const outLoss = down.lossDb[g]!;
+  const inLoss = up.lossDb[g]!;
   const line = (name: string, budget: LinkBudget, loss: number) => {
     if (Number.isNaN(loss)) return `${name}: sin cálculo`;
     const margin = marginDb(budget, loss);
@@ -28,7 +31,7 @@ export function readoutLines(
     line('Bajada', talkOut, outLoss),
     line('Subida', talkIn, inLoss),
   ];
-  if (isLowConfidence(coverage.talkOut.warnings[g]! | coverage.talkIn.warnings[g]!)) {
+  if (isLowConfidence(down.warnings[g]! | up.warnings[g]!)) {
     lines.push('Baja confianza: ladera empinada junto al sitio');
   }
   return lines;
