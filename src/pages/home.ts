@@ -1,6 +1,7 @@
 // Portada: el usuario elige qué quiere simular.
 
 import type { PageContext } from './router';
+import { SCENARIO_ICONS } from '../ui/icons';
 import { SAMPLE_MAP_KEY, sampleCoverageMap } from '../ui/sampleMap';
 import { SCENARIOS } from './scenarios';
 
@@ -42,7 +43,7 @@ export function mountHomePage({ root }: PageContext): void {
             <li class="scenario-card">
               <a class="scenario-main" href="/${s.path}">
                 <span class="scenario-head">
-                  <span class="scenario-icon">${s.icon}</span>
+                  <span class="scenario-icon">${SCENARIO_ICONS[s.path]}</span>
                   <span class="scenario-sheet">Hoja ${String(i + 1).padStart(2, '0')}</span>
                 </span>
                 <span class="scenario-title">${s.title}</span>
