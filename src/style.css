@@ -52,11 +52,15 @@ body {
 }
 
 .brand {
+  align-self: center;
+  display: flex;
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--accent);
-  text-decoration: none;
+}
+
+/* El logo: «hertz» en Geist Mono y el aro de Hertz como la «o» (docs/marca) */
+.brand img {
+  display: block;
+  height: 22px;
 }
 
 .crumbs {
