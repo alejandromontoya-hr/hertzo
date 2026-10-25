@@ -46,7 +46,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: 'erase', label: 'Borrar', hint: 'Clic sobre un muro o un access point para borrarlo.' },
 ];
 
-const HEAT_COLORS = ['#1a7f37', '#57ab5a', '#a2c037', '#f0883e', '#cf222e'];
+const HEAT_COLORS = ['#c2520a', '#e8731a', '#fa9d3d', '#fdc672', '#feecb4'];
 const AP_COLORS = ['#0969da', '#bc4c00', '#8250df', '#1a7f37', '#bf3989', '#0a7c86'];
 const SNAP_STEP_M = 0.25;
 const SNAP_ENDPOINT_PX = 10;

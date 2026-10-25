@@ -49,7 +49,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: 'erase', label: 'Borrar', hint: 'Clic sobre una galería, antena o cable para borrarlo.' },
 ];
 
-const UNCOVERED = '#cf222e';
+const UNCOVERED = '#2f6db3';
 const STORAGE_KEY = 'hertzo-cavernas-v1';
 const MAX_UNDO = 60;
 const SNAP_PX = 10;

@@ -85,8 +85,8 @@ describe('renderCoverage', () => {
     return out;
   };
 
-  it('bajada con −105,1 dBm: franja 3 (−116 a −105), naranja #f0883e', () => {
-    expect(Array.from(paint('talkOut').slice(0, 4))).toEqual([0xf0, 0x88, 0x3e, 255]);
+  it('bajada con −105,1 dBm: franja 3 (−116 a −105), amarillo claro #fed98e', () => {
+    expect(Array.from(paint('talkOut').slice(0, 4))).toEqual([0xfe, 0xd9, 0x8e, 255]);
   });
 
   it('subida con −120,33 dBm no llega a −119 dBm: transparente', () => {

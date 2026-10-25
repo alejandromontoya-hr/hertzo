@@ -49,15 +49,23 @@ const style: StyleSpecification = {
         'Relieve: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Terrain Tiles</a> (SRTM y GMTED2010 de USGS, y otras fuentes; ver Créditos)',
     },
   },
+  // Mapa base apagado sobre el papel de la interfaz, para que la cobertura sea lo que resalte.
   layers: [
-    { id: 'mapa-base', type: 'raster', source: 'osm' },
+    { id: 'papel', type: 'background', paint: { 'background-color': '#f3f0e7' } },
+    {
+      id: 'mapa-base',
+      type: 'raster',
+      source: 'osm',
+      paint: { 'raster-saturation': -0.75, 'raster-opacity': 0.8, 'raster-contrast': -0.05 },
+    },
     {
       id: 'sombreado',
       type: 'hillshade',
       source: 'relieve',
       paint: {
         'hillshade-exaggeration': 0.4,
-        'hillshade-shadow-color': '#3b3b3b',
+        'hillshade-shadow-color': '#5a4a32',
+        'hillshade-highlight-color': '#fbfaf6',
       },
     },
   ],
