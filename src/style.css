@@ -406,6 +406,9 @@ body {
 /* --- Página principal (hertzo.site/) --- */
 
 .landing {
+  /* Un solo espacio entre las secciones de la página: portada, razones, escenarios y pie. */
+  --section-gap: 48px;
+
   min-height: 100%;
   padding: 0 32px;
 }
@@ -510,6 +513,7 @@ body {
 
 .landing-hero {
   padding-top: 24px;
+  padding-bottom: var(--section-gap);
 }
 
 .landing-heading {
@@ -522,7 +526,7 @@ body {
 }
 
 .landing-why {
-  margin-bottom: 80px;
+  margin-bottom: var(--section-gap);
 }
 
 .landing-points {
@@ -568,7 +572,7 @@ body {
 }
 
 .landing-scenarios {
-  margin-bottom: 48px;
+  margin-bottom: var(--section-gap);
 }
 
 .landing-scenarios .home-list-head a {
