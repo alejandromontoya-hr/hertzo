@@ -936,6 +936,42 @@ body {
   accent-color: var(--accent);
 }
 
+/* Selector de mapa base, debajo de los botones de acercar y alejar. */
+.basemap-control {
+  display: flex;
+  overflow: hidden;
+  font-size: 0.78rem;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+}
+
+.basemap-control button {
+  min-height: 32px;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.basemap-control button + button {
+  border-left: 1px solid var(--ink);
+}
+
+/* Más específicos que el resaltado al pasar el cursor de los botones de MapLibre. */
+.maplibregl-ctrl.basemap-control button:not(:disabled):hover {
+  background: var(--bg);
+}
+
+.maplibregl-ctrl.basemap-control button[aria-checked='true'],
+.maplibregl-ctrl.basemap-control button[aria-checked='true']:not(:disabled):hover {
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--ink);
+}
+
 .readout {
   position: absolute;
   top: 0;

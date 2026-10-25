@@ -18,7 +18,8 @@ No se copian al repositorio; el navegador los pide y los guarda en caché.
 
 | Datos | Fuente | Licencia / condiciones | Uso |
 | --- | --- | --- | --- |
-| Mapa base | [OpenStreetMap](https://www.openstreetmap.org/copyright) | ODbL; exige el crédito «colaboradores de OpenStreetMap» y respetar su [política de uso de teselas](https://operations.osmfoundation.org/policies/tiles/) | Fondo del mapa |
+| Mapa base | [OpenStreetMap](https://www.openstreetmap.org/copyright) | ODbL; exige el crédito «colaboradores de OpenStreetMap» y respetar su [política de uso de teselas](https://operations.osmfoundation.org/policies/tiles/) | Fondo del mapa en las opciones Carta y Color |
+| Mapa topográfico | [OpenTopoMap](https://opentopomap.org/about) | Estilo CC-BY-SA 3.0; datos de OpenStreetMap (ODbL) y SRTM. Exige su crédito, que el mapa muestra al elegir esta opción; sus servidores admiten solo tráfico bajo | Fondo del mapa en la opción Topográfico |
 | Terreno | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/), formato Terrarium | Datos abiertos; en Colombia la fuente es SRTM (cortesía de USGS). Créditos exigidos según la [lista de fuentes](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) | Relieve sombreado y cota del terreno |
 
 ## Revisados y descartados
