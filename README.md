@@ -42,6 +42,7 @@ npm run dev
 | `npm run build` | Compila el sitio estático en `dist/` |
 | `npm run preview` | Sirve `dist/` para probar la compilación |
 | `npm run build:wasm` | Recompila el motor ITM (C++ → WebAssembly). Solo si cambia el C++; ver [engine/README.md](engine/README.md) |
+| `npm run indexnow` | Le avisa a Bing que el sitio cambió. Se corre después de publicar |
 
 ## Publicar
 
@@ -51,6 +52,16 @@ npm run dev
 - `dist/<dirección>/index.html`: una copia de la app por cada dirección (`terreno`, `interiores`…), más `dist/404.html`. La fuente de la app es `simulador.html`.
 
 Así cualquier hosting estático (Cloudflare Pages, GitHub Pages) sirve `hertzo.site/interiores` sin reglas de reescritura ni claves. El sitio debe ir en la raíz del dominio: las rutas de los archivos son absolutas (`/assets/…`).
+
+### Buscadores y asistentes de IA
+
+Lo que leen Google, Bing, ChatGPT, Claude o Perplexity sale de [src/seo/seo.ts](src/seo/seo.ts) al compilar:
+
+- Cada página lleva su título, descripción, dirección oficial (`/terreno?banda=uhf` cuenta como `/terreno`), vista previa al compartir (`public/og.png`) y datos estructurados de schema.org.
+- `dist/robots.txt` deja leer todo el sitio y nombra a los bots de IA; `dist/sitemap.xml` trae las 8 páginas; `dist/llms.txt` resume el sitio para asistentes de IA ([llmstxt.org](https://llmstxt.org)).
+- La lista de escenarios de la página principal ya va escrita en `dist/index.html`, para quien no ejecuta JavaScript.
+
+Al cambiar lo que dice una página, se actualiza su fecha en `UPDATED` de `src/seo/seo.ts`; al publicar, se corre `npm run indexnow`. Si cambia el texto de la portada, `node docs/marca/generar-imagen-compartir.mjs` vuelve a dibujar `public/og.png`.
 
 ## Estructura
 
@@ -65,6 +76,7 @@ Así cualquier hosting estático (Cloudflare Pages, GitHub Pages) sirve `hertzo.
 | `src/cave/` | Red de galerías, propagación guiada y escenarios de ejemplo |
 | `src/editor/` | Vista de plano 2D compartida por los editores |
 | `src/pages/` | Portada, rutas y una carpeta por escenario |
+| `src/seo/` | Títulos, descripciones, datos estructurados, robots.txt, sitemap.xml y llms.txt |
 | `src/map/` | Mapa, marcadores y capas |
 | `src/ui/` | Formularios, panel de balance, leyenda y lecturas |
 | `engine/` | Código C++ del motor y script de compilación a WebAssembly |

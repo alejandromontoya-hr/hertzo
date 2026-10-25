@@ -4,6 +4,7 @@ import './style.css';
 import { inject } from '@vercel/analytics';
 import { startRouter, type Route } from './pages/router';
 import { CHOOSER_PATH, SCENARIOS } from './pages/scenarios';
+import { pageMeta } from './seo/seo';
 
 // Contador de visitas de Vercel Web Analytics: sin cookies ni datos personales. Fuera de
 // Vercel (por ejemplo en desarrollo) no envía nada.
@@ -44,5 +45,6 @@ void startRouter(document.getElementById('app')!, routes, CHOOSER_PATH, (route) 
   const isChooser = route.path === CHOOSER_PATH;
   crumbCurrent.textContent = isChooser ? '' : route.title;
   crumbCurrent.hidden = isChooser;
-  document.title = isChooser ? 'Hertzo · Simulador de propagación RF' : `${route.title} · Hertzo`;
+  // El mismo título que trae el <head> de la página, por si la dirección cambió (una 404 lleva a escenarios).
+  document.title = pageMeta(route.path)!.title;
 });

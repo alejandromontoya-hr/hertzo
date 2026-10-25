@@ -8,6 +8,7 @@ El logo es el resonador de Heinrich Hertz (1887): un aro de alambre abierto con 
 | `logo-oscuro.svg` | Logo sobre fondo oscuro |
 | `icono.svg` | Ícono de la pestaña y de la app (también en `public/favicon.svg`) |
 | `generar-logo.cjs` | Genera los tres archivos; las instrucciones están al inicio del script |
+| `generar-imagen-compartir.mjs` | Dibuja `public/og.png` (vista previa al compartir, 1200 × 630) y `public/apple-touch-icon.png` (180 × 180) con Edge o Chrome sin ventana |
 
 ## Letra
 

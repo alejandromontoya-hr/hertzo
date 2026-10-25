@@ -11,7 +11,8 @@
     "build:wasm": "node engine/build.mjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "indexnow": "node scripts/indexnow.mjs"
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
