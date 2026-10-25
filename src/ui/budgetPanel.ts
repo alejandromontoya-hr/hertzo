@@ -70,5 +70,10 @@ export function createBudgetPanel(container: HTMLElement): (talkOut: LinkBudget,
       cell.in.textContent = cell.row.value(talkIn);
     }
     summary.textContent = balanceSummary(talkOut, talkIn);
+    // Solo se resalta como aviso cuando una dirección limita la cobertura.
+    summary.classList.toggle(
+      'balanced',
+      Math.abs(talkOut.maxPathLossDb - talkIn.maxPathLossDb) < BALANCED_THRESHOLD_DB,
+    );
   };
 }
