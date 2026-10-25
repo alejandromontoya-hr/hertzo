@@ -105,7 +105,7 @@ body {
 .home {
   height: 100%;
   overflow-y: auto;
-  padding: 0 32px 64px;
+  padding: 0 32px 24px;
   scroll-behavior: smooth;
 }
 
@@ -235,6 +235,29 @@ body {
   margin: 0 auto;
 }
 
+/* Encabezado corto del selector: aquí se va directo a elegir, sin presentación. */
+.chooser-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 0 18px;
+}
+
+.chooser-head h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.chooser-head p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .home-list-head {
   display: flex;
   flex-wrap: wrap;
@@ -264,7 +287,7 @@ body {
 .scenario-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
+  gap: 16px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -287,8 +310,8 @@ body {
 
 .scenario-main {
   display: grid;
-  gap: 10px;
-  padding: 22px 22px 14px;
+  gap: 8px;
+  padding: 18px 20px 12px;
   color: inherit;
   text-decoration: none;
 }
@@ -303,16 +326,16 @@ body {
 .scenario-icon {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
   color: var(--text);
   border: 1px solid var(--ink);
   border-radius: 50%;
 }
 
 .scenario-icon svg {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
 }
 
 .scenario-card:hover .scenario-icon {
@@ -327,7 +350,7 @@ body {
 }
 
 .scenario-title {
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 600;
   letter-spacing: -0.015em;
   line-height: 1.2;
@@ -347,7 +370,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 0 22px 16px;
+  padding: 0 20px 12px;
 }
 
 .chip {
@@ -369,8 +392,8 @@ body {
 }
 
 .scenario-model {
-  margin: auto 22px 0;
-  padding: 12px 0 18px;
+  margin: auto 20px 0;
+  padding: 10px 0 14px;
   font-family: var(--font-mono);
   font-size: 0.7rem;
   line-height: 1.55;
