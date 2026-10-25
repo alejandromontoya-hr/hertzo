@@ -30,6 +30,8 @@ const routes: Route[] = [
 
 const credits = document.getElementById('credits') as HTMLDialogElement;
 document.querySelector('[data-open-credits]')!.addEventListener('click', () => credits.showModal());
+// La página principal enlaza los créditos como /escenarios#creditos.
+if (location.hash === '#creditos') credits.showModal();
 
 const crumbCurrent = document.querySelector<HTMLElement>('[data-crumb-current]')!;
 

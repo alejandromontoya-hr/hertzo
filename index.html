@@ -3,20 +3,105 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hertzo</title>
+    <meta
+      name="description"
+      content="Simulador abierto de propagación RF: cobertura de radio profesional sobre el terreno real, bajada y subida por separado, radiodifusión, celular, enlaces, interiores y cavernas. Gratis, sin cuentas y en tu navegador."
+    />
+    <title>Hertzo · Simulador abierto de propagación RF</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
-    <!--
-      Raíz de hertzo.site: aquí va la página principal.
-      Las simulaciones viven en sus propias direcciones:
-        /escenarios      selector de escenarios
-        /terreno         radiocomunicaciones en terreno (LMR)
-        /radiodifusion   radiodifusión FM y AM
-        /celular         celular LTE / 5G
-        /enlace          enlaces punto a punto
-        /interiores      interiores WiFi
-        /cavernas        cavernas, túneles y minas
-    -->
+    <div class="landing">
+      <header class="landing-bar">
+        <a class="brand" href="/"><img src="/logo.svg" alt="Hertzo" width="105" height="22" /></a>
+        <a class="pill landing-repo" href="https://github.com/alejandromontoya-hr/hertzo" target="_blank" rel="noopener">
+          Repositorio en GitHub ↗
+        </a>
+      </header>
+
+      <main>
+        <section class="home-hero landing-hero">
+          <div class="home-hero-text">
+            <p class="eyebrow">Simulador abierto de propagación RF</p>
+            <h1>Predice la cobertura de tu radio antes de subir a la torre.</h1>
+            <p class="home-hero-lead">
+              Terreno real, bajada y subida por separado, todo en tu navegador.
+            </p>
+            <div class="home-actions">
+              <a class="pill pill-solid" href="/escenarios">Empezar a simular</a>
+              <a class="pill" href="/terreno?banda=uhf">Probar terreno UHF</a>
+            </div>
+          </div>
+          <figure class="hero-map">
+            <div class="hero-map-frame" data-sample-map></div>
+            <figcaption>
+              <span>Ejemplo ilustrativo · bajada de un sitio UHF</span>
+              <span class="hero-map-key" data-sample-key></span>
+            </figcaption>
+          </figure>
+        </section>
+
+        <section class="landing-why" aria-labelledby="por-que">
+          <h2 id="por-que" class="landing-heading">Por qué Hertzo</h2>
+          <div class="landing-points">
+            <article class="landing-point">
+              <p class="landing-figure">10,2 <span>dB</span></p>
+              <h3>Bajada y subida por separado</h3>
+              <p>
+                En un sitio UHF de ejemplo, la bajada aguanta 155,7 dB de pérdida y la subida solo
+                145,5 dB. La subida limita la cobertura por 10,2 dB: oyes la repetidora, pero ella no
+                te oye. Hertzo dibuja las dos y dónde no coinciden.
+              </p>
+            </article>
+            <article class="landing-point">
+              <p class="landing-figure">ITM</p>
+              <h3>Terreno real</h3>
+              <p>
+                El modelo Longley-Rice de NTIA calcula cada radial sobre el relieve SRTM, con un píxel
+                de unos 38 m en Antioquia. Las montañas tapan la señal como en el campo.
+              </p>
+            </article>
+            <article class="landing-point">
+              <p class="landing-figure">0 <span>servidores</span></p>
+              <h3>Sin servidores ni cuentas</h3>
+              <p>
+                Todo corre en tu navegador: no hay que registrarse ni pagar. El código es abierto, con
+                licencia MIT.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="landing-scenarios" aria-labelledby="escenarios">
+          <div class="home-list-head">
+            <h2 id="escenarios">Seis escenarios</h2>
+            <a href="/escenarios">Ver todos con sus variantes →</a>
+          </div>
+          <ul class="landing-scenario-list" data-scenarios></ul>
+        </section>
+      </main>
+
+      <footer class="landing-footer">
+        <div class="landing-footer-main">
+          <div>
+            <img src="/logo.svg" alt="Hertzo" width="152" height="32" class="landing-footer-logo" />
+            <p class="landing-tagline">Simulador abierto de propagación RF</p>
+          </div>
+          <nav class="landing-footer-links" aria-label="Enlaces">
+            <a href="https://github.com/alejandromontoya-hr/hertzo" target="_blank" rel="noopener">GitHub ↗</a>
+            <a href="https://www.linkedin.com/in/alejandromontoya-hr" target="_blank" rel="noopener">LinkedIn ↗</a>
+            <a href="/escenarios#creditos">Créditos y licencias</a>
+          </nav>
+        </div>
+        <div class="landing-footer-legal">
+          <span>
+            Herramienta de planificación: sus predicciones no reemplazan mediciones de campo ni
+            estudios de ingeniería certificados.
+          </span>
+          <span>© 2026 Alejandro Montoya · MIT</span>
+        </div>
+      </footer>
+    </div>
+    <script type="module" src="/src/landing.ts"></script>
   </body>
 </html>

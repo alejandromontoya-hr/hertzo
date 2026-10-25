@@ -12,7 +12,7 @@ Todo corre en tu navegador: sin servidores, sin cuentas y sin costo.
 
 ## Escenarios
 
-Cada simulación tiene su propia dirección. La raíz (`hertzo.site/`) queda libre para la página principal del sitio.
+Cada simulación tiene su propia dirección. La raíz (`hertzo.site/`) es la página principal: qué hace Hertzo y la entrada a los escenarios.
 
 | Dirección | Escenario | Entorno | Qué calcula |
 | --- | --- | --- | --- |
@@ -47,7 +47,7 @@ npm run dev
 
 `npm run build` genera archivos estáticos en `dist/`:
 
-- `dist/index.html`: la raíz, vacía, para la página principal del sitio (su fuente es `index.html`).
+- `dist/index.html`: la página principal del sitio (su fuente es `index.html` y `src/landing.ts`).
 - `dist/<dirección>/index.html`: una copia de la app por cada dirección (`terreno`, `interiores`…), más `dist/404.html`. La fuente de la app es `simulador.html`.
 
 Así cualquier hosting estático (Cloudflare Pages, GitHub Pages) sirve `hertzo.site/interiores` sin reglas de reescritura ni claves. El sitio debe ir en la raíz del dominio: las rutas de los archivos son absolutas (`/assets/…`).

@@ -378,6 +378,201 @@ body {
   border-top: 1px solid var(--border);
 }
 
+/* --- Página principal (hertzo.site/) --- */
+
+.landing {
+  min-height: 100%;
+  padding: 0 32px;
+}
+
+.landing > * {
+  max-width: 1280px;
+  margin-inline: auto;
+}
+
+.landing-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 76px;
+}
+
+.landing-repo {
+  min-height: 40px;
+  font-size: 0.9rem;
+}
+
+.landing-hero {
+  padding-top: 24px;
+}
+
+.landing-heading {
+  margin: 0 0 24px;
+  padding-bottom: 16px;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  border-bottom: 2px solid var(--ink);
+}
+
+.landing-why {
+  margin-bottom: 80px;
+}
+
+.landing-points {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.landing-point {
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+}
+
+.landing-figure {
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 2.6rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+}
+
+.landing-figure span {
+  font-size: 1rem;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.landing-point h3 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.landing-point p:last-child {
+  margin: 0;
+  line-height: 1.6;
+  color: #3d4148;
+}
+
+.landing-scenarios {
+  margin-bottom: 96px;
+}
+
+.landing-scenarios .home-list-head a {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.landing-scenarios .home-list-head a:hover {
+  color: var(--accent);
+}
+
+.landing-scenario-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-scenario-list a {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  color: inherit;
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.landing-scenario-list a:hover,
+.landing-scenario-list a:focus-visible {
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: translate(-2px, -2px);
+}
+
+.landing-scenario-list a:hover .scenario-icon {
+  color: var(--accent);
+}
+
+.landing-scenario-text strong {
+  display: block;
+  font-weight: 600;
+}
+
+.landing-scenario-text small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.landing-footer {
+  padding: 40px 0 32px;
+  border-top: 1px solid var(--ink);
+}
+
+.landing-footer-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px 48px;
+  margin-bottom: 32px;
+}
+
+.landing-footer-logo {
+  display: block;
+  height: 32px;
+  width: auto;
+}
+
+.landing-tagline {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+
+.landing-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+}
+
+.landing-footer-links a {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.landing-footer-links a:hover {
+  color: var(--accent);
+}
+
+.landing-footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-top: 18px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
 /* --- Controles comunes de las páginas --- */
 
 .page-intro h2 {
@@ -1344,6 +1539,14 @@ body {
 
   .home {
     padding: 0 16px 48px;
+  }
+
+  .landing {
+    padding: 0 16px;
+  }
+
+  .landing-scenario-list {
+    grid-template-columns: 1fr;
   }
 
   .home-hero {
