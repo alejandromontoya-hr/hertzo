@@ -22,7 +22,7 @@ export const SCENARIO_ICONS: Record<string, string> = {
 };
 
 const brand = (body: string) =>
-  `<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+  `<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 
 // Lucide quitó los íconos de marcas en su versión 1; estos son los de la 0.577.0 (misma licencia ISC).
 export const GITHUB_ICON = brand(

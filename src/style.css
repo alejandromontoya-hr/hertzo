@@ -398,10 +398,76 @@ body {
   min-height: 76px;
 }
 
-.landing-repo {
-  gap: 8px;
-  min-height: 40px;
-  font-size: 0.9rem;
+/* Botón de solo ícono (GitHub, LinkedIn) con su etiqueta al pasar el cursor. La etiqueta se
+   alinea al borde derecho del botón para no salirse de la pantalla en la esquina. */
+.landing a.icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--text);
+  border-radius: 50%;
+  transition: background 0.15s;
+}
+
+.landing a.icon-button:hover,
+.landing a.icon-button:focus-visible {
+  color: var(--text);
+  background: #e6e1d4;
+}
+
+.icon-button::after,
+.icon-button::before {
+  position: absolute;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.icon-button::after {
+  content: attr(data-tooltip);
+  top: calc(100% + 10px);
+  right: 0;
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--bg);
+  background: var(--ink);
+  border-radius: 8px;
+}
+
+/* La flecha de la etiqueta, bajo el centro del ícono. */
+.icon-button::before {
+  content: '';
+  top: calc(100% + 4px);
+  right: 16px;
+  border: 6px solid transparent;
+  border-top: 0;
+  border-bottom-color: var(--ink);
+}
+
+.icon-button:hover::after,
+.icon-button:hover::before,
+.icon-button:focus-visible::after,
+.icon-button:focus-visible::before {
+  opacity: 1;
+}
+
+/* En el pie la etiqueta va arriba del ícono. */
+.landing-footer .icon-button::after {
+  top: auto;
+  bottom: calc(100% + 10px);
+}
+
+.landing-footer .icon-button::before {
+  top: auto;
+  bottom: calc(100% + 4px);
+  border: 6px solid transparent;
+  border-bottom: 0;
+  border-top-color: var(--ink);
 }
 
 .landing-hero {
@@ -550,7 +616,8 @@ body {
 .landing-footer-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 28px;
+  align-items: center;
+  gap: 8px 20px;
 }
 
 .landing-footer-links a {
