@@ -1,3 +1,5 @@
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
 import './style.css';
 import { startRouter, type Route } from './pages/router';
 import { CHOOSER_PATH, SCENARIOS } from './pages/scenarios';

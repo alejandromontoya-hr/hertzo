@@ -1,14 +1,22 @@
+/* Estilo «Carta»: papel de carta topográfica, tinta y el violeta del logo. */
 :root {
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --text: #1c2430;
-  --muted: #5b6676;
-  --border: #dde2e8;
-  --accent: #0b6e99;
+  --bg: #f3f0e7;
+  --surface: #fbfaf6;
+  --panel-bg: #f7f4ec;
+  --text: #1f2328;
+  --muted: #5d6168;
+  --border: #d8d2c2;
+  --ink: #1f2328;
+  --accent: #5b46f0;
+  --accent-hover: #4733d6;
+  --warn-bg: #fbe3cc;
+  --warn-text: #4a1a03;
   --error: #b42318;
   --panel-width: 400px;
+  --font-sans: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
 }
@@ -45,10 +53,13 @@ body {
 .app-header {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  padding: 10px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  gap: 12px 20px;
+  min-height: 56px;
+  padding: 0 20px;
+  align-content: center;
+  flex-wrap: wrap;
+  background: var(--bg);
+  border-bottom: 1px solid var(--ink);
 }
 
 .brand {
@@ -72,6 +83,11 @@ body {
 
 .crumbs a {
   color: var(--muted);
+  text-decoration: none;
+}
+
+.crumbs a:hover {
+  color: var(--accent);
 }
 
 .crumbs [data-crumb-current]::before {
@@ -203,45 +219,51 @@ body {
   display: flex;
   flex-wrap: wrap;
   margin-bottom: 8px;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .segmented button {
   flex: 1;
+  min-height: 36px;
   padding: 5px 8px;
   font: inherit;
   font-size: 0.85rem;
-  color: var(--accent);
-  background: var(--surface);
+  color: var(--text);
+  background: transparent;
   border: none;
   cursor: pointer;
 }
 
 .segmented button + button {
-  border-left: 1px solid var(--accent);
+  border-left: 1px solid var(--ink);
+}
+
+.segmented button:hover {
+  background: var(--bg);
 }
 
 .segmented button[aria-checked='true'] {
-  color: #ffffff;
-  background: var(--accent);
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--ink);
 }
 
 .tagline {
   margin: 0 0 0 auto;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--muted);
 }
 
 .panel {
   overflow-y: auto;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: var(--panel-bg);
+  border-right: 1px solid var(--ink);
 }
 
 .panel-section {
-  padding: 14px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -250,6 +272,12 @@ body {
   margin: 0 0 8px;
   font-size: 1rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.page-intro h2 {
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
 }
 
 .panel summary {
@@ -297,17 +325,26 @@ body {
 .field select {
   width: 100%;
   min-width: 0;
-  padding: 4px 6px;
+  min-height: 32px;
+  padding: 4px 8px;
   font: inherit;
   color: inherit;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--ink);
   border-radius: 4px;
 }
 
 .field input {
   text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
+}
+
+.field input:focus-visible,
+.field select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .field input[aria-invalid='true'] {
@@ -398,31 +435,42 @@ body {
 
 .site-details dd {
   margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
 .button {
+  min-height: 34px;
   margin: 0 0 8px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   font: inherit;
-  font-size: 0.875rem;
-  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--accent);
-  border-radius: 4px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
   cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .button[aria-pressed='true'] {
   color: #ffffff;
   background: var(--accent);
+  border-color: var(--accent);
 }
 
 .coverage-status progress {
   width: 100%;
-  height: 8px;
+  height: 6px;
   margin-bottom: 6px;
+  accent-color: var(--accent);
 }
 
 .map-area {
@@ -872,16 +920,23 @@ body {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
+  align-items: center;
   gap: 4px 16px;
-  padding: 6px 16px;
+  min-height: 36px;
+  padding: 6px 20px;
   font-size: 0.75rem;
   color: var(--muted);
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+  background: var(--bg);
+  border-top: 1px solid var(--ink);
 }
 
 .app-footer a,
 .link-button {
+  color: var(--text);
+}
+
+.app-footer a:hover,
+.link-button:hover {
   color: var(--accent);
 }
 

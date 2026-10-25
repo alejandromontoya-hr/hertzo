@@ -23,7 +23,7 @@ export function enableSitePlacement(
     if (!isActive()) return;
     if (!marker) {
       // La punta del alfiler (anchor 'bottom') marca el punto exacto del sitio.
-      marker = new Marker({ draggable: true, color: '#0b6e99', anchor: 'bottom' })
+      marker = new Marker({ draggable: true, color: '#5b46f0', anchor: 'bottom' })
         .setLngLat(event.lngLat)
         .addTo(map);
       marker.on('dragend', notify);

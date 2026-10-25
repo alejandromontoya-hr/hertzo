@@ -9,6 +9,7 @@ Hertzo se publica bajo licencia MIT. Estos son los componentes y datos de tercer
 | [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) | 6.x | BSD-3-Clause | Sí (exige conservar el aviso de copyright) | Mapa interactivo |
 | [ITM de NTIA](https://github.com/NTIA/itm) (Longley-Rice) | v1.4, commit `183ad95` | Dominio público en EE. UU. (Título 15 U.S.C. §105); en otros países, permiso irrevocable y gratuito para usar, modificar y distribuir. Pide reconocer a NTIA y anotar cambios. Ver `engine/itm/LICENSE.md` | Sí | Motor de propagación (`engine/itm/`, sin modificar) |
 | Runtime de [Emscripten](https://emscripten.org) | 6.0.13 | MIT / University of Illinois NCSA | Sí | Código que carga el motor WebAssembly (`src/propagation/wasm/itm.mjs`) |
+| Fuentes [Geist y Geist Mono](https://github.com/vercel/geist-font) (Vercel), empaquetadas por [Fontsource](https://fontsource.org) (`@fontsource-variable/geist`, `@fontsource-variable/geist-mono`) | 5.3.0 | SIL Open Font License 1.1 | Sí (la OFL permite incluir y distribuir la fuente con el sitio; no se puede vender sola) | Letras de toda la interfaz; el sitio las sirve desde sus propios archivos |
 | Fuente [Geist Mono](https://github.com/vercel/geist-font) (Vercel) | 1.3.1, peso Medium | SIL Open Font License 1.1 | Sí (la OFL permite usar la fuente en logos e imágenes; no se redistribuye el archivo de la fuente) | Letras «hertz» del logo, convertidas a trazos (`docs/marca/`, `public/logo.svg`) |
 
 ## Datos que se descargan en tiempo de ejecución
