@@ -936,40 +936,131 @@ body {
   accent-color: var(--accent);
 }
 
-/* Selector de mapa base, debajo de los botones de acercar y alejar. */
-.basemap-control {
-  display: flex;
-  overflow: hidden;
-  font-size: 0.78rem;
-  background: var(--surface);
-  border: 1px solid var(--ink);
-  border-radius: 999px;
+/* Botón flotante abajo a la derecha: mapa base e información. Los selectores llevan
+   .maplibregl-ctrl para ganarle al resaltado que MapLibre pone a sus botones. */
+.maplibregl-ctrl.map-menu {
+  position: relative;
 }
 
-.basemap-control button {
-  min-height: 32px;
-  padding: 0 12px;
-  font: inherit;
+.maplibregl-ctrl.map-menu .map-menu-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   color: var(--text);
-  background: transparent;
-  border: none;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: 3px 3px 0 var(--ink);
   cursor: pointer;
 }
 
-.basemap-control button + button {
-  border-left: 1px solid var(--ink);
+.maplibregl-ctrl.map-menu .map-menu-toggle:not(:disabled):hover,
+.maplibregl-ctrl.map-menu .map-menu-toggle[aria-expanded='true'] {
+  color: var(--bg);
+  background: var(--ink);
 }
 
-/* Más específicos que el resaltado al pasar el cursor de los botones de MapLibre. */
-.maplibregl-ctrl.basemap-control button:not(:disabled):hover {
+.map-menu-panel {
+  position: absolute;
+  right: 0;
+  bottom: 54px;
+  width: 260px;
+  padding: 10px;
+  font-size: 0.82rem;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.map-menu-panel[hidden] {
+  display: none;
+}
+
+.map-menu-title {
+  margin: 4px 6px 6px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.map-menu-title + div + .map-menu-title,
+.map-menu-panel [role='radiogroup'] + .map-menu-title {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.maplibregl-ctrl.map-menu .map-menu-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  height: auto;
+  padding: 8px 6px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.maplibregl-ctrl.map-menu .map-menu-option:not(:disabled):hover {
   background: var(--bg);
 }
 
-.maplibregl-ctrl.basemap-control button[aria-checked='true'],
-.maplibregl-ctrl.basemap-control button[aria-checked='true']:not(:disabled):hover {
+.map-menu-option strong {
+  display: block;
   font-weight: 600;
-  color: var(--bg);
-  background: var(--ink);
+}
+
+.map-menu-option small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.map-menu-check {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+}
+
+.map-menu-option[aria-checked='true'] .map-menu-check {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.maplibregl-ctrl.map-menu .map-menu-link {
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 8px 6px;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.maplibregl-ctrl.map-menu .map-menu-link:not(:disabled):hover {
+  color: var(--accent);
+  background: var(--bg);
 }
 
 .readout {
@@ -1007,8 +1098,8 @@ body {
   position: absolute;
   left: 10px;
   right: 10px;
-  /* Deja libres la escala y los créditos del mapa, que deben quedar visibles. */
-  bottom: 44px;
+  /* Deja libres la escala, los créditos y el botón del mapa, que deben quedar visibles. */
+  bottom: 64px;
   height: 210px;
   display: flex;
   flex-direction: column;

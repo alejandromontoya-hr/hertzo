@@ -1,4 +1,5 @@
 import {
+  AttributionControl,
   Map as MapLibreMap,
   NavigationControl,
   ScaleControl,
@@ -133,38 +134,82 @@ function applyBasemap(map: MapLibreMap, basemap: BasemapId): void {
   }
 }
 
-/** Botones Carta · Color · Topográfico en la esquina del mapa. */
-class BasemapControl implements IControl {
+const LAYERS_ICON =
+  '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5z"/><path d="m2.5 12 9.5 5 9.5-5"/><path d="m2.5 16 9.5 5 9.5-5"/></svg>';
+
+/** Botón flotante abajo a la derecha: al abrirlo, elige el mapa base y lleva a los créditos. */
+class MapMenuControl implements IControl {
   private container?: HTMLElement;
+  private closeOnOutsideClick?: (event: MouseEvent) => void;
 
   constructor(private current: BasemapId) {}
 
   onAdd(map: MapLibreMap): HTMLElement {
     const container = document.createElement('div');
-    container.className = 'maplibregl-ctrl basemap-control';
-    container.setAttribute('role', 'radiogroup');
-    container.setAttribute('aria-label', 'Mapa base');
-    container.innerHTML = BASEMAPS.map(
-      (b) =>
-        `<button type="button" role="radio" data-basemap="${b.id}" title="${b.description}" aria-checked="${b.id === this.current}">${b.label}</button>`,
-    ).join('');
-    container.addEventListener('click', (event) => {
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-basemap]');
-      if (!button) return;
-      const id = parseBasemap(button.dataset.basemap);
-      if (id === this.current) return;
-      this.current = id;
-      applyBasemap(map, id);
-      saveBasemap(id);
-      for (const b of container.querySelectorAll<HTMLButtonElement>('[data-basemap]')) {
-        b.setAttribute('aria-checked', String(b.dataset.basemap === id));
+    container.className = 'maplibregl-ctrl map-menu';
+    container.innerHTML = `
+      <div class="map-menu-panel" id="map-menu-panel" hidden>
+        <p class="map-menu-title" id="map-menu-basemap">Mapa base</p>
+        <div role="radiogroup" aria-labelledby="map-menu-basemap">
+          ${BASEMAPS.map(
+            (b) => `
+            <button type="button" role="radio" class="map-menu-option" data-basemap="${b.id}" aria-checked="${b.id === this.current}">
+              <span class="map-menu-check" aria-hidden="true"></span>
+              <span><strong>${b.label}</strong><small>${b.description}</small></span>
+            </button>`,
+          ).join('')}
+        </div>
+        <p class="map-menu-title">Información</p>
+        <button type="button" class="map-menu-link" data-map-credits>Créditos y licencias</button>
+        <a class="map-menu-link" href="https://github.com/alejandromontoya-hr/hertzo" target="_blank" rel="noopener">Código abierto (MIT) ↗</a>
+      </div>
+      <button type="button" class="map-menu-toggle" aria-expanded="false" aria-controls="map-menu-panel" aria-label="Mapa base e información">${LAYERS_ICON}</button>`;
+
+    const panel = container.querySelector<HTMLElement>('.map-menu-panel')!;
+    const toggle = container.querySelector<HTMLButtonElement>('.map-menu-toggle')!;
+    const setOpen = (open: boolean) => {
+      panel.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+    };
+
+    toggle.addEventListener('click', () => setOpen(panel.hidden !== false));
+    container.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !panel.hidden) {
+        setOpen(false);
+        toggle.focus();
       }
     });
+    panel.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('[data-map-credits]')) {
+        setOpen(false);
+        document.querySelector<HTMLDialogElement>('#credits')?.showModal();
+        return;
+      }
+      const option = target.closest<HTMLButtonElement>('[data-basemap]');
+      if (!option) return;
+      const id = parseBasemap(option.dataset.basemap);
+      if (id !== this.current) {
+        this.current = id;
+        applyBasemap(map, id);
+        saveBasemap(id);
+        for (const b of panel.querySelectorAll<HTMLButtonElement>('[data-basemap]')) {
+          b.setAttribute('aria-checked', String(b.dataset.basemap === id));
+        }
+      }
+      setOpen(false);
+    });
+    this.closeOnOutsideClick = (event) => {
+      if (!container.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('click', this.closeOnOutsideClick);
+
     this.container = container;
     return container;
   }
 
   onRemove(): void {
+    if (this.closeOnOutsideClick) document.removeEventListener('click', this.closeOnOutsideClick);
     this.container?.remove();
   }
 }
@@ -177,8 +222,11 @@ export function createMap(container: HTMLElement): MapLibreMap {
     center: ANTIOQUIA_CENTER,
     zoom: ANTIOQUIA_ZOOM,
     locale: SPANISH_LOCALE,
+    attributionControl: false,
   });
   map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
-  map.addControl(new BasemapControl(basemap), 'top-right');
-  map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');  return map;
+  map.addControl(new MapMenuControl(basemap), 'bottom-right');
+  map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
+  // OpenStreetMap exige que su crédito se vea en el mapa: queda abajo a la izquierda, junto a la escala.
+  map.addControl(new AttributionControl(), 'bottom-left');  return map;
 }
