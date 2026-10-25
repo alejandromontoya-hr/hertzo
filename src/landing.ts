@@ -4,9 +4,14 @@
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './style.css';
+import { inject } from '@vercel/analytics';
 import { SCENARIOS } from './pages/scenarios';
 import { GITHUB_ICON, LINKEDIN_ICON, SCENARIO_ICONS } from './ui/icons';
 import { SAMPLE_MAP_KEY, sampleCoverageMap } from './ui/sampleMap';
+
+// Contador de visitas de Vercel Web Analytics: sin cookies ni datos personales. Fuera de
+// Vercel (por ejemplo en desarrollo) no envía nada.
+inject();
 
 document.querySelector('[data-sample-map]')!.innerHTML = sampleCoverageMap();
 document.querySelector('[data-sample-key]')!.innerHTML = SAMPLE_MAP_KEY;

@@ -1,8 +1,13 @@
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './style.css';
+import { inject } from '@vercel/analytics';
 import { startRouter, type Route } from './pages/router';
 import { CHOOSER_PATH, SCENARIOS } from './pages/scenarios';
+
+// Contador de visitas de Vercel Web Analytics: sin cookies ni datos personales. Fuera de
+// Vercel (por ejemplo en desarrollo) no envía nada.
+inject();
 
 const titleOf = (path: string) => SCENARIOS.find((s) => s.path === path)!.title;
 
