@@ -62,8 +62,9 @@ body {
   border-bottom: 1px solid var(--ink);
 }
 
+/* Sin centrar aparte: la línea base de la barra es el pie del logo, así las migas y el lema se
+   apoyan en la misma línea que las letras de «hertzo». */
 .brand {
-  align-self: center;
   display: flex;
   margin: 0;
 }
