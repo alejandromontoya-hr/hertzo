@@ -421,8 +421,7 @@ body {
   min-height: 76px;
 }
 
-/* Botón de solo ícono (GitHub, LinkedIn) con su etiqueta al pasar el cursor. La etiqueta se
-   alinea al borde derecho del botón para no salirse de la pantalla en la esquina. */
+/* Botón de solo ícono (GitHub, LinkedIn) con su etiqueta centrada al pasar el cursor. */
 .landing a.icon-button {
   position: relative;
   display: grid;
@@ -452,7 +451,8 @@ body {
 .icon-button::after {
   content: attr(data-tooltip);
   top: calc(100% + 10px);
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   padding: 8px 14px;
   font-size: 0.875rem;
   font-weight: 500;
@@ -462,11 +462,12 @@ body {
   border-radius: 8px;
 }
 
-/* La flecha de la etiqueta, bajo el centro del ícono. */
+/* La flecha de la etiqueta, en el centro del ícono. */
 .icon-button::before {
   content: '';
   top: calc(100% + 4px);
-  right: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   border: 6px solid transparent;
   border-top: 0;
   border-bottom-color: var(--ink);
@@ -477,6 +478,18 @@ body {
 .icon-button:focus-visible::after,
 .icon-button:focus-visible::before {
   opacity: 1;
+}
+
+/* El botón de GitHub de arriba está en la esquina: si la pantalla es angosta y la etiqueta
+   (~200 px) no cabe centrada, solo la etiqueta se corre hacia adentro; la flecha no se mueve.
+   --edge es el espacio entre el borde del botón y el de la pantalla (16 px de barra de
+   desplazamiento descontados). */
+.landing-bar {
+  --edge: calc(32px + max(0px, (100vw - 1360px) / 2));
+}
+
+.landing-bar .icon-button::after {
+  transform: translateX(calc(-50% - max(0px, 100px - 22px - var(--edge))));
 }
 
 /* En el pie la etiqueta va arriba del ícono. */
@@ -1637,6 +1650,10 @@ body {
 
   .landing {
     padding: 0 16px;
+  }
+
+  .landing-bar {
+    --edge: 16px;
   }
 
   .landing-scenario-list {
