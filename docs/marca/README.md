@@ -19,4 +19,4 @@ El logo es el resonador de Heinrich Hertz (1887): un aro de alambre abierto con 
 | --- | --- | --- |
 | Negro | `#0b0b10` (fondo) | `#15141a` (letras y aro) |
 | Blanco | `#f2f1ee` (letras y aro) | `#f2f1ee` (fondo) |
-| Violeta (la chispa) | `#a99bff` | `#5b46f0` |
+| Azul de río (la chispa) | `#7fb3d9` | `#1f5c8c` |

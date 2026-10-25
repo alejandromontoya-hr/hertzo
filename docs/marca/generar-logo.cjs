@@ -62,9 +62,9 @@ const inner = (ink, sp) =>
   `<path d="${spark}" fill="none" stroke="${sp}" stroke-width="${f(sw * 0.34)}" stroke-linecap="round" stroke-linejoin="round"/>`;
 
 fs.writeFileSync(path.join(outDir, "logo.svg"),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="hertzo">${inner("#15141a", "#5b46f0")}</svg>\n`);
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="hertzo">${inner("#15141a", "#1f5c8c")}</svg>\n`);
 fs.writeFileSync(path.join(outDir, "logo-oscuro.svg"),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="hertzo">${inner("#f2f1ee", "#a99bff")}</svg>\n`);
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="hertzo">${inner("#f2f1ee", "#7fb3d9")}</svg>\n`);
 
 // Ícono: el aro redondo (el resonador original) sobre fondo negro
 const g = (R, gap, mid, c) => { const Q = (d) => [c + R * Math.cos((d * Math.PI) / 180), c - R * Math.sin((d * Math.PI) / 180)]; return [Q(mid + gap), Q(mid - gap)]; };
@@ -72,7 +72,7 @@ const [ia, ib] = g(19, 40, 52, 32), isw = 6.4, irb = 5.4;
 const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0b0b10"/>` +
   `<path d="M${f(ia[0])} ${f(ia[1])} A19 19 0 1 0 ${f(ib[0])} ${f(ib[1])}" fill="none" stroke="#f2f1ee" stroke-width="${isw}" stroke-linecap="round"/>` +
   `<circle cx="${f(ia[0])}" cy="${f(ia[1])}" r="${irb}" fill="#f2f1ee"/><circle cx="${f(ib[0])}" cy="${f(ib[1])}" r="${irb}" fill="#f2f1ee"/>` +
-  `<path d="${zig(ia, ib, irb + 2, 2.6)}" fill="none" stroke="#a99bff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>\n`;
+  `<path d="${zig(ia, ib, irb + 2, 2.6)}" fill="none" stroke="#7fb3d9" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>\n`;
 fs.writeFileSync(path.join(outDir, "favicon.svg"), icon);
 console.log(JSON.stringify({ adv: f(adv), sw: f(sw), vb }));
 

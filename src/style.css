@@ -1,4 +1,4 @@
-/* Estilo «Carta»: papel de carta topográfica, tinta y el violeta del logo. */
+/* Estilo «Carta»: papel de carta topográfica, tinta y el azul de río del logo. */
 :root {
   --bg: #f3f0e7;
   --surface: #fbfaf6;
@@ -7,8 +7,8 @@
   --muted: #5d6168;
   --border: #d8d2c2;
   --ink: #1f2328;
-  --accent: #5b46f0;
-  --accent-hover: #4733d6;
+  --accent: #1f5c8c;
+  --accent-hover: #174a6e;
   --warn-bg: #fbe3cc;
   --warn-text: #4a1a03;
   --error: #b42318;
@@ -1053,8 +1053,8 @@ body {
 }
 
 .profile-body .link-fresnel {
-  fill: rgb(91 70 240 / 0.08);
-  stroke: rgb(91 70 240 / 0.6);
+  fill: rgb(31 92 140 / 0.08);
+  stroke: rgb(31 92 140 / 0.6);
   stroke-dasharray: 4 3;
   stroke-width: 1;
 }
@@ -1103,8 +1103,8 @@ body {
 }
 
 .key-fresnel {
-  background: rgb(91 70 240 / 0.08);
-  border: 1px dashed rgb(91 70 240 / 0.6);
+  background: rgb(31 92 140 / 0.08);
+  border: 1px dashed rgb(31 92 140 / 0.6);
 }
 
 .key-sixty {
