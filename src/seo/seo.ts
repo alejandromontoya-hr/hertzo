@@ -29,7 +29,7 @@ export const SITE = {
 export interface PageMeta {
   /** '' es la página principal; 'terreno' es hertzo.site/terreno. */
   path: string;
-  /** Título completo de la pestaña y de Google. */
+  /** Título completo de la pestaña y de Google: primero lo que hace la página y al final « | Hertzo». */
   title: string;
   description: string;
   /** Fecha del último cambio de contenido (AAAA-MM-DD), para el sitemap. */
@@ -53,7 +53,7 @@ const UPDATED: Record<string, string> = {
 
 const scenarioMeta = (s: Scenario): PageMeta => ({
   path: s.path,
-  title: `${s.pageTitle} · ${SITE.name}`,
+  title: `${s.pageTitle} | ${SITE.name}`,
   description: s.description,
   updated: UPDATED[s.path]!,
 });
@@ -62,14 +62,14 @@ const scenarioMeta = (s: Scenario): PageMeta => ({
 export const PAGES: readonly PageMeta[] = [
   {
     path: '',
-    title: `${SITE.name} · ${SITE.tagline}`,
+    title: `${SITE.tagline} | ${SITE.name}`,
     description:
       'Simulador abierto de propagación RF: radio profesional sobre terreno real con bajada y subida por separado, FM y AM, celular, enlaces, WiFi y túneles. Gratis.',
     updated: UPDATED['']!,
   },
   {
     path: CHOOSER_PATH,
-    title: `Escenarios de simulación RF · ${SITE.name}`,
+    title: `Escenarios de simulación RF | ${SITE.name}`,
     description:
       'Elige qué simular: radio profesional en terreno, radiodifusión FM y AM, celular LTE y 5G, enlaces punto a punto, WiFi en interiores o túneles y minas.',
     updated: UPDATED[CHOOSER_PATH]!,
@@ -117,7 +117,6 @@ export function structuredData(path: string): object {
           '@type': 'WebSite',
           '@id': WEBSITE_ID,
           name: SITE.name,
-          alternateName: `${SITE.name} · ${SITE.tagline}`,
           url: pageUrl(''),
           description: page.description,
           inLanguage: 'es',
@@ -222,7 +221,7 @@ export function headTags(path: string): string {
 /** <head> de la página de dirección inexistente (404.html): que ningún buscador la guarde. */
 export function notFoundHeadTags(): string {
   return [
-    `<title>Página no encontrada · ${SITE.name}</title>`,
+    `<title>Página no encontrada | ${SITE.name}</title>`,
     `<meta name="robots" content="noindex" />`,
     `<meta name="theme-color" content="${SITE.themeColor}" />`,
   ].join('\n    ');

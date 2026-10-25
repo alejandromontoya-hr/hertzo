@@ -19,8 +19,16 @@ describe('páginas', () => {
     ]);
   });
 
-  it('terreno → «Cobertura de radio P25 y trunking sobre terreno · Hertzo»', () => {
-    expect(pageMeta('terreno')!.title).toBe('Cobertura de radio P25 y trunking sobre terreno · Hertzo');
+  it('terreno → «Cobertura de radio P25 y trunking sobre terreno | Hertzo»', () => {
+    expect(pageMeta('terreno')!.title).toBe('Cobertura de radio P25 y trunking sobre terreno | Hertzo');
+  });
+
+  it('la principal empieza por lo que hace y deja la marca al final', () => {
+    expect(pageMeta('')!.title).toBe('Simulador abierto de propagación RF | Hertzo');
+  });
+
+  it('todos los títulos terminan en « | Hertzo»', () => {
+    for (const page of PAGES) expect(page.title.endsWith(' | Hertzo'), page.title).toBe(true);
   });
 
   it('los títulos caben en Google (≤ 60 caracteres) y las descripciones también (≤ 160)', () => {
