@@ -80,7 +80,7 @@ const ANTENNA_FIELDS: readonly NumberFieldSpec<keyof SectorAntenna>[] = [
   { key: 'downtiltDeg', label: 'Inclinación hacia abajo', unit: '°', min: -10, max: 30 },
 ];
 
-const SECTOR_COLORS = ['#0969da', '#bc4c00', '#8250df', '#1a7f37'];
+const SECTOR_COLORS = ['#1f5c8c', '#d95f0e', '#6b8e23', '#8c2d4a'];
 
 type View = 'rsrp' | 'best' | 'sinr';
 const VIEWS: { id: View; label: string; title: string }[] = [

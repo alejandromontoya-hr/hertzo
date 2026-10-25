@@ -47,7 +47,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
 ];
 
 const HEAT_COLORS = ['#c2520a', '#e8731a', '#fa9d3d', '#fdc672', '#feecb4'];
-const AP_COLORS = ['#0969da', '#bc4c00', '#8250df', '#1a7f37', '#bf3989', '#0a7c86'];
+const AP_COLORS = ['#1f5c8c', '#d95f0e', '#6b8e23', '#8c2d4a', '#2a8c82', '#b8860b'];
 const SNAP_STEP_M = 0.25;
 const SNAP_ENDPOINT_PX = 10;
 const STORAGE_KEY = 'hertzo-interiores-v1';

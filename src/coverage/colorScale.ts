@@ -45,9 +45,10 @@ export function balanceClass(talkOutMarginDb: number, talkInMarginDb: number): B
 }
 
 export const BALANCE_LEGEND: readonly { cls: BalanceClass; color: string; label: string }[] = [
-  { cls: 'both', color: '#1a7f37', label: 'Bajada y subida llegan' },
-  { cls: 'talkOutOnly', color: '#cf222e', label: 'Solo bajada: oyes la repetidora, pero ella no te oye' },
-  { cls: 'talkInOnly', color: '#8250df', label: 'Solo subida: la repetidora te oye, pero tú no la oyes' },
+  // Oscuro, medio y claro: se distinguen por claridad aunque no se distingan los tonos.
+  { cls: 'both', color: '#1f5c8c', label: 'Bajada y subida llegan' },
+  { cls: 'talkOutOnly', color: '#d95f0e', label: 'Solo bajada: oyes la repetidora, pero ella no te oye' },
+  { cls: 'talkInOnly', color: '#a8b65a', label: 'Solo subida: la repetidora te oye, pero tú no la oyes' },
 ];
 
 /** Bandera del ITM: ángulo de horizonte grande en el transmisor (el sitio), Warnings.h 0x0080. */

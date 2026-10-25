@@ -93,8 +93,8 @@ describe('renderCoverage', () => {
     expect(paint('talkIn')[3]).toBe(0);
   });
 
-  it('desbalance con 150 dB: solo bajada, rojo #cf222e', () => {
-    expect(Array.from(paint('balance').slice(0, 4))).toEqual([0xcf, 0x22, 0x2e, 255]);
+  it('desbalance con 150 dB: solo bajada, naranja #d95f0e', () => {
+    expect(Array.from(paint('balance').slice(0, 4))).toEqual([0xd9, 0x5f, 0x0e, 255]);
   });
 
   it('el píxel con advertencia 0x0080 cae en una diagonal del rayado: gris oscuro', () => {
