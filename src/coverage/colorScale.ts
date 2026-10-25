@@ -7,10 +7,10 @@
 export const DEFAULT_LEVEL_THRESHOLDS_DBM: readonly number[] = [-80, -95, -105];
 
 /**
- * Colores de las franjas, de la señal más fuerte a la más débil: rampa secuencial de café a
- * amarillo (ColorBrewer YlOrBr), que se lee por claridad aunque no se distingan los tonos.
+ * Colores de las franjas, de la señal más fuerte a la más débil: verde, verde claro, amarillo
+ * y rojo, la convención de los mapas de cobertura de radio.
  */
-export const LEVEL_COLORS: readonly string[] = ['#8c2d04', '#d95f0e', '#fe9929', '#fed98e'];
+export const LEVEL_COLORS: readonly string[] = ['#1a9850', '#91cf60', '#f6d32d', '#d73027'];
 
 /**
  * Franja de un nivel: 0 la más fuerte … 3 entre el umbral más bajo y la sensibilidad;

@@ -34,10 +34,10 @@ function heroMap(): string {
     for (let i = 1; i <= count; i++) (i % 4 === 0 ? index : topo).push(contour(x, y, 16 * i, phase + i * 0.09, 1.5));
   }
   const bands = [
-    { r: 215, k: 1, fill: '#fed98e', opacity: 0.55, stroke: '#c47a1a' },
-    { r: 158, k: 1.2, fill: '#fe9929', opacity: 0.45, stroke: '#b4600e' },
-    { r: 104, k: 1.4, fill: '#d95f0e', opacity: 0.5, stroke: '#8c3b07' },
-    { r: 52, k: 1.6, fill: '#8c2d04', opacity: 0.6, stroke: '#5e1e02' },
+    { r: 215, k: 1, fill: '#d73027', opacity: 0.5, stroke: '#a3201a' },
+    { r: 158, k: 1.2, fill: '#f6d32d', opacity: 0.6, stroke: '#b89a10' },
+    { r: 104, k: 1.4, fill: '#91cf60', opacity: 0.65, stroke: '#5f9a35' },
+    { r: 52, k: 1.6, fill: '#1a9850', opacity: 0.7, stroke: '#106a37' },
   ];
   return `
     <svg viewBox="0 0 606 470" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -80,8 +80,8 @@ export function mountHomePage({ root }: PageContext): void {
           <figcaption>
             <span>Ejemplo ilustrativo · bajada de un sitio UHF</span>
             <span class="hero-map-key">
-              <i style="background:#8c2d04"></i>≥ −80 <i style="background:#d95f0e"></i>−95
-              <i style="background:#fe9929"></i>−105 <i style="background:#fed98e"></i>−116 dBm
+              <i style="background:#1a9850"></i>≥ −80 <i style="background:#91cf60"></i>−95
+              <i style="background:#f6d32d"></i>−105 <i style="background:#d73027"></i>−116 dBm
             </span>
           </figcaption>
         </figure>
