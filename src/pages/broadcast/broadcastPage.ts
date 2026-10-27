@@ -7,6 +7,8 @@ import type { CoverageRequest, CoverageResult } from '../../coverage/computeCove
 import { paintBands, bandLabels } from '../../coverage/paint';
 import { areaAboveKm2, gridValues, lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
+import { KMZ_BUTTON_HTML, bindKmzButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { exportFileName } from '../../export/kml';
 import { distanceM } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
@@ -21,6 +23,7 @@ import {
 import { AM_ANTENNAS, GROUND_TYPES, flatEarthLimitKm, groundwaveRangeKm } from '../../rf/groundwave';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { formatLonLat, formatMeters, formatMHz } from '../../ui/format';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
@@ -104,7 +107,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       <p class="hint" data-service-hint></p>
     </section>
     ${siteSectionHtml('Transmisor', 'Haz clic en el mapa para ubicar la antena de la emisora.')}
-    ${coverageStatusHtml()}
+    ${coverageStatusHtml('Cobertura', KMZ_BUTTON_HTML)}
     <section class="panel-section">
       <h2>Emisora</h2>
       <div class="form" data-station-form></div>
@@ -121,6 +124,8 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   const stationForm = page.find('[data-station-form]');
   const stationSummary = page.find('[data-station-summary]');
   const zones = page.find('[data-zones]');
+  const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
+  bindKmzButton(exportButton, exportKmz);
   const coverageLayer = createCoverageLayer(page.map, opacity);
   const legend = createMapLegend(page.legendRoot, {
     onView() {},
@@ -141,6 +146,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     values = new Float32Array(geometry.index.length);
     lowConfidence = new Uint8Array(geometry.index.length);
     pixels = new Uint8ClampedArray(geometry.index.length * 4);
+    exportButton.hidden = false;
     redraw();
   });
 
@@ -217,27 +223,126 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     }));
   }
 
-  function showZones() {
-    if (!coverage || !values || !geometry) return;
+  /** Zonas de servicio del último cálculo: umbral, alcance (solo AM) y área. La misma tabla va al KMZ. */
+  function zoneTable(): { header: string[]; rows: string[][]; note: string } | null {
+    if (!coverage || !values || !geometry) return null;
     const sorted = [...thresholds].sort((a, b) => b - a);
     const areas = areaAboveKm2(values, sorted, pixelAreaKm2(geometry, coverage.plan.radiusM));
     const isAm = coverage.request.engine.id === 'groundwave';
+    const radiusKm = coverage.plan.radiusM / 1000;
     const rows = sorted.map((t, i) => {
-      const range = isAm ? groundwaveRangeKm(eirpDbm(), frequencyMHz(), ground, t) : null;
-      const rangeText = range === null ? '' : range >= coverage!.plan.radiusM / 1000 ? `> ${integerFormat.format(coverage!.plan.radiusM / 1000)} km` : `${oneDecimal.format(range)} km`;
-      return `<tr><th scope="row"><span class="legend-swatch" style="background:${LEVEL_COLORS[i]}"></span>≥ ${t} dBµV/m (${mvmFormat.format(dbuvmToMvm(t))} mV/m)</th>
-        ${isAm ? `<td>${rangeText}</td>` : ''}<td>${integerFormat.format(areas[i]!)} km²</td></tr>`;
+      const label = `≥ ${t} dBµV/m (${mvmFormat.format(dbuvmToMvm(t))} mV/m)`;
+      const area = `${integerFormat.format(areas[i]!)} km²`;
+      if (!isAm) return [label, area];
+      const range = groundwaveRangeKm(eirpDbm(), frequencyMHz(), ground, t);
+      const rangeText = range >= radiusKm ? `> ${integerFormat.format(radiusKm)} km` : `${oneDecimal.format(range)} km`;
+      return [label, rangeText, area];
     });
+    return {
+      header: ['', ...(isAm ? ['Alcance'] : []), 'Área'],
+      rows,
+      note: isAm
+        ? `El modelo de Tierra plana vale hasta ~${integerFormat.format(flatEarthLimitKm(frequencyMHz()))} km a esta frecuencia; más allá aparece rayado porque la predicción es optimista.`
+        : 'Área dentro del radio de cálculo donde el campo supera cada umbral. El rayado marca laderas empinadas junto al transmisor, donde el ITM advierte baja confianza.',
+    };
+  }
+
+  function showZones() {
+    const table = zoneTable();
+    if (!table) return;
+    const body = table.rows.map(
+      ([label, ...cells], i) =>
+        `<tr><th scope="row"><span class="legend-swatch" style="background:${LEVEL_COLORS[i]}"></span>${label}</th>
+        ${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`,
+    );
     zones.innerHTML = `
       <table class="budget zones">
-        <thead><tr><th></th>${isAm ? '<th>Alcance</th>' : ''}<th>Área</th></tr></thead>
-        <tbody>${rows.join('')}</tbody>
+        <thead><tr>${table.header.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${body.join('')}</tbody>
       </table>
-      <p class="hint">${
-        isAm
-          ? `El modelo de Tierra plana vale hasta ~${integerFormat.format(flatEarthLimitKm(frequencyMHz()))} km a esta frecuencia; más allá aparece rayado porque la predicción es optimista.`
-          : 'Área dentro del radio de cálculo donde el campo supera cada umbral. El rayado marca laderas empinadas junto al transmisor, donde el ITM advierte baja confianza.'
-      }</p>`;
+      <p class="hint">${table.note}</p>`;
+  }
+
+  /** Título y textos de la leyenda, iguales en el mapa y en el KMZ. */
+  function legendTexts() {
+    return {
+      title: service === 'fm' ? 'Intensidad de campo FM (dBµV/m)' : 'Intensidad de campo AM, onda de tierra (dBµV/m)',
+      entries: legendEntries(),
+      emptyLabel: 'por debajo del umbral más bajo',
+      hatchLabel: service === 'fm' ? 'baja confianza (ladera empinada junto al transmisor)' : 'más allá de la validez de Tierra plana',
+    };
+  }
+
+  /** «FM 98,5 MHz» o «AM 1.000 kHz». */
+  const stationLabel = () =>
+    service === 'fm' ? `FM ${formatMHz(fm.frequencyMHz)}` : `AM ${integerFormat.format(am.frequencyKHz)} kHz`;
+
+  /** Descarga un KMZ con el campo, su leyenda y el transmisor con su ficha y las zonas de servicio. */
+  async function exportKmz() {
+    const zoneInfo = zoneTable();
+    if (!coverage || !zoneInfo) return;
+    const result = coverage;
+    const offsetDb = fieldStrengthDbuvm(eirpDbm(), result.request.links[0]!.frequencyMHz);
+    const mask = lowConfidenceMask(engineOf(result));
+    const levels = [...thresholds];
+    const position = result.plan.site;
+    const station =
+      service === 'fm'
+        ? [
+            ['Frecuencia', formatMHz(fm.frequencyMHz)],
+            ['Potencia radiada (ERP)', `${mvmFormat.format(fm.erpKw)} kW (${oneDecimal.format(kilowattsToDbm(fm.erpKw))} dBm)`],
+            ['PIRE', `${oneDecimal.format(eirpDbm())} dBm (${mvmFormat.format(fm.erpKw * 1.64)} kW)`],
+            ['Altura de la antena', `${formatMeters(fm.antennaHeightM)} sobre el terreno`],
+            ['Altura del receptor', formatMeters(fm.receiverHeightM)],
+          ]
+        : [
+            ['Frecuencia', `${integerFormat.format(am.frequencyKHz)} kHz`],
+            ['Potencia del transmisor', `${mvmFormat.format(am.powerKw)} kW (${oneDecimal.format(kilowattsToDbm(am.powerKw))} dBm)`],
+            ['Antena', amAntenna.label],
+            ['PIRE', `${oneDecimal.format(eirpDbm())} dBm`],
+            ['Suelo', ground.label],
+          ];
+
+    await downloadCoverageKmz({
+      documentName: `Hertzo · Radiodifusión ${stationLabel()}`,
+      fileName: exportFileName(
+        'radiodifusion',
+        service === 'fm' ? `FM-${fm.frequencyMHz}MHz` : `AM-${am.frequencyKHz}kHz`,
+        position,
+        'kmz',
+      ),
+      plan: result.plan,
+      layers: [
+        {
+          name: `Campo ${stationLabel()}`,
+          file: 'campo',
+          paint(g, out) {
+            const v = new Float32Array(g.index.length);
+            const low = new Uint8Array(g.index.length);
+            gridValues(g, result.grids[0]!, offsetDb, v);
+            lowConfidencePixels(g, result.grids, mask, low);
+            paintBands(g, v, levels, LEVEL_COLORS.slice(0, levels.length), low, out);
+          },
+          legend: legendTexts(),
+        },
+      ],
+      opacity,
+      site: {
+        name: `Transmisor · ${stationLabel()}`,
+        position,
+        tables: [
+          {
+            rows: [
+              ['Ubicación (lat, lon)', formatLonLat(position.lon, position.lat)],
+              ['Servicio', service === 'fm' ? 'FM (ITM sobre terreno)' : 'AM (onda de tierra)'],
+              ...station,
+              ['Radio de cálculo', `${integerFormat.format(result.plan.radiusM / 1000)} km`],
+            ],
+          },
+          { title: 'Zonas de servicio', ...zoneInfo },
+        ],
+      },
+    });
   }
 
   function redraw() {
@@ -255,10 +360,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     legend.update({
       views: [{ id: 'campo', label: 'Campo' }],
       activeView: 'campo',
-      title: service === 'fm' ? 'Intensidad de campo FM (dBµV/m)' : 'Intensidad de campo AM, onda de tierra (dBµV/m)',
-      entries: legendEntries(),
-      emptyLabel: 'por debajo del umbral más bajo',
-      hatchLabel: service === 'fm' ? 'baja confianza (ladera empinada junto al transmisor)' : 'más allá de la validez de Tierra plana',
+      ...legendTexts(),
       thresholds: { values: thresholds, unit: 'dBµV/m', min: 0, max: 140 },
       opacity,
     });
@@ -275,6 +377,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     thresholds = [...SERVICE[service].thresholds];
     site.setRadiusKm(SERVICE[service].radiusKm);
     coverage = null;
+    exportButton.hidden = true;
     coverageLayer.clear();
     legend.hide();
     zones.innerHTML = '<p class="hint">Calculando…</p>';

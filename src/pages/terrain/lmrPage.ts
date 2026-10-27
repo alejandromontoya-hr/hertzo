@@ -14,10 +14,8 @@ import {
   RADIO_PROFILES,
   type LmrBandId,
 } from '../../data/defaults';
-import { encodePng, saveFile } from '../../export/download';
-import { coverageKml, exportFileName, type KmlCoverageLayer, type KmlPlacemark } from '../../export/kml';
-import { drawLegendImage } from '../../export/legendImage';
-import { zipStore, type ZipEntry } from '../../export/zip';
+import { KMZ_BUTTON_HTML, bindKmzButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
@@ -36,7 +34,6 @@ const VIEWS: { id: CoverageView; label: string; title: string }[] = [
   { id: 'balance', label: 'Desbalance', title: 'Dónde llega cada dirección' },
 ];
 
-const KMZ_MIME = 'application/vnd.google-earth.kmz';
 const kmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 const LEVEL_EMPTY_LABEL = 'no llega a la sensibilidad';
 const HATCH_LABEL = 'baja confianza (ladera empinada junto al sitio)';
@@ -65,10 +62,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       <p class="hint" data-band-range></p>
     </section>
     ${siteSectionHtml()}
-    ${coverageStatusHtml(
-      'Cobertura',
-      `<button type="button" class="button" data-export-kmz hidden title="Para abrir en Google Earth">Exportar KMZ</button>`,
-    )}
+    ${coverageStatusHtml('Cobertura', KMZ_BUTTON_HTML)}
     <details class="panel-section" open>
       <summary>Radio de usuario</summary>
       <div class="form" data-radio-form></div>
@@ -98,20 +92,13 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   let coverage: CoverageResult | null = null;
   let geometry: RasterGeometry | null = null;
   let pixels: Uint8ClampedArray<ArrayBuffer> | null = null;
-  /** Cuadrícula en grados parejos para Google Earth: se arma al primer KMZ de cada cálculo. */
-  let kmzGeometry: RasterGeometry | null = null;
 
   const bandRange = page.find('[data-band-range]');
   const showBandRange = () => (bandRange.textContent = `Banda ${band.label}: ${band.range}.`);
   showBandRange();
 
   const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  exportButton.addEventListener('click', () => {
-    exportButton.disabled = true;
-    exportKmz()
-      .catch((error) => console.error(error))
-      .finally(() => (exportButton.disabled = false));
-  });
+  bindKmzButton(exportButton, exportKmz);
 
   const showBudget = createBudgetPanel(page.find('[data-budget]'));
   const coverageLayer = createCoverageLayer(page.map, opacity);
@@ -137,7 +124,6 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       coverage = result;
       geometry = buildRasterGeometry(result.plan);
       pixels = new Uint8ClampedArray(geometry.width * geometry.height * 4);
-      kmzGeometry = null;
       exportButton.hidden = false;
       redraw();
     },
@@ -197,40 +183,25 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
    */
   async function exportKmz() {
     if (!coverage) return;
-    const g = (kmzGeometry ??= buildRasterGeometry(coverage.plan, 'geographic'));
-    const [[west, north], , [east, south]] = g.coordinates;
+    const grids = gridsOf(coverage);
     const down = talkOutBudget(tx, radio);
     const up = talkInBudget(rx, radio);
     const directions = [
       { view: 'talkOut', label: 'Bajada', file: 'bajada', frequencyMHz: tx.frequencyMHz, sensitivityDbm: down.sensitivityDbm },
       { view: 'talkIn', label: 'Subida', file: 'subida', frequencyMHz: rx.frequencyMHz, sensitivityDbm: up.sensitivityDbm },
     ] as const;
-
-    const files: ZipEntry[] = [];
-    const layers: KmlCoverageLayer[] = [];
-    for (const d of directions) {
-      const name = `${d.label} · ${formatMHz(d.frequencyMHz)}`;
-      const image = new Uint8ClampedArray(g.width * g.height * 4);
-      renderCoverage(g, gridsOf(coverage), d.view, down, up, thresholds, image);
-      const legendImage = await drawLegendImage({
-        heading: name,
+    const layers = directions.map((d) => ({
+      name: `${d.label} · ${formatMHz(d.frequencyMHz)}`,
+      file: d.file,
+      paint: (g: RasterGeometry, out: Uint8ClampedArray<ArrayBuffer>) =>
+        renderCoverage(g, grids, d.view, down, up, thresholds, out),
+      legend: {
         title: viewTitle(d.view),
         entries: levelEntries(d.sensitivityDbm, thresholds),
         emptyLabel: LEVEL_EMPTY_LABEL,
         hatchLabel: HATCH_LABEL,
-      });
-      files.push(
-        { name: `${d.file}.png`, data: await encodePng(image, g.width, g.height) },
-        { name: `leyenda-${d.file}.png`, data: legendImage.png },
-      );
-      layers.push({
-        name,
-        href: `${d.file}.png`,
-        bounds: { north, south, east, west },
-        opacity,
-        legend: { href: `leyenda-${d.file}.png`, width: legendImage.width, height: legendImage.height },
-      });
-    }
+      },
+    }));
 
     const { site: position, radiusM } = coverage.plan;
     const site: KmlPlacemark = {
@@ -261,9 +232,14 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
         },
       ],
     };
-    const kml = coverageKml(`Hertzo · Terreno ${band.label}`, layers, { site });
-    const kmz = zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }, ...files]);
-    saveFile(kmz, exportFileName('terreno', band.label, coverage.plan.site, 'kmz'), KMZ_MIME);
+    await downloadCoverageKmz({
+      documentName: `Hertzo · Terreno ${band.label}`,
+      fileName: exportFileName('terreno', band.label, position, 'kmz'),
+      plan: coverage.plan,
+      layers,
+      opacity,
+      site,
+    });
   }
 
   function onParametersChange() {
