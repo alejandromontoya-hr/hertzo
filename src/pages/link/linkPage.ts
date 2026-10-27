@@ -7,7 +7,7 @@ import { saveFile } from '../../export/download';
 import { exportFileName, linkKml, type KmlPlacemark } from '../../export/kml';
 import { linkRayPath } from '../../export/linkPath';
 import { drawProfileReport } from '../../export/profileImage';
-import { reportDate } from '../../export/reportImage';
+import { reportDate, type ReportRow } from '../../export/reportImage';
 import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
 import { addExportControl } from '../../map/exportControl';
@@ -88,9 +88,10 @@ interface LinkResult {
   type: LinkType;
   params: LinkParams;
   kFactor: number;
-  verdict: { color: string; text: string };
-  /** Filas de la tabla de resultados: etiqueta, valor y si va resaltada. */
-  rows: [string, string, boolean][];
+  /** Veredicto del despeje: color de la línea en el mapa, palabra y explicación. */
+  verdict: { color: string; label: string; text: string };
+  /** Filas de la tabla de resultados; la primera es el veredicto. */
+  rows: ReportRow[];
   note: string;
   gainA: number;
   gainB: number;
@@ -354,10 +355,10 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
 
     const verdict =
       clearance.ratio >= 0.6
-        ? { color: '#1a7f37', text: 'Despejado: la línea libra el 60 % de la primera zona de Fresnel.' }
+        ? { color: '#1a7f37', label: 'Despejado', text: 'La línea libra el 60 % de la primera zona de Fresnel.' }
         : clearance.ratio >= 0
-          ? { color: '#bf8700', text: 'Despeje parcial: hay línea de vista, pero el terreno invade la zona de Fresnel.' }
-          : { color: '#cf222e', text: 'Obstruido: el terreno corta la línea entre antenas.' };
+          ? { color: '#bf8700', label: 'Despeje parcial', text: 'Hay línea de vista, pero el terreno invade la zona de Fresnel.' }
+          : { color: '#cf222e', label: 'Obstruido', text: 'El terreno corta la línea entre antenas.' };
     setLine(verdict.color);
 
     const elevA = p.elevationsM[0]!;
@@ -371,7 +372,8 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     const signed = (v: number) => `${v >= 0 ? '+' : ''}${oneDecimal.format(v)}`;
     const tiltA = elevationAngleDeg(elevA + link.heightAM, elevB + link.heightBM, p.distanceM, kFactor);
     const tiltB = elevationAngleDeg(elevB + link.heightBM, elevA + link.heightAM, p.distanceM, kFactor);
-    const rows: [string, string, boolean][] = [
+    const rows: ReportRow[] = [
+      ['Veredicto', verdict.label, true, verdict.color],
       ['Distancia', `${twoDecimals.format(dKm)} km`, false],
       ['Azimut A → B / B → A', `${oneDecimal.format(azAB)}° / ${oneDecimal.format(azBA)}°`, false],
       ['Inclinación en A / en B', `${twoDecimals.format(tiltA)}° / ${twoDecimals.format(tiltB)}°`, false],
@@ -393,14 +395,17 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
         ? 'Sobre 10 GHz la lluvia es la causa principal de cortes y este cálculo no la incluye: deja margen adicional.'
         : 'La disponibilidad es la de Vigants-Barnett por desvanecimiento multitrayecto; no incluye lluvia ni fallas de equipo.';
     results.innerHTML = `
-      <p class="verdict" style="border-color:${verdict.color}">${verdict.text}</p>
       <table class="budget">
         <tbody>
           ${rows
-            .map(([label, value, strong]) => `<tr${strong ? ' class="strong"' : ''}><th scope="row">${label}</th><td>${value}</td></tr>`)
+            .map(
+              ([label, value, strong, dot]) =>
+                `<tr${strong ? ' class="strong"' : ''}><th scope="row">${label}</th><td>${dot ? `<span class="status-dot" style="background:${dot}"></span>` : ''}${value}</td></tr>`,
+            )
             .join('')}
         </tbody>
       </table>
+      <p class="notice">${verdict.text}</p>
       <p class="hint">${note}</p>`;
     last = { profile: p, points, type, params: { ...link }, kFactor, verdict, rows, note, gainA, gainB, azAB, azBA, tiltA, tiltB };
     exporter.setEnabled(true);
@@ -425,8 +430,8 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
         `Curvatura: ${kLabel} · ${reportDate()}`,
       ],
       points: r.points,
-      verdict: r.verdict,
       rows: r.rows,
+      notice: r.verdict.text,
       note: r.note,
     });
     saveFile(png, exportFileName('enlace-perfil', frequency, p.from, 'png'), 'image/png');
@@ -476,12 +481,11 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       points: linkRayPath(p, r.points),
       tables: [
         {
-          title: r.verdict.text,
           rows: [
             ...r.rows.map(([label, value]) => [label, value]),
             ['Curvatura del rayo', K_FACTORS.find((k) => Number(k.id) === Number(r.kFactor.toFixed(4)))?.label ?? `k = ${r.kFactor}`],
           ],
-          note: r.note,
+          note: `${r.verdict.text} ${r.note}`,
         },
       ],
     });

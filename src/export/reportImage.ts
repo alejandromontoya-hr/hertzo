@@ -1,6 +1,6 @@
 // Del navegador: imagen PNG para informes, igual para todos los simuladores. Lleva el título,
-// unas líneas de contexto, una figura (perfil o plano) con su leyenda, un veredicto opcional,
-// la tabla de resultados en dos columnas, una nota y el aviso de herramienta de planificación.
+// unas líneas de contexto, una figura (perfil o plano) con su leyenda, la tabla de resultados en
+// dos columnas, un aviso opcional, una nota y el aviso de herramienta de planificación.
 
 import { canvasToPng } from './download';
 
@@ -10,6 +10,9 @@ export interface ReportKeyItem {
   draw(ctx: CanvasRenderingContext2D, x: number, y: number): void;
 }
 
+/** Fila de la tabla: etiqueta, valor, si va resaltada y, opcional, el color de un punto junto al valor. */
+export type ReportRow = [label: string, value: string, strong: boolean, dot?: string];
+
 export interface Report {
   title: string;
   /** Líneas bajo el título: lugar, ajustes, fecha. */
@@ -18,9 +21,9 @@ export interface Report {
   figure: CanvasImageSource;
   figureHeight: number;
   key: ReportKeyItem[];
-  verdict?: { color: string; text: string };
-  /** Filas de la tabla de resultados: etiqueta, valor y si va resaltada. */
-  rows: [string, string, boolean][];
+  rows: ReportRow[];
+  /** Frase que explica el resultado, en texto normal bajo la tabla (por ejemplo, el veredicto). */
+  notice?: string;
   note: string;
 }
 
@@ -117,26 +120,13 @@ function layout(ctx: CanvasRenderingContext2D, r: Report, draw: boolean): number
     x += width + 18;
   }
 
-  if (r.verdict) {
-    y += 18;
-    ctx.font = `600 14px ${REPORT_FONT}`;
-    const lines = wrap(ctx, r.verdict.text, REPORT_CONTENT_WIDTH - 20);
-    const height = 14 + lines.length * 20;
-    if (draw) {
-      ctx.fillStyle = r.verdict.color;
-      ctx.fillRect(PAD, y, 4, height);
-      ctx.fillStyle = INK;
-      lines.forEach((line, i) => ctx.fillText(line, PAD + 16, y + 21 + i * 20));
-    }
-    y += height;
-  }
   y += 12;
 
   // Tabla en dos columnas para que la imagen no quede tan alta.
   const half = Math.ceil(r.rows.length / 2);
   const columnWidth = (REPORT_CONTENT_WIDTH - COLUMN_GAP) / 2;
   if (draw) {
-    r.rows.forEach(([label, value, strong], i) => {
+    r.rows.forEach(([label, value, strong, dot], i) => {
       const left = PAD + (i < half ? 0 : columnWidth + COLUMN_GAP);
       const top = y + (i % half) * ROW;
       ctx.fillStyle = BORDER;
@@ -148,9 +138,25 @@ function layout(ctx: CanvasRenderingContext2D, r: Report, draw: boolean): number
       ctx.textAlign = 'right';
       ctx.fillText(value, left + columnWidth, top + 15);
       ctx.textAlign = 'left';
+      if (dot) {
+        ctx.fillStyle = dot;
+        ctx.beginPath();
+        ctx.arc(left + columnWidth - ctx.measureText(value).width - 9, top + 11, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
     });
   }
   y += half * ROW + 14;
+
+  if (r.notice) {
+    ctx.font = `13px ${REPORT_FONT}`;
+    ctx.fillStyle = INK;
+    for (const line of wrap(ctx, r.notice, REPORT_CONTENT_WIDTH)) {
+      y += 19;
+      if (draw) ctx.fillText(line, PAD, y);
+    }
+    y += 4;
+  }
 
   ctx.font = `12px ${REPORT_FONT}`;
   ctx.fillStyle = MUTED;

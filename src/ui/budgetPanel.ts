@@ -74,11 +74,7 @@ export function createBudgetPanel(container: HTMLElement): (talkOut: LinkBudget,
       cell.out.textContent = cell.row.value(talkOut);
       cell.in.textContent = cell.row.value(talkIn);
     }
-    summary.textContent = balanceSummary(talkOut, talkIn);
-    // Solo se resalta como aviso cuando una dirección limita la cobertura.
-    summary.classList.toggle(
-      'balanced',
-      Math.abs(talkOut.maxPathLossDb - talkIn.maxPathLossDb) < BALANCED_THRESHOLD_DB,
-    );
+    // La frase no trae HTML; solo se resalta qué dirección limita la cobertura.
+    summary.innerHTML = balanceSummary(talkOut, talkIn).replace(/la cobertura la limita la (subida|bajada)/, '<strong>$&</strong>');
   };
 }

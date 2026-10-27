@@ -3,7 +3,7 @@
 
 import type { ClearancePoint } from '../rf/pointToPoint';
 import { linkProfileSvg } from '../ui/linkChart';
-import { REPORT_CONTENT_WIDTH, REPORT_SCALE, drawReport, type ReportKeyItem } from './reportImage';
+import { REPORT_CONTENT_WIDTH, REPORT_SCALE, drawReport, type ReportKeyItem, type ReportRow } from './reportImage';
 
 export interface ProfileReport {
   /** Por ejemplo «Perfil del enlace · 11,42 km · 11 GHz». */
@@ -11,9 +11,10 @@ export interface ProfileReport {
   /** Líneas bajo el título: los extremos y la fecha. */
   subtitle: string[];
   points: ClearancePoint[];
-  verdict: { color: string; text: string };
-  /** Filas de la tabla de resultados: etiqueta, valor y si va resaltada. */
-  rows: [string, string, boolean][];
+  /** Filas de la tabla de resultados; la primera es el veredicto. */
+  rows: ReportRow[];
+  /** Explicación del veredicto. */
+  notice: string;
   note: string;
 }
 
@@ -82,8 +83,8 @@ export async function drawProfileReport(report: ProfileReport): Promise<Uint8Arr
     figure: chart,
     figureHeight: CHART_HEIGHT,
     key: KEY,
-    verdict: report.verdict,
     rows: report.rows,
+    notice: report.notice,
     note: report.note,
   });
 }

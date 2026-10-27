@@ -815,12 +815,13 @@ export function mountCavePage({ root, params }: PageContext): () => void {
       return;
     }
     const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    summaryBox.innerHTML = `${table.warning ? `<p class="verdict" style="border-color:${UNCOVERED}">${table.warning}</p>` : ''}
+    summaryBox.innerHTML = `
       <table class="budget"><tbody>
         ${table.rows
           .map(([label, value, strong]) => `<tr${strong ? ' class="strong"' : ''}><th scope="row">${escape(label)}</th><td>${value}</td></tr>`)
           .join('')}
       </tbody></table>
+      ${table.warning ? `<p class="notice">${table.warning}</p>` : ''}
       <p class="hint">${table.note}</p>`;
   }
 
@@ -875,7 +876,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
       figure,
       figureHeight: height,
       key: [...legendEntries().map((e) => swatchKey(e.label, e.color)), cableKey],
-      verdict: summary.warning ? { color: UNCOVERED, text: summary.warning } : undefined,
+      notice: summary.warning ?? undefined,
       rows: summary.rows,
       note: summary.note,
     });
