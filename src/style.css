@@ -986,6 +986,31 @@ body {
   margin: 10px 0 6px;
 }
 
+/* Título de cada extremo de un enlace, con la misma insignia que su marcador en el mapa. */
+.end-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.end-title:first-of-type {
+  margin-top: 0;
+}
+
+.end-badge {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ffffff;
+  border-radius: 50%;
+}
+
 /* El nombre del sitio es texto: va a la izquierda y con la letra normal, no en cifras. */
 .field.field-name {
   grid-template-columns: auto 1fr;

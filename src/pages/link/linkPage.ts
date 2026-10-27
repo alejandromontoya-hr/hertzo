@@ -28,10 +28,11 @@ import { dbmToWatts } from '../../rf/units';
 import { loadTerrain } from '../../terrain/elevation';
 import { profileBounds, sampleProfile, type TerrainProfile } from '../../terrain/profile';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { bindSiteFields, siteFieldsHtml } from '../../ui/siteFields';
 import { formatHeight, formatLonLat, formatMeters, formatWatts } from '../../ui/format';
 import { createLinkChart } from '../../ui/linkChart';
 import { replaceQuery, type PageContext } from '../router';
-import { bindSegmented, createMapPage, segmentedHtml } from '../shared/mapPage';
+import { bindSegmented, createMapPage, segmentedHtml, simulateBoxHtml } from '../shared/mapPage';
 
 type LinkType = 'microondas' | 'radio';
 
@@ -70,6 +71,19 @@ type LossModel = 'difraccion' | 'itm';
 /** Ejemplo inicial: del cerro del Padre Amaya al cerro El Volador (Medellín). */
 const EXAMPLE_A: LonLat = { lon: -75.6853, lat: 6.2794 };
 const EXAMPLE_B: LonLat = { lon: -75.5828, lat: 6.2664 };
+
+type EndLabel = 'A' | 'B';
+const END_COLORS: Record<EndLabel, string> = { A: '#0969da', B: '#bc4c00' };
+
+/** Mismo punto, aunque sean objetos distintos (por ejemplo, escrito de nuevo en los campos). */
+const samePoint = (p: LonLat, q: LonLat) => p.lon === q.lon && p.lat === q.lat;
+
+/** Bloque de un extremo: título con su color, nombre, coordenadas y «Elegir en el mapa». */
+const endHtml = (label: EndLabel, name: string) => `
+  <h3 class="end-title"><span class="end-badge" style="background:${END_COLORS[label]}">${label}</span>Extremo ${label}</h3>
+  ${siteFieldsHtml(`end-${label.toLowerCase()}`, name)}
+  <button type="button" class="button" data-pick-end="${label}" aria-pressed="false">Elegir ${label} en el mapa</button>
+  <p class="hint" data-end-elevation="${label}" hidden></p>`;
 
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const twoDecimals = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -120,12 +134,17 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     <section class="panel-section page-intro">
       <h2>Enlace punto a punto</h2>
       ${segmentedHtml('tipo', [{ id: 'microondas', label: 'Microondas' }, { id: 'radio', label: 'Radioenlace VHF/UHF' }], 'Tipo de enlace')}
-      <p class="hint">Haz clic en el mapa para mover el extremo más cercano, o arrastra los marcadores A y B.</p>
-      <dl class="site-details" data-ends></dl>
+    </section>
+    <section class="panel-section">
+      <h2>Extremos</h2>
+      ${endHtml('A', 'Cerro El Padre Amaya')}
+      ${endHtml('B', 'Cerro El Volador')}
+      <p class="hint">Escribe las coordenadas (puedes pegar las de Google Maps en Latitud), pulsa «Elegir … en el mapa» o arrastra los marcadores A y B.</p>
+      ${simulateBoxHtml()}
     </section>
     <section class="panel-section">
       <h2>Resultado</h2>
-      <div data-results><p class="hint">Calculando…</p></div>
+      <div data-results><p class="hint">Pulsa «Simular» para ver el perfil y el balance del enlace.</p></div>
     </section>
     <details class="panel-section" open>
       <summary>Equipos y antenas</summary>
@@ -140,7 +159,6 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   page.profileRoot.classList.add('link-chart');
   page.map.jumpTo({ center: [-75.633, 6.272], zoom: 11.2 });
 
-  const endsBox = page.find('[data-ends]');
   const results = page.find('[data-results]');
   const exporter = addExportControl(page.map, [
     { label: 'KMZ para Google Earth', description: 'Los extremos A y B con su ficha y el rayo en 3D con su cortina.', run: exportKmz },
@@ -151,22 +169,57 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
 
   // --- Marcadores y línea en el mapa ---
 
-  const makeMarker = (color: string, label: string, at: LonLat) => {
+  const makeMarker = (label: EndLabel, at: LonLat) => {
     const element = document.createElement('div');
     element.className = 'end-marker';
-    element.style.background = color;
+    element.style.background = END_COLORS[label];
     element.textContent = label;
     const marker = new Marker({ element, draggable: true }).setLngLat([at.lon, at.lat]).addTo(page.map);
     marker.on('dragend', () => {
       const { lng, lat } = marker.getLngLat();
-      if (label === 'A') endA = { lon: lng, lat };
-      else endB = { lon: lng, lat };
-      schedule();
+      setEnd(label, { lon: lng, lat }, true);
     });
     return marker;
   };
-  const markerA = makeMarker('#0969da', 'A', EXAMPLE_A);
-  const markerB = makeMarker('#bc4c00', 'B', EXAMPLE_B);
+  const markers: Record<EndLabel, Marker> = { A: makeMarker('A', EXAMPLE_A), B: makeMarker('B', EXAMPLE_B) };
+  const fields = {
+    A: bindSiteFields(page.find('[data-site-fields="end-a"]'), (point) => setEnd('A', point, false)),
+    B: bindSiteFields(page.find('[data-site-fields="end-b"]'), (point) => setEnd('B', point, false)),
+  };
+  fields.A.show(EXAMPLE_A);
+  fields.B.show(EXAMPLE_B);
+
+  /** Un extremo cambió: escrito en los campos (`fromMap` falso), elegido en el mapa o arrastrado. */
+  function setEnd(label: EndLabel, point: LonLat | null, fromMap: boolean) {
+    if (label === 'A') endA = point;
+    else endB = point;
+    // La cota mostrada es la del cálculo anterior; vuelve a aparecer al simular.
+    page.find(`[data-end-elevation="${label}"]`).hidden = true;
+    if (point) {
+      markers[label].setLngLat([point.lon, point.lat]);
+      if (fromMap) fields[label].show(point);
+      else if (!page.map.getBounds().contains([point.lon, point.lat])) page.map.easeTo({ center: [point.lon, point.lat] });
+    }
+    refreshSimulate();
+  }
+
+  // --- Elegir un extremo en el mapa ---
+
+  let picking: EndLabel | null = null;
+  const pickButtons = Object.fromEntries(
+    (['A', 'B'] as const).map((label) => [label, page.find<HTMLButtonElement>(`[data-pick-end="${label}"]`)]),
+  ) as Record<EndLabel, HTMLButtonElement>;
+  function setPicking(label: EndLabel | null) {
+    picking = label;
+    page.map.getCanvas().style.cursor = label ? 'crosshair' : '';
+    for (const end of ['A', 'B'] as const) {
+      pickButtons[end].setAttribute('aria-pressed', String(end === label));
+      pickButtons[end].textContent = end === label ? 'Haz clic en el mapa…' : `Elegir ${end} en el mapa`;
+    }
+  }
+  for (const end of ['A', 'B'] as const) {
+    pickButtons[end].addEventListener('click', () => setPicking(picking === end ? null : end));
+  }
 
   const LINE = 'enlace-linea';
   const HOVER = 'enlace-cursor';
@@ -183,37 +236,33 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       paint: { 'circle-radius': 6, 'circle-color': '#cf222e', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 },
     });
   };
-  const setLine = (color: string) => {
-    if (!endA || !endB || !page.map.isStyleLoaded()) return;
+  /** Línea del último cálculo, del color del veredicto. */
+  const setLine = (color: string, from: LonLat, to: LonLat) => {
+    if (!page.map.isStyleLoaded()) return;
     ensureLayers();
     page.map.getSource<GeoJSONSource>(LINE)!.setData({
       type: 'Feature',
       properties: { color },
-      geometry: { type: 'LineString', coordinates: [[endA.lon, endA.lat], [endB.lon, endB.lat]] },
+      geometry: { type: 'LineString', coordinates: [[from.lon, from.lat], [to.lon, to.lat]] },
     });
   };
 
+  // Solo con «Elegir A (o B) en el mapa» activo un clic mueve un extremo.
   page.map.on('click', (event) => {
-    const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
-    // Se mueve el extremo más cercano al clic.
-    const moveA = !endA || (endB !== null && distanceM(point, endA) < distanceM(point, endB));
-    if (moveA) {
-      endA = point;
-      markerA.setLngLat([point.lon, point.lat]);
-    } else {
-      endB = point;
-      markerB.setLngLat([point.lon, point.lat]);
-    }
-    schedule();
+    if (!picking) return;
+    const label = picking;
+    setPicking(null);
+    setEnd(label, { lon: event.lngLat.lng, lat: event.lngLat.lat }, true);
   });
 
   const chart = createLinkChart(page.profileRoot, (d) => {
-    if (!page.map.getSource(HOVER) || !endA || !endB) return;
+    const shown = last?.profile;
+    if (!page.map.getSource(HOVER) || !shown) return;
     page.map.getSource<GeoJSONSource>(HOVER)!.setData(
       d === null
         ? empty
         : (() => {
-            const p = destinationPoint(endA, initialBearingDeg(endA, endB), d);
+            const p = destinationPoint(shown.from, initialBearingDeg(shown.from, shown.to), d);
             return { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } } as const;
           })(),
     );
@@ -279,9 +328,45 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
 
   // --- Cálculo ---
 
+  // --- Simular ---
+
+  const simulateButton = page.find<HTMLButtonElement>('[data-simulate]');
+  const simulateHint = page.find('[data-simulate-hint]');
+  let running = false;
+
+  /** El resultado que se ve es de los extremos de ahora. */
+  const upToDate = () => !!(last && endA && endB && samePoint(last.profile.from, endA) && samePoint(last.profile.to, endB));
+
+  function refreshSimulate() {
+    const ready = endA !== null && endB !== null;
+    simulateButton.hidden = !running && (!ready || upToDate());
+    simulateButton.disabled = running;
+    simulateButton.textContent = running ? 'Simulando…' : last ? 'Simular de nuevo' : 'Simular';
+    simulateHint.hidden = running || !last || !ready || upToDate();
+    simulateHint.textContent = 'El perfil y el resultado son del cálculo anterior: cambiaste la ubicación de A o de B.';
+  }
+
+  async function simulate() {
+    if (running) return;
+    running = true;
+    refreshSimulate();
+    try {
+      await compute();
+    } finally {
+      running = false;
+      refreshSimulate();
+    }
+  }
+  simulateButton.addEventListener('click', () => void simulate());
+
+  /**
+   * Cambió un equipo, la frecuencia o la propagación. Si el resultado es de los extremos de
+   * ahora, se recalcula al instante con el perfil que ya se descargó; si no, espera «Simular».
+   */
   function schedule() {
     clearTimeout(timer);
-    timer = setTimeout(() => void compute(), 150);
+    if (upToDate()) timer = setTimeout(() => void compute(), 150);
+    else refreshSimulate();
   }
 
   /** Sin un resultado vigente no hay nada que exportar. */
@@ -301,7 +386,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       return;
     }
     try {
-      if (!profile || profile.from !== a || profile.to !== b) {
+      if (!profile || !samePoint(profile.from, a) || !samePoint(profile.to, b)) {
         chart.showMessage('Descargando terreno…');
         const sampler = await loadTerrain(profileBounds(a, b));
         if (current !== request) return;
@@ -359,15 +444,17 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
         : clearance.ratio >= 0
           ? { color: '#bf8700', label: 'Despeje parcial', text: 'Hay línea de vista, pero el terreno invade la zona de Fresnel.' }
           : { color: '#cf222e', label: 'Obstruido', text: 'El terreno corta la línea entre antenas.' };
-    setLine(verdict.color);
+    setLine(verdict.color, p.from, p.to);
 
     const elevA = p.elevationsM[0]!;
     const elevB = p.elevationsM[p.elevationsM.length - 1]!;
     const azAB = initialBearingDeg(p.from, p.to);
     const azBA = initialBearingDeg(p.to, p.from);
-    endsBox.innerHTML = `
-      <dt>A</dt><dd>${formatLonLat(p.from.lon, p.from.lat)} · ${formatMeters(elevA)}</dd>
-      <dt>B</dt><dd>${formatLonLat(p.to.lon, p.to.lat)} · ${formatMeters(elevB)}</dd>`;
+    for (const [label, elevation] of [['A', elevA], ['B', elevB]] as const) {
+      const box = page.find(`[data-end-elevation="${label}"]`);
+      box.hidden = false;
+      box.textContent = `Cota del terreno: ${formatMeters(elevation)}`;
+    }
 
     const signed = (v: number) => `${v >= 0 ? '+' : ''}${oneDecimal.format(v)}`;
     const tiltA = elevationAngleDeg(elevA + link.heightAM, elevB + link.heightBM, p.distanceM, kFactor);
@@ -506,8 +593,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   });
 
   buildForms();
-  page.map.once('load', () => schedule());
-  schedule();
+  refreshSimulate();
 
   return () => {
     clearTimeout(timer);
