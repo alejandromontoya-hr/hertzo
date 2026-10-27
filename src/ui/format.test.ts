@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDb, formatDbi, formatDbm, formatLonLat, formatMeters, formatWatts } from './format';
+import { formatDb, formatDbi, formatDbm, formatHeight, formatLonLat, formatMeters, formatWatts } from './format';
 
 describe('formatos de RF', () => {
   it('dBm con un decimal y signo menos simple: −105,1 → "-105,1 dBm"', () => {
@@ -19,6 +19,14 @@ describe('formatos de RF', () => {
   it('vatios sin decimales sobrantes: 100 → "100 W"; 0,5 → "0,5 W"', () => {
     expect(formatWatts(100)).toBe('100 W');
     expect(formatWatts(0.5)).toBe('0,5 W');
+  });
+});
+
+describe('formatHeight', () => {
+  it('teléfono a 1,5 m no se redondea a 2 m; torre de 30 m sin decimales; 1000 m con punto de miles', () => {
+    expect(formatHeight(1.5)).toBe('1,5 m');
+    expect(formatHeight(30)).toBe('30 m');
+    expect(formatHeight(1000)).toBe('1.000 m');
   });
 });
 

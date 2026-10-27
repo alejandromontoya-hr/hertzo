@@ -9,8 +9,8 @@ import { lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import { KMZ_BUTTON_HTML, bindKmzButton, downloadCoverageKmz } from '../../export/coverageKmz';
-import { exportFileName } from '../../export/kml';
-import { distanceM, initialBearingDeg } from '../../geo/geodesy';
+import { exportFileName, type KmlPlacemark } from '../../export/kml';
+import { destinationPoint, distanceM, initialBearingDeg } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
 import {
@@ -27,6 +27,7 @@ import {
 import { wattsToDbm } from '../../rf/units';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { formatDb, formatDbi, formatHeight, formatLonLat, formatWatts } from '../../ui/format';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
@@ -340,7 +341,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     };
   }
 
-  /** Descarga un KMZ con RSRP, mejor sector y SINR, cada uno con su leyenda. */
+  /** Descarga un KMZ con RSRP, mejor sector y SINR, cada uno con su leyenda, y la torre con sus sectores. */
   async function exportKmz() {
     if (!coverage) return;
     const result = coverage;
@@ -364,6 +365,8 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       plan: result.plan,
       layers: [layerOf('rsrp', 'rsrp'), layerOf('best', 'mejor-sector'), layerOf('sinr', 'sinr')],
       opacity,
+      site: towerPlacemark(result),
+      lines: sectorLines(result),
     });
   }
 
@@ -388,8 +391,9 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     showSummary();
   }
 
-  function showSummary() {
-    if (!coverage || !geometry || !values) return;
+  /** Resumen del último cálculo: filas (etiqueta, valor) y nota. La misma tabla va al KMZ. */
+  function summaryTable(): { rows: string[][]; strongRow: number; note: string } | null {
+    if (!coverage || !geometry || !values) return null;
     const { bestRsrp, sinr } = values;
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const area = pixelAreaKm2(geometry, coverage.plan.radiusM);
@@ -403,16 +407,86 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       if (bestRsrp[p]! >= minRsrp) covered++;
       if (sinr[p]! >= 0) goodSinr++;
     }
+    return {
+      rows: [
+        ['Potencia por elemento de recurso', `${oneDecimal.format(pRe)} dBm`],
+        ['Ruido por elemento de recurso', `${oneDecimal.format(noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb))} dBm`],
+        [`Área con RSRP ≥ ${minRsrp} dBm`, `${integerFormat.format(covered * area)} km² (${integerFormat.format((100 * covered) / inCircle)} %)`],
+        ['Área con SINR ≥ 0 dB', `${integerFormat.format((100 * goodSinr) / inCircle)} %`],
+      ],
+      strongRow: 2,
+      note: `Porcentajes sobre el círculo de cálculo. La SINR supone los ${azimuths.length} sectores transmitiendo a la vez.`,
+    };
+  }
+
+  function showSummary() {
+    const table = summaryTable();
+    if (!table) return;
     summary.innerHTML = `
       <table class="budget">
         <tbody>
-          <tr><th scope="row">Potencia por elemento de recurso</th><td>${oneDecimal.format(pRe)} dBm</td></tr>
-          <tr><th scope="row">Ruido por elemento de recurso</th><td>${oneDecimal.format(noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb))} dBm</td></tr>
-          <tr class="strong"><th scope="row">Área con RSRP ≥ ${minRsrp} dBm</th><td>${integerFormat.format(covered * area)} km² (${integerFormat.format((100 * covered) / inCircle)} %)</td></tr>
-          <tr><th scope="row">Área con SINR ≥ 0 dB</th><td>${integerFormat.format((100 * goodSinr) / inCircle)} %</td></tr>
+          ${table.rows
+            .map(([label, value], i) => `<tr${i === table.strongRow ? ' class="strong"' : ''}><th scope="row">${label}</th><td>${value}</td></tr>`)
+            .join('')}
         </tbody>
       </table>
-      <p class="hint">Porcentajes sobre el círculo de cálculo. La SINR supone los ${azimuths.length} sectores transmitiendo a la vez.</p>`;
+      <p class="hint">${table.note}</p>`;
+  }
+
+  /** Ficha de la torre para el KMZ: banda, modelo, sitio, antena, azimuts y el resumen del panel. */
+  function towerPlacemark(result: CoverageResult): KmlPlacemark {
+    const position = result.plan.site;
+    const summaryInfo = summaryTable();
+    return {
+      name: `Torre · ${bandName()}`,
+      position,
+      tables: [
+        {
+          rows: [
+            ['Ubicación (lat, lon)', formatLonLat(position.lon, position.lat)],
+            ['Banda', band.description],
+            ['Frecuencia de cálculo', `${band.frequencyMHz} MHz`],
+            ['Portadora', carrier.label],
+            ['Modelo de propagación', MODELS.find((m) => m.id === model)!.label],
+            ['Radio de cálculo', `${integerFormat.format(result.plan.radiusM / 1000)} km`],
+          ],
+        },
+        {
+          title: 'Sitio y teléfono',
+          rows: [
+            ['Potencia por sector', `${formatWatts(siteParams.powerW)} (${oneDecimal.format(wattsToDbm(siteParams.powerW))} dBm)`],
+            ['Pérdida de cable y conectores', formatDb(siteParams.cableLossDb)],
+            ['Altura de las antenas', `${formatHeight(siteParams.antennaHeightM)} sobre el terreno`],
+            ['Altura del teléfono', formatHeight(siteParams.ueHeightM)],
+            ['Figura de ruido del teléfono', formatDb(siteParams.noiseFigureDb)],
+          ],
+        },
+        {
+          title: 'Antena de cada sector',
+          rows: [
+            ['Ganancia', formatDbi(antenna.gainDbi)],
+            ['Ancho de haz horizontal', `${integerFormat.format(antenna.horizontalBeamwidthDeg)}°`],
+            ['Ancho de haz vertical', `${integerFormat.format(antenna.verticalBeamwidthDeg)}°`],
+            ['Inclinación hacia abajo', `${integerFormat.format(antenna.downtiltDeg)}°`],
+          ],
+        },
+        { title: 'Sectores', header: ['', 'Azimut'], rows: azimuths.map((a, i) => [`S${i + 1}`, `${a}°`]) },
+        ...(summaryInfo ? [{ title: 'Resumen', rows: summaryInfo.rows, note: summaryInfo.note }] : []),
+      ],
+    };
+  }
+
+  /** Línea de cada sector desde la torre hacia su azimut, de un tercio del radio de cálculo. */
+  function sectorLines(result: CoverageResult) {
+    const { site: position, radiusM } = result.plan;
+    return {
+      folderName: 'Sectores',
+      lines: azimuths.map((a, i) => ({
+        name: `S${i + 1} · ${a}°`,
+        color: SECTOR_COLORS[i]!,
+        points: [position, destinationPoint(position, a, radiusM / 3)],
+      })),
+    };
   }
 
   function redraw() {

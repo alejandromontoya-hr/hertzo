@@ -2,6 +2,7 @@ const metersFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const upToTwoDecimals = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 const wattsFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
+const heightFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 
 /** Signo menos ASCII para que "-105,1" se lea y se copie igual en todas partes. */
 function ascii(text: string): string {
@@ -11,6 +12,11 @@ function ascii(text: string): string {
 /** 3102.4 → "3.102 m" */
 export function formatMeters(meters: number): string {
   return `${metersFormat.format(meters)} m`;
+}
+
+/** Alturas de antena con hasta un decimal: 1.5 → "1,5 m"; 30 → "30 m". */
+export function formatHeight(meters: number): string {
+  return `${heightFormat.format(meters)} m`;
 }
 
 /**

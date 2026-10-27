@@ -24,7 +24,7 @@ import {
 import { AM_ANTENNAS, GROUND_TYPES, flatEarthLimitKm, groundwaveRangeKm } from '../../rf/groundwave';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
-import { formatLonLat, formatMeters, formatMHz } from '../../ui/format';
+import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
@@ -297,8 +297,8 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
             ['Frecuencia', formatMHz(fm.frequencyMHz)],
             ['Potencia radiada (ERP)', `${mvmFormat.format(fm.erpKw)} kW (${oneDecimal.format(kilowattsToDbm(fm.erpKw))} dBm)`],
             ['PIRE', `${oneDecimal.format(eirpDbm())} dBm (${mvmFormat.format(fm.erpKw * 1.64)} kW)`],
-            ['Altura de la antena', `${formatMeters(fm.antennaHeightM)} sobre el terreno`],
-            ['Altura del receptor', formatMeters(fm.receiverHeightM)],
+            ['Altura de la antena', `${formatHeight(fm.antennaHeightM)} sobre el terreno`],
+            ['Altura del receptor', formatHeight(fm.receiverHeightM)],
           ]
         : [
             ['Frecuencia', `${integerFormat.format(am.frequencyKHz)} kHz`],

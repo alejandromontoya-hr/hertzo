@@ -21,7 +21,7 @@ import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { formatLonLat, formatMeters, formatMHz } from '../../ui/format';
+import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
@@ -212,8 +212,8 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
           rows: [
             ['Ubicación (lat, lon)', formatLonLat(position.lon, position.lat)],
             ['Banda', `${band.label} (${band.range})`],
-            ['Antena de transmisión', `${formatMeters(tx.antennaHeightM)} sobre el terreno`],
-            ['Antena de recepción', `${formatMeters(rx.antennaHeightM)} sobre el terreno`],
+            ['Antena de transmisión', `${formatHeight(tx.antennaHeightM)} sobre el terreno`],
+            ['Antena de recepción', `${formatHeight(rx.antennaHeightM)} sobre el terreno`],
             ['Radio de cálculo', `${kmFormat.format(radiusM / 1000)} km`],
           ],
         },
@@ -221,7 +221,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
           title: 'Radio de usuario',
           rows: [
             ['Perfil', radio.name],
-            ['Altura de la antena', formatMeters(radio.heightM)],
+            ['Altura de la antena', formatHeight(radio.heightM)],
           ],
         },
         {
