@@ -3,6 +3,11 @@
 
 import { Marker, type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
+import { KMZ_BUTTON_HTML, bindKmzButton } from '../../export/coverageKmz';
+import { saveFile } from '../../export/download';
+import { exportFileName, linkKml, type KmlPlacemark } from '../../export/kml';
+import { linkRayPath } from '../../export/linkPath';
+import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
 import { loadItm } from '../../propagation/itm';
 import { freeSpaceLossDb } from '../../rf/fieldStrength';
@@ -15,11 +20,13 @@ import {
   minClearance,
   multipathOutageProbability,
   parabolicGainDbi,
+  type ClearancePoint,
 } from '../../rf/pointToPoint';
+import { dbmToWatts } from '../../rf/units';
 import { loadTerrain } from '../../terrain/elevation';
 import { profileBounds, sampleProfile, type TerrainProfile } from '../../terrain/profile';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
-import { formatLonLat, formatMeters } from '../../ui/format';
+import { formatHeight, formatLonLat, formatMeters, formatWatts } from '../../ui/format';
 import { createLinkChart } from '../../ui/linkChart';
 import { replaceQuery, type PageContext } from '../router';
 import { bindSegmented, createMapPage, segmentedHtml } from '../shared/mapPage';
@@ -69,6 +76,28 @@ const percentFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 4 
 
 const SECONDS_PER_YEAR = 365.25 * 24 * 3600;
 
+/** «11 GHz» o «450 MHz». */
+const frequencyLabel = (mhz: number) => (mhz >= 1000 ? `${mhz / 1000} GHz` : `${mhz} MHz`);
+
+/** Lo que muestra el panel tras un cálculo, guardado tal cual para exportarlo. */
+interface LinkResult {
+  profile: TerrainProfile;
+  points: ClearancePoint[];
+  type: LinkType;
+  params: LinkParams;
+  kFactor: number;
+  verdict: { color: string; text: string };
+  /** Filas de la tabla de resultados: etiqueta, valor y si va resaltada. */
+  rows: [string, string, boolean][];
+  note: string;
+  gainA: number;
+  gainB: number;
+  azAB: number;
+  azBA: number;
+  tiltA: number;
+  tiltB: number;
+}
+
 export function mountLinkPage({ root, params }: PageContext): () => void {
   let type: LinkType = params.get('tipo') === 'radio' ? 'radio' : 'microondas';
   let link: LinkParams = { ...PRESETS[type].params };
@@ -80,6 +109,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   let profile: TerrainProfile | null = null;
   let request = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let last: LinkResult | null = null;
 
   const page = createMapPage(
     root,
@@ -93,6 +123,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     <section class="panel-section">
       <h2>Resultado</h2>
       <div data-results><p class="hint">Calculando…</p></div>
+      ${KMZ_BUTTON_HTML}
     </section>
     <details class="panel-section" open>
       <summary>Equipos y antenas</summary>
@@ -109,6 +140,8 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
 
   const endsBox = page.find('[data-ends]');
   const results = page.find('[data-results]');
+  const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
+  bindKmzButton(exportButton, exportKmz);
   const linkForm = page.find('[data-link-form]');
   const propagationForm = page.find('[data-propagation-form]');
 
@@ -247,12 +280,19 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     timer = setTimeout(() => void compute(), 150);
   }
 
+  /** Sin un resultado vigente no hay nada que exportar. */
+  function forgetResult() {
+    last = null;
+    exportButton.hidden = true;
+  }
+
   async function compute() {
     if (!endA || !endB) return;
     const a = endA;
     const b = endB;
     const current = ++request;
     if (distanceM(a, b) < 50) {
+      forgetResult();
       chart.showMessage('Los extremos están a menos de 50 m.');
       return;
     }
@@ -266,7 +306,9 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       await showResults(profile, current);
     } catch (error) {
       console.error(error);
-      if (current === request) chart.showMessage('No se pudo descargar el terreno.');
+      if (current !== request) return;
+      forgetResult();
+      chart.showMessage('No se pudo descargar el terreno.');
     }
   }
 
@@ -323,37 +365,104 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       <dt>A</dt><dd>${formatLonLat(p.from.lon, p.from.lat)} · ${formatMeters(elevA)}</dd>
       <dt>B</dt><dd>${formatLonLat(p.to.lon, p.to.lat)} · ${formatMeters(elevB)}</dd>`;
 
-    const row = (label: string, value: string, strong = false) =>
-      `<tr${strong ? ' class="strong"' : ''}><th scope="row">${label}</th><td>${value}</td></tr>`;
     const signed = (v: number) => `${v >= 0 ? '+' : ''}${oneDecimal.format(v)}`;
+    const tiltA = elevationAngleDeg(elevA + link.heightAM, elevB + link.heightBM, p.distanceM, kFactor);
+    const tiltB = elevationAngleDeg(elevB + link.heightBM, elevA + link.heightAM, p.distanceM, kFactor);
+    const rows: [string, string, boolean][] = [
+      ['Distancia', `${twoDecimals.format(dKm)} km`, false],
+      ['Azimut A → B / B → A', `${oneDecimal.format(azAB)}° / ${oneDecimal.format(azBA)}°`, false],
+      ['Inclinación en A / en B', `${twoDecimals.format(tiltA)}° / ${twoDecimals.format(tiltB)}°`, false],
+      ['Despeje mínimo', `${integerFormat.format(clearance.ratio * 100)} % de F1 a ${twoDecimals.format(clearance.distanceM / 1000)} km`, true],
+      ['Pérdida en espacio libre', `${oneDecimal.format(fspl)} dB`, false],
+      [`Difracción (${diffraction.edges.length} arista${diffraction.edges.length === 1 ? '' : 's'})`, `${oneDecimal.format(diffraction.lossDb)} dB`, false],
+      ['Gases atmosféricos', `${oneDecimal.format(gases)} dB`, false],
+      ['ITM (comparación)', itmLoss === null ? 'no aplica sobre 20 GHz' : `${oneDecimal.format(itmLoss)} dB`, false],
+      ['Pérdida usada en el balance', `${oneDecimal.format(pathLoss)} dB`, true],
+      ['Ganancia de antena A / B', `${oneDecimal.format(gainA)} / ${oneDecimal.format(gainB)} dBi`, false],
+      ['PIRE', `${oneDecimal.format(eirp)} dBm`, false],
+      ['Nivel recibido', `${oneDecimal.format(received)} dBm`, true],
+      ['Margen de desvanecimiento', `${signed(margin)} dB`, true],
+      ['Disponibilidad (multitrayecto)', margin > 0 ? `${percentFormat.format(100 * (1 - outage))} %` : '—', false],
+      ['Corte esperado al año', margin > 0 ? `${integerFormat.format((outage * SECONDS_PER_YEAR) / 60)} min` : 'sin margen', false],
+    ];
+    const note =
+      link.frequencyMHz > 10000
+        ? 'Sobre 10 GHz la lluvia es la causa principal de cortes y este cálculo no la incluye: deja margen adicional.'
+        : 'La disponibilidad es la de Vigants-Barnett por desvanecimiento multitrayecto; no incluye lluvia ni fallas de equipo.';
     results.innerHTML = `
       <p class="verdict" style="border-color:${verdict.color}">${verdict.text}</p>
       <table class="budget">
         <tbody>
-          ${row('Distancia', `${twoDecimals.format(dKm)} km`)}
-          ${row('Azimut A → B / B → A', `${oneDecimal.format(azAB)}° / ${oneDecimal.format(azBA)}°`)}
-          ${row('Inclinación en A / en B', `${twoDecimals.format(elevationAngleDeg(elevA + link.heightAM, elevB + link.heightBM, p.distanceM, kFactor))}° / ${twoDecimals.format(elevationAngleDeg(elevB + link.heightBM, elevA + link.heightAM, p.distanceM, kFactor))}°`)}
-          ${row('Despeje mínimo', `${integerFormat.format(clearance.ratio * 100)} % de F1 a ${twoDecimals.format(clearance.distanceM / 1000)} km`, true)}
-          ${row('Pérdida en espacio libre', `${oneDecimal.format(fspl)} dB`)}
-          ${row(`Difracción (${diffraction.edges.length} arista${diffraction.edges.length === 1 ? '' : 's'})`, `${oneDecimal.format(diffraction.lossDb)} dB`)}
-          ${row('Gases atmosféricos', `${oneDecimal.format(gases)} dB`)}
-          ${row('ITM (comparación)', itmLoss === null ? 'no aplica sobre 20 GHz' : `${oneDecimal.format(itmLoss)} dB`)}
-          ${row('Pérdida usada en el balance', `${oneDecimal.format(pathLoss)} dB`, true)}
-          ${row('Ganancia de antena A / B', `${oneDecimal.format(gainA)} / ${oneDecimal.format(gainB)} dBi`)}
-          ${row('PIRE', `${oneDecimal.format(eirp)} dBm`)}
-          ${row('Nivel recibido', `${oneDecimal.format(received)} dBm`, true)}
-          ${row('Margen de desvanecimiento', `${signed(margin)} dB`, true)}
-          ${row('Disponibilidad (multitrayecto)', margin > 0 ? `${percentFormat.format(100 * (1 - outage))} %` : '—')}
-          ${row('Corte esperado al año', margin > 0 ? `${integerFormat.format((outage * SECONDS_PER_YEAR) / 60)} min` : 'sin margen')}
+          ${rows
+            .map(([label, value, strong]) => `<tr${strong ? ' class="strong"' : ''}><th scope="row">${label}</th><td>${value}</td></tr>`)
+            .join('')}
         </tbody>
       </table>
-      <p class="hint">${
-        link.frequencyMHz > 10000
-          ? 'Sobre 10 GHz la lluvia es la causa principal de cortes y este cálculo no la incluye: deja margen adicional.'
-          : 'La disponibilidad es la de Vigants-Barnett por desvanecimiento multitrayecto; no incluye lluvia ni fallas de equipo.'
-      }</p>`;
+      <p class="hint">${note}</p>`;
+    last = { profile: p, points, type, params: { ...link }, kFactor, verdict, rows, note, gainA, gainB, azAB, azBA, tiltA, tiltB };
+    exportButton.hidden = false;
 
-    chart.show(points, `Perfil del enlace · ${twoDecimals.format(dKm)} km · ${link.frequencyMHz >= 1000 ? `${link.frequencyMHz / 1000} GHz` : `${link.frequencyMHz} MHz`}`);
+    chart.show(points, `Perfil del enlace · ${twoDecimals.format(dKm)} km · ${frequencyLabel(link.frequencyMHz)}`);
+  }
+
+  /**
+   * Descarga un KMZ con los extremos A y B, cada uno con su ficha, y el rayo entre antenas con
+   * una cortina hasta el suelo, del color del veredicto y con la tabla de resultados.
+   */
+  async function exportKmz() {
+    if (!last) return;
+    const r = last;
+    const { profile: p, params } = r;
+    const elevations = [p.elevationsM[0]!, p.elevationsM[p.elevationsM.length - 1]!];
+    const antennaText = (value: number, gain: number) =>
+      r.type === 'microondas'
+        ? `Parábola de ${twoDecimals.format(value)} m (${oneDecimal.format(gain)} dBi)`
+        : `${oneDecimal.format(gain)} dBi`;
+    const end = (label: 'A' | 'B'): KmlPlacemark => {
+      const isA = label === 'A';
+      const other = isA ? 'B' : 'A';
+      return {
+        name: `Extremo ${label}`,
+        position: isA ? p.from : p.to,
+        tables: [
+          {
+            rows: [
+              ['Ubicación (lat, lon)', formatLonLat((isA ? p.from : p.to).lon, (isA ? p.from : p.to).lat)],
+              ['Cota del terreno', formatMeters(elevations[isA ? 0 : 1]!)],
+              ['Altura de la antena', formatHeight(isA ? params.heightAM : params.heightBM)],
+              ['Antena', antennaText(isA ? params.antennaA : params.antennaB, isA ? r.gainA : r.gainB)],
+              ['Pérdidas de línea y conectores', `${oneDecimal.format(isA ? params.lossAdb : params.lossBdb)} dB`],
+              [`Azimut hacia ${other}`, `${oneDecimal.format(isA ? r.azAB : r.azBA)}°`],
+              [`Inclinación hacia ${other}`, `${twoDecimals.format(isA ? r.tiltA : r.tiltB)}°`],
+              isA
+                ? ['Potencia del transmisor', `${oneDecimal.format(params.txPowerDbm)} dBm (${formatWatts(dbmToWatts(params.txPowerDbm))})`]
+                : ['Umbral del receptor', `${oneDecimal.format(params.thresholdDbm)} dBm`],
+            ],
+          },
+        ],
+      };
+    };
+    const frequency = frequencyLabel(params.frequencyMHz);
+    const kml = linkKml(`Hertzo · Enlace ${frequency}`, [end('A'), end('B')], {
+      name: `Enlace A–B · ${twoDecimals.format(p.distanceM / 1000)} km · ${frequency}`,
+      color: r.verdict.color,
+      points: linkRayPath(p, r.points),
+      tables: [
+        {
+          title: r.verdict.text,
+          rows: [
+            ...r.rows.map(([label, value]) => [label, value]),
+            ['Curvatura del rayo', K_FACTORS.find((k) => Number(k.id) === Number(r.kFactor.toFixed(4)))?.label ?? `k = ${r.kFactor}`],
+          ],
+          note: r.note,
+        },
+      ],
+    });
+    saveFile(
+      zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }]),
+      exportFileName('enlace', frequency, p.from, 'kmz'),
+      'application/vnd.google-earth.kmz',
+    );
   }
 
   bindSegmented(page.panel, 'tipo', type, (id) => {

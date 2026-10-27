@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coverageKml, exportFileName, kmlLineColor, kmlOpacityColor, placemarkHtml } from './kml';
+import { coverageKml, exportFileName, kmlLineColor, kmlOpacityColor, linkKml, placemarkHtml } from './kml';
 
 describe('coverageKml', () => {
   // Sitio en Medellín con 100 km de radio, en 800 MHz: bajada en 860 MHz y subida en 815 MHz.
@@ -99,6 +99,48 @@ describe('contornos en coverageKml', () => {
     expect(kml).toContain('<color>ff60cf91</color><width>2</width>');
     expect(kml).toContain('<tessellate>1</tessellate>');
     expect(kml).toContain('<coordinates>-75.500000,6.600000,0 -75.200000,6.300000,0 -75.500000,6.600000,0</coordinates>');
+  });
+});
+
+describe('linkKml', () => {
+  // Del Padre Amaya (cota 2.700 m, antena de 30 m) a El Volador (cota 1.630 m, antena de 30 m).
+  const kml = linkKml(
+    'Hertzo · Enlace 11 GHz',
+    [
+      { name: 'Extremo A', position: { lon: -75.6853, lat: 6.2794 }, tables: [{ rows: [['Cota del terreno', '2.700 m']] }] },
+      { name: 'Extremo B', position: { lon: -75.5828, lat: 6.2664 }, tables: [{ rows: [['Cota del terreno', '1.630 m']] }] },
+    ],
+    {
+      name: 'Enlace A–B · 11,4 km',
+      color: '#1a7f37',
+      points: [
+        { lon: -75.6853, lat: 6.2794, altitudeM: 2730 },
+        { lon: -75.5828, lat: 6.2664, altitudeM: 1660 },
+      ],
+      tables: [{ rows: [['Margen de desvanecimiento', '+25,3 dB']] }],
+    },
+  );
+
+  it('es un KML bien armado con los dos extremos y el rayo', () => {
+    expect(kml).toContain('<name>Hertzo · Enlace 11 GHz</name>');
+    expect(kml.match(/<Placemark>/g)).toHaveLength(3);
+    expect(kml).toContain('<name>Extremo A</name>');
+    expect(kml).toContain('<name>Extremo B</name>');
+  });
+
+  it('el rayo va en el aire (altitud absoluta, 1 decimal) con cortina hasta el suelo', () => {
+    expect(kml).toContain('<extrude>1</extrude>');
+    expect(kml).toContain('<altitudeMode>absolute</altitudeMode>');
+    expect(kml).toContain('<coordinates>-75.685300,6.279400,2730.0 -75.582800,6.266400,1660.0</coordinates>');
+  });
+
+  it('línea verde opaca (ff377f1a) y cortina del mismo verde al 33 % (55377f1a)', () => {
+    expect(kml).toContain('<LineStyle><color>ff377f1a</color><width>3</width></LineStyle>');
+    expect(kml).toContain('<PolyStyle><color>55377f1a</color></PolyStyle>');
+  });
+
+  it('la ficha del rayo trae su tabla', () => {
+    expect(kml).toContain('<th>Margen de desvanecimiento</th><td>+25,3 dB</td>');
   });
 });
 

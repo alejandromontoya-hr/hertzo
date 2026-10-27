@@ -54,6 +54,20 @@ export interface KmlLine {
   points: LonLat[];
 }
 
+/** Punto con altitud sobre el nivel del mar (m). */
+export interface KmlPoint3d extends LonLat {
+  altitudeM: number;
+}
+
+/** Línea en el aire con una cortina hasta el suelo, por ejemplo el rayo entre dos antenas. */
+export interface KmlCurtain {
+  name: string;
+  /** Color de la línea en "#rrggbb"; la cortina va del mismo color, semitransparente. */
+  color: string;
+  points: KmlPoint3d[];
+  tables: KmlTable[];
+}
+
 export interface CoverageKmlOptions {
   /** Punto del sitio, fuera de la carpeta de cobertura: queda visible con cualquier capa. */
   site?: KmlPlacemark;
@@ -77,6 +91,9 @@ export function kmlLineColor(hex: string): string {
   const rgb = hex.replace('#', '').toLowerCase();
   return `ff${rgb.slice(4, 6)}${rgb.slice(2, 4)}${rgb.slice(0, 2)}`;
 }
+
+/** Opacidad de la cortina bajo una línea en el aire: 0x55 de 0xff, un 33 %. */
+const CURTAIN_ALPHA = '55';
 
 /** Ancho de las líneas en Google Earth (píxeles). */
 const LINE_WIDTH = 2;
@@ -114,6 +131,36 @@ export function placemarkHtml(tables: readonly KmlTable[]): string {
       return `${title}<table>${header}${rows}</table>${note}`;
     })
     .join('');
+}
+
+function curtain(c: KmlCurtain): string {
+  const color = kmlLineColor(c.color);
+  return `
+    <Placemark>
+      <name>${escapeXml(c.name)}</name>
+      <description><![CDATA[${placemarkHtml(c.tables)}]]></description>
+      <Style>
+        <LineStyle><color>${color}</color><width>3</width></LineStyle>
+        <PolyStyle><color>${CURTAIN_ALPHA}${color.slice(2)}</color></PolyStyle>
+      </Style>
+      <LineString>
+        <extrude>1</extrude>
+        <altitudeMode>absolute</altitudeMode>
+        <coordinates>${c.points.map((p) => `${degrees(p.lon)},${degrees(p.lat)},${p.altitudeM.toFixed(1)}`).join(' ')}</coordinates>
+      </LineString>
+    </Placemark>`;
+}
+
+/** Documento de un enlace punto a punto: los extremos con su ficha y el rayo entre antenas. */
+export function linkKml(documentName: string, ends: readonly KmlPlacemark[], ray: KmlCurtain): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${escapeXml(documentName)}</name>
+    <open>1</open>${ends.map(placemark).join('')}${curtain(ray)}
+  </Document>
+</kml>
+`;
 }
 
 function placemark(p: KmlPlacemark): string {
