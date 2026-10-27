@@ -207,8 +207,9 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     }));
 
     const { site: position, radiusM } = coverage.plan;
-    const site: KmlPlacemark = {
-      name: `Sitio · ${band.label}`,
+    const name = site.getName();
+    const placemark: KmlPlacemark = {
+      name: `${name || 'Sitio'} · ${band.label}`,
       position,
       tables: [
         {
@@ -236,12 +237,12 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       ],
     };
     await downloadCoverageKmz({
-      documentName: `Hertzo · Terreno ${band.label}`,
-      fileName: exportFileName('terreno', band.label, position, 'kmz'),
+      documentName: `Hertzo · Terreno ${band.label}${name ? ` · ${name}` : ''}`,
+      fileName: exportFileName('terreno', band.label, position, 'kmz', name),
       plan: coverage.plan,
       layers,
       opacity,
-      site,
+      site: placemark,
     });
   }
 

@@ -500,14 +500,19 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     chart.show(points, `Perfil del enlace · ${twoDecimals.format(dKm)} km · ${frequencyLabel(link.frequencyMHz)}`);
   }
 
+  /** Nombre escrito para un extremo, o vacío. */
+  const endName = (label: EndLabel) => fields[label].getName();
+  /** Para el archivo: «Cerro El Padre Amaya a Cerro El Volador»; vacío si ninguno tiene nombre. */
+  const linkName = () => [endName('A'), endName('B')].filter(Boolean).join(' a ');
+
   /** Descarga una imagen PNG con el perfil, los extremos, el veredicto y la tabla de resultados. */
   async function exportProfile() {
     if (!last) return;
     const r = last;
     const { profile: p, params } = r;
     const frequency = frequencyLabel(params.frequencyMHz);
-    const endLine = (label: 'A' | 'B', at: LonLat, elevation: number, height: number) =>
-      `${label}: ${formatLonLat(at.lon, at.lat)} · cota ${formatMeters(elevation)} · antena a ${formatHeight(height)}`;
+    const endLine = (label: EndLabel, at: LonLat, elevation: number, height: number) =>
+      `${label}${endName(label) ? ` (${endName(label)})` : ''}: ${formatLonLat(at.lon, at.lat)} · cota ${formatMeters(elevation)} · antena a ${formatHeight(height)}`;
     const kLabel = K_FACTORS.find((k) => Number(k.id) === Number(r.kFactor.toFixed(4)))?.label ?? `k = ${r.kFactor}`;
     const png = await drawProfileReport({
       title: `Perfil del enlace · ${twoDecimals.format(p.distanceM / 1000)} km · ${frequency}`,
@@ -521,7 +526,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       notice: r.verdict.text,
       note: r.note,
     });
-    saveFile(png, exportFileName('enlace-perfil', frequency, p.from, 'png'), 'image/png');
+    saveFile(png, exportFileName('enlace-perfil', frequency, p.from, 'png', linkName()), 'image/png');
   }
 
   /**
@@ -541,7 +546,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       const isA = label === 'A';
       const other = isA ? 'B' : 'A';
       return {
-        name: `Extremo ${label}`,
+        name: endName(label) ? `${label} · ${endName(label)}` : `Extremo ${label}`,
         position: isA ? p.from : p.to,
         tables: [
           {
@@ -562,8 +567,9 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       };
     };
     const frequency = frequencyLabel(params.frequencyMHz);
-    const kml = linkKml(`Hertzo · Enlace ${frequency}`, [end('A'), end('B')], {
-      name: `Enlace A–B · ${twoDecimals.format(p.distanceM / 1000)} km · ${frequency}`,
+    const ends = `${endName('A') || 'A'} – ${endName('B') || 'B'}`;
+    const kml = linkKml(`Hertzo · Enlace ${frequency} · ${ends}`, [end('A'), end('B')], {
+      name: `Enlace ${ends} · ${twoDecimals.format(p.distanceM / 1000)} km · ${frequency}`,
       color: r.verdict.color,
       points: linkRayPath(p, r.points),
       tables: [
@@ -578,7 +584,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     });
     saveFile(
       zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }]),
-      exportFileName('enlace', frequency, p.from, 'kmz'),
+      exportFileName('enlace', frequency, p.from, 'kmz', linkName()),
       'application/vnd.google-earth.kmz',
     );
   }

@@ -362,8 +362,8 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       legend: legendTexts(v),
     });
     await downloadCoverageKmz({
-      documentName: `Hertzo · Celular ${bandName()}`,
-      fileName: exportFileName('celular', bandName(), result.plan.site, 'kmz'),
+      documentName: `Hertzo · Celular ${bandName()}${site.getName() ? ` · ${site.getName()}` : ''}`,
+      fileName: exportFileName('celular', bandName(), result.plan.site, 'kmz', site.getName()),
       plan: result.plan,
       layers: [layerOf('rsrp', 'rsrp'), layerOf('best', 'mejor-sector'), layerOf('sinr', 'sinr')],
       opacity,
@@ -440,7 +440,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     const position = result.plan.site;
     const summaryInfo = summaryTable();
     return {
-      name: `Torre · ${bandName()}`,
+      name: `${site.getName() || 'Torre'} · ${bandName()}`,
       position,
       tables: [
         {

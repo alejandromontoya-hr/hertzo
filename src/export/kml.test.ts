@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coverageKml, exportFileName, kmlLineColor, kmlOpacityColor, linkKml, placemarkHtml } from './kml';
+import { coverageKml, exportFileName, kmlLineColor, kmlOpacityColor, linkKml, placemarkHtml, slugify } from './kml';
 
 describe('coverageKml', () => {
   // Sitio en Medellín con 100 km de radio, en 800 MHz: bajada en 860 MHz y subida en 815 MHz.
@@ -190,9 +190,32 @@ describe('exportFileName', () => {
     );
   });
 
+  it('con nombre, el nombre reemplaza las coordenadas: «Cerro El Padre Amaya»', () => {
+    expect(exportFileName('terreno', '800 MHz', { lon: -75.6853, lat: 6.2794 }, 'kmz', 'Cerro El Padre Amaya')).toBe(
+      'hertzo-terreno-800MHz-cerro-el-padre-amaya.kmz',
+    );
+  });
+
+  it('un nombre sin letras ni números («***») deja las coordenadas', () => {
+    expect(exportFileName('terreno', 'VHF', { lon: -58.3816, lat: -34.6037 }, 'kmz', '***')).toBe(
+      'hertzo-terreno-VHF-34.6037S-58.3816W.kmz',
+    );
+  });
+
   it('Tokio (35,6762 N; 139,6503 E) en UHF', () => {
     expect(exportFileName('terreno', 'UHF', { lon: 139.6503, lat: 35.6762 }, 'kmz')).toBe(
       'hertzo-terreno-UHF-35.6762N-139.6503E.kmz',
     );
+  });
+});
+
+describe('slugify', () => {
+  it('quita tildes, eñes y signos: «Torre Ñuñoa – Sector Norte (2)» → «torre-nunoa-sector-norte-2»', () => {
+    expect(slugify('Torre Ñuñoa – Sector Norte (2)')).toBe('torre-nunoa-sector-norte-2');
+  });
+
+  it('corta en 60 letras sin dejar un guion al final', () => {
+    const slug = slugify('a'.repeat(59) + ' bcd');
+    expect(slug).toBe('a'.repeat(59));
   });
 });

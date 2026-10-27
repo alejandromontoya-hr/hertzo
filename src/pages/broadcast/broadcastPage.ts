@@ -293,6 +293,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     const mask = lowConfidenceMask(engineOf(result));
     const levels = [...thresholds].sort((a, b) => b - a);
     const position = result.plan.site;
+    const name = site.getName();
     const station =
       service === 'fm'
         ? [
@@ -311,12 +312,13 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
           ];
 
     await downloadCoverageKmz({
-      documentName: `Hertzo · Radiodifusión ${stationLabel()}`,
+      documentName: `Hertzo · Radiodifusión ${stationLabel()}${name ? ` · ${name}` : ''}`,
       fileName: exportFileName(
         'radiodifusion',
         service === 'fm' ? `FM-${fm.frequencyMHz}MHz` : `AM-${am.frequencyKHz}kHz`,
         position,
         'kmz',
+        name,
       ),
       plan: result.plan,
       layers: [
@@ -343,7 +345,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
         })),
       },
       site: {
-        name: `Transmisor · ${stationLabel()}`,
+        name: `${name || 'Transmisor'} · ${stationLabel()}`,
         position,
         tables: [
           {

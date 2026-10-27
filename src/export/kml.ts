@@ -232,9 +232,25 @@ export function coverageKml(
 `;
 }
 
-/** Nombre del archivo: escenario, banda y ubicación del sitio, por ejemplo hertzo-terreno-800MHz-6.2794N-75.6853W.kmz. */
-export function exportFileName(scenario: string, bandLabel: string, site: LonLat, extension: string): string {
+/** Texto apto para un nombre de archivo: «Cerro El Padre Amaya» → «cerro-el-padre-amaya» (máximo 60 letras). */
+export function slugify(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/, '');
+}
+
+/**
+ * Nombre del archivo: escenario, banda y el nombre del sitio si tiene, por ejemplo
+ * hertzo-terreno-800MHz-cerro-el-padre-amaya.kmz; sin nombre, la ubicación: …-6.2794N-75.6853W.kmz.
+ */
+export function exportFileName(scenario: string, bandLabel: string, site: LonLat, extension: string, name = ''): string {
   const lat = `${Math.abs(site.lat).toFixed(4)}${site.lat >= 0 ? 'N' : 'S'}`;
   const lon = `${Math.abs(site.lon).toFixed(4)}${site.lon >= 0 ? 'E' : 'W'}`;
-  return `hertzo-${scenario}-${bandLabel.replace(/\s+/g, '')}-${lat}-${lon}.${extension}`;
+  const place = slugify(name) || `${lat}-${lon}`;
+  return `hertzo-${scenario}-${bandLabel.replace(/\s+/g, '')}-${place}.${extension}`;
 }
