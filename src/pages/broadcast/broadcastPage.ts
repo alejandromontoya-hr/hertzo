@@ -108,7 +108,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       ${segmentedHtml('servicio', [{ id: 'fm', label: 'FM' }, { id: 'am', label: 'AM' }], 'Servicio')}
       <p class="hint" data-service-hint></p>
     </section>
-    ${siteSectionHtml('Transmisor', 'Haz clic en el mapa para ubicar la antena de la emisora.')}
+    ${siteSectionHtml('Transmisor', 'la antena de la emisora')}
     ${coverageStatusHtml()}
     <section class="panel-section">
       <h2>Emisora</h2>
@@ -143,7 +143,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   });
 
   const site = createSiteControls(page, { radiusKm: SERVICE[service].radiusKm, maxRadiusKm: 300, onChange });
-  const controller = createCoverageController(page.find('[data-coverage-status]'), (result) => {
+  const controller = createCoverageController(page.find('[data-coverage-status]'), page.find('[data-simulate-box]'), (result) => {
     coverage = result;
     geometry = buildRasterGeometry(result.plan);
     values = new Float32Array(geometry.index.length);
@@ -384,7 +384,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
 
   function onChange() {
     redraw();
-    controller.schedule(request());
+    controller.setRequest(request());
   }
 
   bindSegmented(page.panel, 'servicio', service, (id) => {
@@ -392,6 +392,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     thresholds = [...SERVICE[service].thresholds];
     site.setRadiusKm(SERVICE[service].radiusKm);
     coverage = null;
+    controller.forgetResult();
     exporter.setEnabled(false);
     coverageLayer.clear();
     legend.hide();

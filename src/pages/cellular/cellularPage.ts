@@ -141,7 +141,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       <div class="form" data-model></div>
       <p class="hint" data-model-hint></p>
     </section>
-    ${siteSectionHtml('Sitio celular', 'Haz clic en el mapa para ubicar la torre.')}
+    ${siteSectionHtml('Sitio celular', 'la torre')}
     ${coverageStatusHtml()}
     <details class="panel-section" open>
       <summary>Sectores</summary>
@@ -185,7 +185,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   });
 
   const site = createSiteControls(page, { radiusKm: 5, maxRadiusKm: 40, onChange: onGeometryChange });
-  const controller = createCoverageController(page.find('[data-coverage-status]'), (result) => {
+  const controller = createCoverageController(page.find('[data-coverage-status]'), page.find('[data-simulate-box]'), (result) => {
     coverage = result;
     geometry = buildRasterGeometry(result.plan);
     values = sectorPixelsFor(geometry.index.length);
@@ -500,7 +500,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   /** Cambios que afectan la pérdida de trayecto: sitio, radio, altura, frecuencia o modelo. */
   function onGeometryChange() {
     redraw();
-    controller.schedule(request());
+    controller.setRequest(request());
   }
 
   bindSegmented(page.panel, 'banda', band.id, (id) => {

@@ -1,5 +1,6 @@
-// Control del cálculo de cobertura de una página: espera a que el usuario deje de escribir,
-// recalcula solo si cambió algo que afecta la propagación y cancela el cálculo anterior.
+// Control del cálculo de cobertura de una página: guarda los datos del próximo cálculo y lo
+// lanza solo cuando el usuario pulsa «Simular». Si después cambia algo que afecta la
+// propagación, el mapa conserva el cálculo anterior y el botón pasa a «Simular de nuevo».
 
 import {
   CoverageAbortedError,
@@ -10,54 +11,84 @@ import {
 } from '../../coverage/computeCoverage';
 import { createCoverageStatus } from '../../ui/coverageStatus';
 
-/** Espera tras el último cambio antes de recalcular, para no lanzar un cálculo por tecla. */
-const DEBOUNCE_MS = 400;
-
 export interface CoverageController {
-  /** Pide un cálculo con estos datos; si son los mismos del último, no hace nada. */
-  schedule(request: CoverageRequest | null): void;
+  /** Datos del próximo cálculo (null si falta el sitio); no calcula hasta pulsar «Simular». */
+  setRequest(request: CoverageRequest | null): void;
+  /** La página borró el mapa (por ejemplo al pasar de FM a AM): el botón vuelve a «Simular». */
+  forgetResult(): void;
   destroy(): void;
 }
 
+/**
+ * `simulateRoot` es el bloque `[data-simulate-box]` de `siteSectionHtml`, con el botón y su
+ * ayuda; `statusRoot`, el de `coverageStatusHtml`, con la barra de progreso.
+ */
 export function createCoverageController(
   statusRoot: HTMLElement,
+  simulateRoot: HTMLElement,
   onResult: (result: CoverageResult) => void,
   doneDetail?: string,
 ): CoverageController {
   const status = createCoverageStatus(statusRoot);
-  let lastRequest: CoverageRequest | null = null;
+  const button = simulateRoot.querySelector<HTMLButtonElement>('[data-simulate]')!;
+  const hint = simulateRoot.querySelector<HTMLElement>('[data-simulate-hint]')!;
+  let pending: CoverageRequest | null = null;
+  /** Datos del cálculo que muestra el mapa. */
+  let shown: CoverageRequest | null = null;
+  let running = false;
   let abort: AbortController | null = null;
-  let timer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
 
-  async function run(request: CoverageRequest) {
+  function refresh() {
+    const upToDate = pending !== null && shown !== null && sameRequest(shown, pending);
+    button.hidden = !running && (!pending || upToDate);
+    button.disabled = running;
+    button.textContent = running ? 'Simulando…' : shown ? 'Simular de nuevo' : 'Simular';
+    hint.hidden = running || !shown || !pending || upToDate;
+    hint.textContent = 'El mapa muestra el cálculo anterior: cambiaste la ubicación, el radio, la frecuencia o las alturas.';
+  }
+
+  async function run() {
+    const request = pending;
+    if (!request || running) return;
     abort?.abort();
     const current = new AbortController();
     abort = current;
+    running = true;
+    refresh();
     try {
       const result = await getCoverageRunner().run(request, status.showProgress, current.signal);
       if (destroyed || current.signal.aborted) return;
+      shown = request;
       onResult(result);
       status.showDone(result, doneDetail);
       if (import.meta.env.DEV) Object.assign(window, { hertzoCoverage: result });
     } catch (error) {
       if (error instanceof CoverageAbortedError || destroyed) return;
       console.error(error);
-      lastRequest = null; // permite reintentar con los mismos datos
       status.showError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (abort === current) running = false;
+      if (!destroyed) refresh();
     }
   }
 
+  button.addEventListener('click', () => void run());
+  refresh();
+
   return {
-    schedule(request) {
-      if (!request || sameRequest(lastRequest, request)) return;
-      lastRequest = request;
-      clearTimeout(timer);
-      timer = setTimeout(() => void run(request), DEBOUNCE_MS);
+    setRequest(request) {
+      pending = request;
+      refresh();
+    },
+    forgetResult() {
+      abort?.abort();
+      running = false;
+      shown = null;
+      refresh();
     },
     destroy() {
       destroyed = true;
-      clearTimeout(timer);
       abort?.abort();
     },
   };

@@ -1,18 +1,16 @@
 import type { LonLat } from '../geo/geodesy';
 import { elevationAt } from '../terrain/elevation';
-import { formatLonLat, formatMeters } from './format';
+import { formatMeters } from './format';
 
 export interface SitePanel {
-  /** Muestra la ubicación del sitio y busca la cota del terreno en ese punto. */
+  /** Muestra la cota del terreno en el sitio y el botón del perfil. */
   showSite(site: LonLat): void;
   /** Cambia el botón y la ayuda según se esté trazando un perfil o no. */
   setProfileMode(active: boolean): void;
 }
 
 export function createSitePanel(root: HTMLElement, onProfileToggle: () => void): SitePanel {
-  const hint = root.querySelector<HTMLElement>('[data-site-hint]')!;
   const details = root.querySelector<HTMLElement>('[data-site-details]')!;
-  const location = root.querySelector<HTMLElement>('[data-site-location]')!;
   const elevation = root.querySelector<HTMLElement>('[data-site-elevation]')!;
   const profileButton = root.querySelector<HTMLButtonElement>('[data-profile-toggle]')!;
   const profileHint = root.querySelector<HTMLElement>('[data-profile-hint]')!;
@@ -24,9 +22,7 @@ export function createSitePanel(root: HTMLElement, onProfileToggle: () => void):
 
   return {
     async showSite(site) {
-      hint.hidden = true;
       details.hidden = false;
-      location.textContent = formatLonLat(site.lon, site.lat);
       elevation.textContent = 'Cargando…';
 
       const current = ++request;

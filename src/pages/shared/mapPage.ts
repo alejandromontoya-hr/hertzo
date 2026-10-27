@@ -48,16 +48,42 @@ export function createMapPage(root: HTMLElement, panelHtml: string, ariaLabel: s
   };
 }
 
-/** Bloque del panel con la ubicación del sitio, el perfil de terreno y el radio de cálculo. */
-export function siteSectionHtml(title = 'Sitio', hint = 'Haz clic en el mapa para ubicar el sitio.'): string {
+/**
+ * Bloque del panel del sitio: nombre, coordenadas (escritas o elegidas en el mapa), cota, perfil
+ * de terreno, radio de cálculo y el botón «Simular». `what` completa la ayuda: «la torre».
+ */
+export function siteSectionHtml(title = 'Sitio', what = 'el sitio'): string {
   return `
     <section class="panel-section" data-site-panel>
       <h2>${title}</h2>
-      <p class="hint" data-site-hint>${hint}</p>
+      <div class="form">
+        <div class="field field-name">
+          <label for="site-name">Nombre</label>
+          <input id="site-name" type="text" maxlength="60" autocomplete="off" placeholder="Opcional" data-site-name />
+        </div>
+        <div class="field">
+          <label for="site-lat">Latitud</label>
+          <div class="field-input">
+            <input id="site-lat" type="text" inputmode="decimal" autocomplete="off" placeholder="6.27940" data-site-lat />
+            <span class="field-unit">°</span>
+          </div>
+        </div>
+        <div class="field">
+          <label for="site-lon">Longitud</label>
+          <div class="field-input">
+            <input id="site-lon" type="text" inputmode="decimal" autocomplete="off" placeholder="-75.68530" data-site-lon />
+            <span class="field-unit">°</span>
+          </div>
+          <p class="field-error" data-site-error hidden></p>
+        </div>
+      </div>
+      <button type="button" class="button" data-pick-site aria-pressed="false">Elegir en el mapa</button>
+      <p class="hint" data-site-hint>
+        Escribe las coordenadas (puedes pegar «6.27940, -75.68530» de Google Maps en Latitud) o pulsa
+        «Elegir en el mapa» y haz clic donde va ${what}.
+      </p>
       <div data-site-details hidden>
         <dl class="site-details">
-          <dt>Ubicación (lat, lon)</dt>
-          <dd data-site-location></dd>
           <dt>Cota del terreno</dt>
           <dd data-site-elevation></dd>
         </dl>
@@ -71,6 +97,10 @@ export function siteSectionHtml(title = 'Sitio', hint = 'Haz clic en el mapa par
         </p>
       </div>
       <div class="form" data-radius-field></div>
+      <div class="simulate" data-simulate-box>
+        <button type="button" class="button button-primary" data-simulate hidden>Simular</button>
+        <p class="hint" data-simulate-hint hidden></p>
+      </div>
     </section>`;
 }
 

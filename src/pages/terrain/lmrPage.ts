@@ -122,6 +122,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   const site = createSiteControls(page, { radiusKm: DEFAULT_RADIUS_KM, maxRadiusKm: 100, onChange: onParametersChange });
   const controller = createCoverageController(
     page.find('[data-coverage-status]'),
+    page.find('[data-simulate-box]'),
     (result) => {
       coverage = result;
       geometry = buildRasterGeometry(result.plan);
@@ -248,7 +249,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     showBudget(talkOutBudget(tx, radio), talkInBudget(rx, radio));
     redraw();
     const location = site.getSite();
-    controller.schedule(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio));
+    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio));
   }
 
   const readout = createHoverReadout(page.readoutRoot);
