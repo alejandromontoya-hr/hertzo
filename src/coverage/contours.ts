@@ -1,10 +1,14 @@
 // Contorno de servicio de un umbral a partir de la grilla de radiales. Módulo puro.
-// En cada radial, el contorno pasa por el punto más lejano donde el valor llega al umbral:
-// si la señal cae detrás de un cerro y vuelve a aparecer más lejos, el contorno va hasta allá.
+// En cada radial se toma el punto más lejano donde el valor llega al umbral: si la señal cae
+// detrás de un cerro y vuelve a aparecer más lejos, cuenta hasta allá. Luego cada radial toma la
+// mediana de los alcances a ±2° a su alrededor, para que un cerro suelto no dibuje un pico.
 
 import { destinationPoint, type LonLat } from '../geo/geodesy';
 import type { CoverageGrid } from './computeCoverage';
 import { pointDistanceM, radialBearingDeg, type RadialPlan } from './radials';
+
+/** Media ventana del suavizado (grados): con 1.800 radiales, 10 a cada lado, mediana de 21. */
+export const CONTOUR_SMOOTHING_DEG = 2;
 
 /**
  * Distancia al sitio (m) del punto más lejano de cada radial con valor ≥ `thresholdDb`, donde
@@ -25,9 +29,32 @@ export function farthestReachM(plan: RadialPlan, grid: CoverageGrid, offsetDb: n
   return reach;
 }
 
-/** Línea cerrada del contorno: un vértice por radial, desde el norte en sentido horario, y vuelta al primero. */
-export function contourRing(plan: RadialPlan, grid: CoverageGrid, offsetDb: number, thresholdDb: number): LonLat[] {
-  const reach = farthestReachM(plan, grid, offsetDb, thresholdDb);
+/** Mediana de cada valor con sus `half` vecinos a cada lado; la lista da la vuelta (el radial 0 sigue al último). */
+export function circularMedian(values: Float64Array, half: number): Float64Array {
+  const n = values.length;
+  const out = new Float64Array(n);
+  const window = new Float64Array(2 * half + 1);
+  for (let i = 0; i < n; i++) {
+    for (let k = -half; k <= half; k++) window[k + half] = values[(((i + k) % n) + n) % n]!;
+    window.sort();
+    out[i] = window[half]!;
+  }
+  return out;
+}
+
+/**
+ * Línea cerrada del contorno: un vértice por radial, desde el norte en sentido horario, y vuelta
+ * al primero. Cada alcance es la mediana de los radiales a ±`smoothingDeg` (0: sin suavizar).
+ */
+export function contourRing(
+  plan: RadialPlan,
+  grid: CoverageGrid,
+  offsetDb: number,
+  thresholdDb: number,
+  smoothingDeg = CONTOUR_SMOOTHING_DEG,
+): LonLat[] {
+  const half = Math.round((smoothingDeg * plan.radialCount) / 360);
+  const reach = circularMedian(farthestReachM(plan, grid, offsetDb, thresholdDb), half);
   const ring = Array.from(reach, (d, r) => destinationPoint(plan.site, radialBearingDeg(plan, r), d));
   ring.push(ring[0]!);
   return ring;

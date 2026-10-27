@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { destinationPoint, distanceM } from '../geo/geodesy';
-import { contourRing, farthestReachM } from './contours';
+import { circularMedian, contourRing, farthestReachM } from './contours';
 import { planRadials, pointDistanceM } from './radials';
 
 const site = { lon: -75.5663, lat: 6.2773 };
@@ -47,12 +47,51 @@ describe('farthestReachM', () => {
   });
 });
 
+describe('circularMedian', () => {
+  it('con 2 vecinos a cada lado, un pico de un solo valor desaparece', () => {
+    expect(Array.from(circularMedian(Float64Array.from([9, 9, 55, 9, 9, 9]), 2))).toEqual([9, 9, 9, 9, 9, 9]);
+  });
+
+  it('da la vuelta: el pico en la última posición se compara con las primeras', () => {
+    expect(Array.from(circularMedian(Float64Array.from([9, 9, 9, 9, 9, 55]), 2))).toEqual([9, 9, 9, 9, 9, 9]);
+  });
+
+  it('un sector de 3 seguidos (la mayoría de una ventana de 5) se mantiene entero', () => {
+    expect(Array.from(circularMedian(Float64Array.from([9, 40, 40, 40, 9, 9, 9, 9]), 2))).toEqual([9, 40, 40, 40, 9, 9, 9, 9]);
+  });
+
+  it('un sector de 2 seguidos (minoría de la ventana) desaparece', () => {
+    expect(Array.from(circularMedian(Float64Array.from([9, 40, 40, 9, 9, 9, 9, 9]), 2))).toEqual([9, 9, 9, 9, 9, 9, 9, 9]);
+  });
+
+  it('sin vecinos (0) deja todo igual', () => {
+    expect(Array.from(circularMedian(Float64Array.from([3, 1, 2]), 0))).toEqual([3, 1, 2]);
+  });
+});
+
 describe('contourRing', () => {
   const ring = contourRing(plan, grid(30), 100, 66);
 
   it('un vértice por radial más el de cierre, igual al primero', () => {
     expect(ring).toHaveLength(361);
     expect(ring[360]).toEqual(ring[0]);
+  });
+
+  // Pérdida 50 dB (campo 50, no llega) salvo un cerro que sí llega en el punto 10 de los radiales indicados.
+  const hill = (radials: number[]) =>
+    grid(30, (loss) => {
+      for (let r = 0; r < 360; r++) for (let k = 3; k < n; k++) loss[r * n + k] = radials.includes(r) && k === 10 ? 30 : 50;
+    });
+  const farOf = (ring: ReturnType<typeof contourRing>, r: number) => distanceM(site, ring[r]!);
+
+  it('±2° en 360 radiales son 2 vecinos a cada lado: el cerro en un solo radial (90) no hace pico', () => {
+    const smoothed = contourRing(plan, hill([90]), 100, 66);
+    expect(farOf(smoothed, 90)).toBeCloseTo(pointDistanceM(plan, 2), 3);
+    expect(farOf(contourRing(plan, hill([90]), 100, 66, 0), 90)).toBeCloseTo(pointDistanceM(plan, 10), 3);
+  });
+
+  it('un cerro que cubre 5 radiales seguidos (88 a 92) sí se mantiene en el del medio', () => {
+    expect(farOf(contourRing(plan, hill([88, 89, 90, 91, 92]), 100, 66), 90)).toBeCloseTo(pointDistanceM(plan, 10), 3);
   });
 
   it('el vértice del radial 0 está al norte del sitio y el del radial 90 al este, a la distancia del alcance', () => {
