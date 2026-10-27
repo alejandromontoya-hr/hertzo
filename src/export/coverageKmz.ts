@@ -5,7 +5,7 @@
 import type { RadialPlan } from '../coverage/radials';
 import { buildRasterGeometry, type RasterGeometry } from '../coverage/raster';
 import { encodePng, saveFile } from './download';
-import { coverageKml, type KmlCoverageLayer, type KmlPlacemark } from './kml';
+import { coverageKml, type CoverageKmlOptions, type KmlCoverageLayer, type KmlPlacemark } from './kml';
 import { drawLegendImage, type LegendImageContent } from './legendImage';
 import { zipStore, type ZipEntry } from './zip';
 
@@ -29,6 +29,7 @@ export interface KmzSpec {
   /** Opacidad del mapa, de 0 a 1. */
   opacity: number;
   site?: KmlPlacemark;
+  lines?: CoverageKmlOptions['lines'];
 }
 
 /** Cuadrícula en grados parejos de cada cálculo: se arma en la primera exportación y se reusa. */
@@ -66,7 +67,7 @@ export async function downloadCoverageKmz(spec: KmzSpec): Promise<void> {
     });
   }
 
-  const kml = coverageKml(spec.documentName, layers, { site: spec.site });
+  const kml = coverageKml(spec.documentName, layers, { site: spec.site, lines: spec.lines });
   saveFile(zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }, ...files]), spec.fileName, KMZ_MIME);
 }
 

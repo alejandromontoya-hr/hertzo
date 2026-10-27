@@ -46,9 +46,19 @@ export interface KmlPlacemark {
   tables: KmlTable[];
 }
 
+/** Línea sobre el terreno, por ejemplo un contorno de servicio. */
+export interface KmlLine {
+  name: string;
+  /** Color de la línea en "#rrggbb". */
+  color: string;
+  points: LonLat[];
+}
+
 export interface CoverageKmlOptions {
   /** Punto del sitio, fuera de la carpeta de cobertura: queda visible con cualquier capa. */
   site?: KmlPlacemark;
+  /** Carpeta de líneas, también fuera de la de cobertura: se prenden aparte de la imagen. */
+  lines?: { folderName: string; lines: KmlLine[] };
 }
 
 const escapeXml = (s: string) =>
@@ -60,6 +70,33 @@ const degrees = (value: number) => value.toFixed(6);
 export function kmlOpacityColor(opacity: number): string {
   const alpha = Math.round(Math.min(1, Math.max(0, opacity)) * 255);
   return `${alpha.toString(16).padStart(2, '0')}ffffff`;
+}
+
+/** De "#rrggbb" al color de KML (aabbggrr), opaco: "#1a9850" → "ff50981a". */
+export function kmlLineColor(hex: string): string {
+  const rgb = hex.replace('#', '').toLowerCase();
+  return `ff${rgb.slice(4, 6)}${rgb.slice(2, 4)}${rgb.slice(0, 2)}`;
+}
+
+/** Ancho de las líneas en Google Earth (píxeles). */
+const LINE_WIDTH = 2;
+
+function linesFolder(folderName: string, lines: readonly KmlLine[]): string {
+  const items = lines.map(
+    (l) => `
+      <Placemark>
+        <name>${escapeXml(l.name)}</name>
+        <Style><LineStyle><color>${kmlLineColor(l.color)}</color><width>${LINE_WIDTH}</width></LineStyle></Style>
+        <LineString>
+          <tessellate>1</tessellate>
+          <coordinates>${l.points.map((p) => `${degrees(p.lon)},${degrees(p.lat)},0`).join(' ')}</coordinates>
+        </LineString>
+      </Placemark>`,
+  );
+  return `
+    <Folder>
+      <name>${escapeXml(folderName)}</name>${items.join('')}
+    </Folder>`;
 }
 
 /**
@@ -142,7 +179,7 @@ export function coverageKml(
       <name>Cobertura</name>
       <open>1</open>
       <Style><ListStyle><listItemType>radioFolder</listItemType></ListStyle></Style>${layers.map((l, i) => layerFolder(l, i === 0)).join('')}
-    </Folder>
+    </Folder>${options.lines ? linesFolder(options.lines.folderName, options.lines.lines) : ''}
   </Document>
 </kml>
 `;

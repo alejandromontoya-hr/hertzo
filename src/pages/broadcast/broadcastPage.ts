@@ -5,6 +5,7 @@
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import type { CoverageRequest, CoverageResult } from '../../coverage/computeCoverage';
 import { paintBands, bandLabels } from '../../coverage/paint';
+import { contourRing } from '../../coverage/contours';
 import { areaAboveKm2, gridValues, lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { KMZ_BUTTON_HTML, bindKmzButton, downloadCoverageKmz } from '../../export/coverageKmz';
@@ -213,14 +214,15 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     return result.request.engine;
   }
 
-  function legendEntries() {
-    const labels = bandLabels(thresholds, 'dBµV/m');
+  /** « · estéreo, urbano» para la franja i, solo si los umbrales siguen siendo los de la norma. */
+  function zoneSuffix(i: number): string {
     const defaults: readonly number[] = SERVICE[service].thresholds;
     const sameAsDefault = [...thresholds].sort((a, b) => b - a).join() === defaults.join();
-    return labels.map((label, i) => ({
-      color: LEVEL_COLORS[i]!,
-      label: sameAsDefault ? `${label} · ${SERVICE[service].descriptions[i]}` : label,
-    }));
+    return sameAsDefault ? ` · ${SERVICE[service].descriptions[i]}` : '';
+  }
+
+  function legendEntries() {
+    return bandLabels(thresholds, 'dBµV/m').map((label, i) => ({ color: LEVEL_COLORS[i]!, label: label + zoneSuffix(i) }));
   }
 
   /** Zonas de servicio del último cálculo: umbral, alcance (solo AM) y área. La misma tabla va al KMZ. */
@@ -277,14 +279,17 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   const stationLabel = () =>
     service === 'fm' ? `FM ${formatMHz(fm.frequencyMHz)}` : `AM ${integerFormat.format(am.frequencyKHz)} kHz`;
 
-  /** Descarga un KMZ con el campo, su leyenda y el transmisor con su ficha y las zonas de servicio. */
+  /**
+   * Descarga un KMZ con el campo y su leyenda, el transmisor con su ficha y las zonas de servicio,
+   * y un contorno por umbral.
+   */
   async function exportKmz() {
     const zoneInfo = zoneTable();
     if (!coverage || !zoneInfo) return;
     const result = coverage;
     const offsetDb = fieldStrengthDbuvm(eirpDbm(), result.request.links[0]!.frequencyMHz);
     const mask = lowConfidenceMask(engineOf(result));
-    const levels = [...thresholds];
+    const levels = [...thresholds].sort((a, b) => b - a);
     const position = result.plan.site;
     const station =
       service === 'fm'
@@ -327,6 +332,14 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
         },
       ],
       opacity,
+      lines: {
+        folderName: 'Contornos',
+        lines: levels.map((t, i) => ({
+          name: `${t} dBµV/m (${mvmFormat.format(dbuvmToMvm(t))} mV/m)${zoneSuffix(i)}`,
+          color: LEVEL_COLORS[i]!,
+          points: contourRing(result.plan, result.grids[0]!, offsetDb, t),
+        })),
+      },
       site: {
         name: `Transmisor · ${stationLabel()}`,
         position,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coverageKml, exportFileName, kmlOpacityColor, placemarkHtml } from './kml';
+import { coverageKml, exportFileName, kmlLineColor, kmlOpacityColor, placemarkHtml } from './kml';
 
 describe('coverageKml', () => {
   // Sitio en Medellín con 100 km de radio, en 800 MHz: bajada en 860 MHz y subida en 815 MHz.
@@ -66,6 +66,46 @@ describe('coverageKml', () => {
     expect(withSite).toContain('<coordinates>-75.685300,6.279400,0</coordinates>');
     expect(withSite.indexOf('<Placemark>')).toBeLessThan(withSite.indexOf('<name>Cobertura</name>'));
     expect(withSite).toContain('<description><![CDATA[<table><tr><th>Banda</th><td>800 MHz</td></tr></table>]]></description>');
+  });
+});
+
+describe('contornos en coverageKml', () => {
+  const bounds = { north: 7, south: 6, east: -75, west: -76 };
+  const kml = coverageKml('X', [{ name: 'Campo FM 98,5 MHz', href: 'campo.png', bounds }], {
+    lines: {
+      folderName: 'Contornos',
+      lines: [
+        {
+          name: '66 dBµV/m (2 mV/m) · estéreo, urbano',
+          color: '#91cf60',
+          points: [
+            { lon: -75.5, lat: 6.6 },
+            { lon: -75.2, lat: 6.3 },
+            { lon: -75.5, lat: 6.6 },
+          ],
+        },
+      ],
+    },
+  });
+
+  it('van en su propia carpeta, después y fuera de la carpeta «Cobertura»', () => {
+    const coverageEnd = kml.indexOf('</Folder>', kml.indexOf('<name>Campo FM 98,5 MHz</name>'));
+    const coverageFolderEnd = kml.indexOf('</Folder>', coverageEnd + 1);
+    expect(kml.indexOf('<name>Contornos</name>')).toBeGreaterThan(coverageFolderEnd);
+  });
+
+  it('cada contorno es una línea pegada al terreno, con su color y los puntos en lon,lat', () => {
+    expect(kml).toContain('<name>66 dBµV/m (2 mV/m) · estéreo, urbano</name>');
+    expect(kml).toContain('<color>ff60cf91</color><width>2</width>');
+    expect(kml).toContain('<tessellate>1</tessellate>');
+    expect(kml).toContain('<coordinates>-75.500000,6.600000,0 -75.200000,6.300000,0 -75.500000,6.600000,0</coordinates>');
+  });
+});
+
+describe('kmlLineColor', () => {
+  it('"#1a9850" (verde de la franja más fuerte) → "ff50981a"; acepta mayúsculas', () => {
+    expect(kmlLineColor('#1a9850')).toBe('ff50981a');
+    expect(kmlLineColor('#D73027')).toBe('ff2730d7');
   });
 });
 
