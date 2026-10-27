@@ -8,10 +8,11 @@ import { bandLabels, paintBands, paintCategories } from '../../coverage/paint';
 import { lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { LEVEL_COLORS } from '../../coverage/colorScale';
-import { KMZ_BUTTON_HTML, bindExportButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { destinationPoint, distanceM, initialBearingDeg } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
+import { addExportControl } from '../../map/exportControl';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
 import {
   CARRIERS,
@@ -141,7 +142,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       <p class="hint" data-model-hint></p>
     </section>
     ${siteSectionHtml('Sitio celular', 'Haz clic en el mapa para ubicar la torre.')}
-    ${coverageStatusHtml('Cobertura', KMZ_BUTTON_HTML)}
+    ${coverageStatusHtml()}
     <details class="panel-section" open>
       <summary>Sectores</summary>
       <div class="form" data-sectors></div>
@@ -164,8 +165,9 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   const bandDescription = page.find('[data-band-description]');
   const modelHint = page.find('[data-model-hint]');
   const summary = page.find('[data-summary]');
-  const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  bindExportButton(exportButton, exportKmz);
+  const exporter = addExportControl(page.map, [
+    { label: 'KMZ para Google Earth', description: 'RSRP, mejor sector y SINR con sus leyendas, y la torre con sus sectores.', run: exportKmz },
+  ]);
   const coverageLayer = createCoverageLayer(page.map, opacity);
   const legend = createMapLegend(page.legendRoot, {
     onView(id) {
@@ -188,7 +190,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     geometry = buildRasterGeometry(result.plan);
     values = sectorPixelsFor(geometry.index.length);
     pixels = new Uint8ClampedArray(geometry.index.length * 4);
-    exportButton.hidden = false;
+    exporter.setEnabled(true);
     redraw();
   });
 

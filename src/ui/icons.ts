@@ -2,6 +2,7 @@
 // porque la configuración de Vite lee ese catálogo y no sabe importar archivos SVG.
 
 import boomBox from 'lucide-static/icons/boom-box.svg?raw';
+import download from 'lucide-static/icons/download.svg?raw';
 import houseWifi from 'lucide-static/icons/house-wifi.svg?raw';
 import pickaxe from 'lucide-static/icons/pickaxe.svg?raw';
 import radioTower from 'lucide-static/icons/radio-tower.svg?raw';
@@ -10,6 +11,9 @@ import signal from 'lucide-static/icons/signal.svg?raw';
 
 /** Quita el comentario de licencia del archivo y marca el ícono como decorativo. */
 const decorative = (raw: string) => raw.replace(/<!--[\s\S]*?-->/, '').trim().replace('<svg', '<svg aria-hidden="true"');
+
+/** Ícono del botón «Exportar» sobre el mapa. */
+export const DOWNLOAD_ICON = decorative(download);
 
 /** Ícono de cada escenario, por su dirección. */
 export const SCENARIO_ICONS: Record<string, string> = {

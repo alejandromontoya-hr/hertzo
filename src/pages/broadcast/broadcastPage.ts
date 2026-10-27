@@ -8,10 +8,11 @@ import { paintBands, bandLabels } from '../../coverage/paint';
 import { contourRing } from '../../coverage/contours';
 import { areaAboveKm2, gridValues, lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
-import { KMZ_BUTTON_HTML, bindExportButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName } from '../../export/kml';
 import { distanceM } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
+import { addExportControl } from '../../map/exportControl';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
 import {
   dbuvmToMvm,
@@ -108,7 +109,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       <p class="hint" data-service-hint></p>
     </section>
     ${siteSectionHtml('Transmisor', 'Haz clic en el mapa para ubicar la antena de la emisora.')}
-    ${coverageStatusHtml('Cobertura', KMZ_BUTTON_HTML)}
+    ${coverageStatusHtml()}
     <section class="panel-section">
       <h2>Emisora</h2>
       <div class="form" data-station-form></div>
@@ -125,8 +126,9 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   const stationForm = page.find('[data-station-form]');
   const stationSummary = page.find('[data-station-summary]');
   const zones = page.find('[data-zones]');
-  const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  bindExportButton(exportButton, exportKmz);
+  const exporter = addExportControl(page.map, [
+    { label: 'KMZ para Google Earth', description: 'Campo con su leyenda, contornos por umbral y el transmisor con su ficha.', run: exportKmz },
+  ]);
   const coverageLayer = createCoverageLayer(page.map, opacity);
   const legend = createMapLegend(page.legendRoot, {
     onView() {},
@@ -147,7 +149,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     values = new Float32Array(geometry.index.length);
     lowConfidence = new Uint8Array(geometry.index.length);
     pixels = new Uint8ClampedArray(geometry.index.length * 4);
-    exportButton.hidden = false;
+    exporter.setEnabled(true);
     redraw();
   });
 
@@ -390,7 +392,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     thresholds = [...SERVICE[service].thresholds];
     site.setRadiusKm(SERVICE[service].radiusKm);
     coverage = null;
-    exportButton.hidden = true;
+    exporter.setEnabled(false);
     coverageLayer.clear();
     legend.hide();
     zones.innerHTML = '<p class="hint">Calculando…</p>';

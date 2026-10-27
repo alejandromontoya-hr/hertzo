@@ -3,13 +3,13 @@
 
 import { Marker, type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
-import { KMZ_BUTTON_HTML, bindExportButton } from '../../export/coverageKmz';
 import { saveFile } from '../../export/download';
 import { exportFileName, linkKml, type KmlPlacemark } from '../../export/kml';
 import { linkRayPath } from '../../export/linkPath';
 import { drawProfileReport } from '../../export/profileImage';
 import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
+import { addExportControl } from '../../map/exportControl';
 import { loadItm } from '../../propagation/itm';
 import { freeSpaceLossDb } from '../../rf/fieldStrength';
 import {
@@ -124,10 +124,6 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     <section class="panel-section">
       <h2>Resultado</h2>
       <div data-results><p class="hint">Calculando…</p></div>
-      <div class="button-row">
-        ${KMZ_BUTTON_HTML}
-        <button type="button" class="button" data-export-profile hidden title="Perfil y resultados en una imagen, para informes">Descargar perfil (PNG)</button>
-      </div>
     </section>
     <details class="panel-section" open>
       <summary>Equipos y antenas</summary>
@@ -144,10 +140,10 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
 
   const endsBox = page.find('[data-ends]');
   const results = page.find('[data-results]');
-  const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  bindExportButton(exportButton, exportKmz);
-  const profileButton = page.find<HTMLButtonElement>('[data-export-profile]');
-  bindExportButton(profileButton, exportProfile);
+  const exporter = addExportControl(page.map, [
+    { label: 'KMZ para Google Earth', description: 'Los extremos A y B con su ficha y el rayo en 3D con su cortina.', run: exportKmz },
+    { label: 'Perfil en imagen (PNG)', description: 'Perfil, extremos y tabla de resultados, para informes.', run: exportProfile },
+  ]);
   const linkForm = page.find('[data-link-form]');
   const propagationForm = page.find('[data-propagation-form]');
 
@@ -289,8 +285,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   /** Sin un resultado vigente no hay nada que exportar. */
   function forgetResult() {
     last = null;
-    exportButton.hidden = true;
-    profileButton.hidden = true;
+    exporter.setEnabled(false);
   }
 
   async function compute() {
@@ -407,8 +402,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       </table>
       <p class="hint">${note}</p>`;
     last = { profile: p, points, type, params: { ...link }, kFactor, verdict, rows, note, gainA, gainB, azAB, azBA, tiltA, tiltB };
-    exportButton.hidden = false;
-    profileButton.hidden = false;
+    exporter.setEnabled(true);
 
     chart.show(points, `Perfil del enlace · ${twoDecimals.format(dKm)} km · ${frequencyLabel(link.frequencyMHz)}`);
   }

@@ -1271,6 +1271,18 @@ body {
   background: var(--ink);
 }
 
+/* «Exportar» antes de que haya un cálculo, o mientras arma el archivo. */
+.maplibregl-ctrl.map-menu .map-menu-toggle:disabled {
+  color: var(--muted);
+  border-color: var(--border);
+  box-shadow: 3px 3px 0 var(--border);
+  cursor: not-allowed;
+}
+
+.maplibregl-ctrl.map-menu .map-menu-toggle[aria-busy='true'] {
+  cursor: progress;
+}
+
 .map-menu-panel {
   position: absolute;
   right: 0;
@@ -1406,8 +1418,9 @@ body {
 .profile-chart {
   position: absolute;
   left: 10px;
-  right: 10px;
-  /* Deja libres la escala, los créditos y el botón del mapa, que deben quedar visibles. */
+  /* Deja libre la columna de botones de abajo a la derecha (Exportar y mapa base, de 44 px). */
+  right: 66px;
+  /* Deja libres la escala y los créditos, que deben quedar visibles. */
   bottom: 64px;
   height: 210px;
   display: flex;

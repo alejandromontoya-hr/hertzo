@@ -14,9 +14,10 @@ import {
   RADIO_PROFILES,
   type LmrBandId,
 } from '../../data/defaults';
-import { KMZ_BUTTON_HTML, bindExportButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { createCoverageLayer } from '../../map/coverageLayer';
+import { addExportControl } from '../../map/exportControl';
 import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
@@ -62,7 +63,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       <p class="hint" data-band-range></p>
     </section>
     ${siteSectionHtml()}
-    ${coverageStatusHtml('Cobertura', KMZ_BUTTON_HTML)}
+    ${coverageStatusHtml()}
     <details class="panel-section" open>
       <summary>Radio de usuario</summary>
       <div class="form" data-radio-form></div>
@@ -97,8 +98,9 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   const showBandRange = () => (bandRange.textContent = `Banda ${band.label}: ${band.range}.`);
   showBandRange();
 
-  const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  bindExportButton(exportButton, exportKmz);
+  const exporter = addExportControl(page.map, [
+    { label: 'KMZ para Google Earth', description: 'Bajada y subida con sus leyendas, y el sitio con su ficha.', run: exportKmz },
+  ]);
 
   const showBudget = createBudgetPanel(page.find('[data-budget]'));
   const coverageLayer = createCoverageLayer(page.map, opacity);
@@ -124,7 +126,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       coverage = result;
       geometry = buildRasterGeometry(result.plan);
       pixels = new Uint8ClampedArray(geometry.width * geometry.height * 4);
-      exportButton.hidden = false;
+      exporter.setEnabled(true);
       redraw();
     },
     'bajada y subida',

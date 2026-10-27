@@ -70,17 +70,3 @@ export async function downloadCoverageKmz(spec: KmzSpec): Promise<void> {
   const kml = coverageKml(spec.documentName, layers, { site: spec.site, lines: spec.lines });
   saveFile(zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }, ...files]), spec.fileName, KMZ_MIME);
 }
-
-/** Botón de exportar: se apaga mientras arma el archivo para no descargarlo dos veces. */
-export function bindExportButton(button: HTMLButtonElement, exportFile: () => Promise<void>): void {
-  button.addEventListener('click', () => {
-    button.disabled = true;
-    exportFile()
-      .catch((error) => console.error(error))
-      .finally(() => (button.disabled = false));
-  });
-}
-
-/** Botón para el bloque de cobertura del panel; empieza oculto hasta que hay un cálculo. */
-export const KMZ_BUTTON_HTML =
-  '<button type="button" class="button" data-export-kmz hidden title="Para abrir en Google Earth">Exportar KMZ</button>';
