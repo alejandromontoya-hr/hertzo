@@ -6,7 +6,7 @@ import { BALANCE_LEGEND, DEFAULT_LEVEL_THRESHOLDS_DBM, LEVEL_COLORS, levelBandLa
 import type { CoverageResult } from '../../coverage/computeCoverage';
 import { TALK_IN, TALK_OUT, lmrCoverageRequest } from '../../coverage/inputs';
 import { buildRasterGeometry, type RasterGeometry } from '../../coverage/raster';
-import { renderCoverage, type CoverageView } from '../../coverage/render';
+import { renderCoverage, type CoverageGrids, type CoverageView } from '../../coverage/render';
 import {
   DEFAULT_RADIO_PROFILE_ID,
   DEFAULT_RADIUS_KM,
@@ -14,6 +14,9 @@ import {
   RADIO_PROFILES,
   type LmrBandId,
 } from '../../data/defaults';
+import { encodePng, saveFile } from '../../export/download';
+import { coverageKml, exportFileName } from '../../export/kml';
+import { zipStore } from '../../export/zip';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { createBudgetPanel } from '../../ui/budgetPanel';
@@ -31,6 +34,13 @@ const VIEWS: { id: CoverageView; label: string; title: string }[] = [
   { id: 'balance', label: 'Desbalance', title: 'Dónde llega cada dirección' },
 ];
 
+const KMZ_MIME = 'application/vnd.google-earth.kmz';
+
+const gridsOf = (result: CoverageResult): CoverageGrids => ({
+  talkOut: result.grids[TALK_OUT]!,
+  talkIn: result.grids[TALK_IN]!,
+});
+
 export function mountLmrPage({ root, params }: PageContext): () => void {
   const initialBand = LMR_BANDS.find((b) => b.id === params.get('banda')) ?? LMR_BANDS.find((b) => b.id === '800')!;
 
@@ -44,7 +54,10 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       <p class="hint" data-band-range></p>
     </section>
     ${siteSectionHtml()}
-    ${coverageStatusHtml()}
+    ${coverageStatusHtml(
+      'Cobertura',
+      `<button type="button" class="button" data-export-kmz hidden title="Para abrir en Google Earth">Exportar KMZ</button>`,
+    )}
     <details class="panel-section" open>
       <summary>Radio de usuario</summary>
       <div class="form" data-radio-form></div>
@@ -74,10 +87,20 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   let coverage: CoverageResult | null = null;
   let geometry: RasterGeometry | null = null;
   let pixels: Uint8ClampedArray<ArrayBuffer> | null = null;
+  /** Cuadrícula en grados parejos para Google Earth: se arma al primer KMZ de cada cálculo. */
+  let kmzGeometry: RasterGeometry | null = null;
 
   const bandRange = page.find('[data-band-range]');
   const showBandRange = () => (bandRange.textContent = `Banda ${band.label}: ${band.range}.`);
   showBandRange();
+
+  const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
+  exportButton.addEventListener('click', () => {
+    exportButton.disabled = true;
+    exportKmz()
+      .catch((error) => console.error(error))
+      .finally(() => (exportButton.disabled = false));
+  });
 
   const showBudget = createBudgetPanel(page.find('[data-budget]'));
   const coverageLayer = createCoverageLayer(page.map, opacity);
@@ -103,6 +126,8 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       coverage = result;
       geometry = buildRasterGeometry(result.plan);
       pixels = new Uint8ClampedArray(geometry.width * geometry.height * 4);
+      kmzGeometry = null;
+      exportButton.hidden = false;
       redraw();
     },
     'bajada y subida',
@@ -137,8 +162,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     if (!coverage || !geometry || !pixels) return;
     const down = talkOutBudget(tx, radio);
     const up = talkInBudget(rx, radio);
-    const grids = { talkOut: coverage.grids[TALK_OUT]!, talkIn: coverage.grids[TALK_IN]! };
-    renderCoverage(geometry, grids, view, down, up, thresholds, pixels);
+    renderCoverage(geometry, gridsOf(coverage), view, down, up, thresholds, pixels);
     coverageLayer.draw(geometry, pixels);
     const isLevel = view !== 'balance';
     const sensitivity = view === 'talkIn' ? up.sensitivityDbm : down.sensitivityDbm;
@@ -154,6 +178,23 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       thresholds: isLevel ? { values: thresholds, unit: 'dBm', min: -150, max: -20 } : undefined,
       opacity,
     });
+  }
+
+  /** Descarga la bajada como KMZ, con los mismos colores y umbrales del mapa. */
+  async function exportKmz() {
+    if (!coverage) return;
+    const g = (kmzGeometry ??= buildRasterGeometry(coverage.plan, 'geographic'));
+    const image = new Uint8ClampedArray(g.width * g.height * 4);
+    renderCoverage(g, gridsOf(coverage), 'talkOut', talkOutBudget(tx, radio), talkInBudget(rx, radio), thresholds, image);
+    const [[west, north], , [east, south]] = g.coordinates;
+    const kml = coverageKml(`Hertzo · Terreno ${band.label}`, [
+      { name: 'Bajada', href: 'bajada.png', bounds: { north, south, east, west } },
+    ]);
+    const kmz = zipStore([
+      { name: 'doc.kml', data: new TextEncoder().encode(kml) },
+      { name: 'bajada.png', data: await encodePng(image, g.width, g.height) },
+    ]);
+    saveFile(kmz, exportFileName('terreno', band.label, coverage.plan.site, 'kmz'), KMZ_MIME);
   }
 
   function onParametersChange() {

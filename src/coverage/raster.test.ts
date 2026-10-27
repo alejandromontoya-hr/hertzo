@@ -47,6 +47,26 @@ describe('buildRasterGeometry', () => {
   it('50 km: píxeles de 100 m, imagen de 1000 × 1000', () => {
     expect(buildRasterGeometry(planRadials(site, 50000)).width).toBe(1000);
   });
+
+  // Sitio a 45° N con 50 km de radio: 1000 × 1000 píxeles y el sitio entre las filas 499 y 500.
+  // En grados parejos (Google Earth) la fila del medio es la latitud del sitio; en Mercator el
+  // norte se estira y la mitad de la imagen queda unos 200 m al norte del sitio.
+  const north45 = planRadials({ lon: -75, lat: 45 }, 50000);
+  const sideBySide = (g: RasterGeometry) => [g.distanceM[499 * 1000 + 499]!, g.distanceM[500 * 1000 + 499]!] as const;
+
+  it('en grados parejos, los píxeles justo al norte y al sur del sitio están a la misma distancia', () => {
+    const [above, below] = sideBySide(buildRasterGeometry(north45, 'geographic'));
+    expect(Math.abs(above - below)).toBeLessThan(1);
+  });
+
+  it('en Mercator esos dos píxeles quedan a distancias que difieren en más de 50 m', () => {
+    const [above, below] = sideBySide(buildRasterGeometry(north45));
+    expect(Math.abs(above - below)).toBeGreaterThan(50);
+  });
+
+  it('las dos cuadrículas cubren el mismo rectángulo', () => {
+    expect(buildRasterGeometry(north45, 'geographic').coordinates).toEqual(buildRasterGeometry(north45).coordinates);
+  });
 });
 
 describe('renderCoverage', () => {

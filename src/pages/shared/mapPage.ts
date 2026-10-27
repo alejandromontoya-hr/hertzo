@@ -74,13 +74,14 @@ export function siteSectionHtml(title = 'Sitio', hint = 'Haz clic en el mapa par
     </section>`;
 }
 
-/** Bloque del panel con la barra de progreso del cálculo. */
-export function coverageStatusHtml(title = 'Cobertura'): string {
+/** Bloque del panel con la barra de progreso del cálculo; `actionsHtml` va debajo del mensaje. */
+export function coverageStatusHtml(title = 'Cobertura', actionsHtml = ''): string {
   return `
     <section class="panel-section coverage-status" data-coverage-status hidden>
       <h2>${title}</h2>
       <progress max="1" value="0"></progress>
       <p class="hint" data-coverage-text></p>
+      ${actionsHtml}
     </section>`;
 }
 

@@ -1,4 +1,4 @@
-// Paso de la grilla de radiales a una imagen sobre el mapa (Web Mercator). Módulo puro.
+// Paso de la grilla de radiales a una imagen sobre el mapa (Web Mercator) o para Google Earth. Módulo puro.
 
 import { distanceM, initialBearingDeg, type LonLat } from '../geo/geodesy';
 import { circleBounds, type RadialPlan } from './radials';
@@ -39,18 +39,29 @@ export function gridIndexFor(plan: RadialPlan, d: number, bearingDeg: number): n
 const mercatorY = (lat: number) => Math.asinh(Math.tan((lat * Math.PI) / 180));
 const latFromMercatorY = (y: number) => (Math.atan(Math.sinh(y)) * 180) / Math.PI;
 
-export function buildRasterGeometry(plan: RadialPlan): RasterGeometry {
+/**
+ * Cómo se reparten las filas entre el norte y el sur: `mercator` para el mapa de MapLibre;
+ * `geographic`, en grados de latitud parejos, para Google Earth (KML).
+ */
+export type RasterRows = 'mercator' | 'geographic';
+
+export function buildRasterGeometry(plan: RadialPlan, rows: RasterRows = 'mercator'): RasterGeometry {
   const bounds = circleBounds(plan.site, plan.radiusM);
   const pixelM = Math.max(RASTER_PIXEL_M, (2 * plan.radiusM) / MAX_RASTER_SIZE);
   const size = Math.ceil((2 * plan.radiusM) / pixelM);
   const yNorth = mercatorY(bounds.north);
   const ySouth = mercatorY(bounds.south);
+  /** Latitud de la fila a una fracción `f` del camino del norte (0) al sur (1). */
+  const latAt =
+    rows === 'mercator'
+      ? (f: number) => latFromMercatorY(yNorth + f * (ySouth - yNorth))
+      : (f: number) => bounds.north + f * (bounds.south - bounds.north);
   const index = new Int32Array(size * size);
   const bearings = new Float32Array(size * size);
   const distances = new Float32Array(size * size);
 
   for (let row = 0; row < size; row++) {
-    const lat = latFromMercatorY(yNorth + ((row + 0.5) / size) * (ySouth - yNorth));
+    const lat = latAt((row + 0.5) / size);
     for (let col = 0; col < size; col++) {
       const lon = bounds.west + ((col + 0.5) / size) * (bounds.east - bounds.west);
       const p = row * size + col;
