@@ -8,6 +8,8 @@ import { bandLabels, paintBands, paintCategories } from '../../coverage/paint';
 import { lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { LEVEL_COLORS } from '../../coverage/colorScale';
+import { KMZ_BUTTON_HTML, bindKmzButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { exportFileName } from '../../export/kml';
 import { distanceM, initialBearingDeg } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
@@ -92,6 +94,21 @@ const VIEWS: { id: View; label: string; title: string }[] = [
 const RSRP_DESCRIPTIONS = ['excelente', 'buena', 'regular', 'débil'];
 const SINR_DESCRIPTIONS = ['excelente', 'buena', 'regular', 'límite'];
 
+/** Valores de cada píxel de una cuadrícula: RSRP del mejor sector, cuál es y su SINR. */
+interface SectorPixels {
+  bestRsrp: Float32Array;
+  bestSector: Int16Array;
+  sinr: Float32Array;
+  lowConfidence: Uint8Array;
+}
+
+const sectorPixelsFor = (size: number): SectorPixels => ({
+  bestRsrp: new Float32Array(size),
+  bestSector: new Int16Array(size),
+  sinr: new Float32Array(size),
+  lowConfidence: new Uint8Array(size),
+});
+
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 
@@ -108,10 +125,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
 
   let coverage: CoverageResult | null = null;
   let geometry: RasterGeometry | null = null;
-  let bestRsrp: Float32Array | null = null;
-  let bestSector: Int16Array | null = null;
-  let sinr: Float32Array | null = null;
-  let lowConfidence: Uint8Array | null = null;
+  let values: SectorPixels | null = null;
   let pixels: Uint8ClampedArray<ArrayBuffer> | null = null;
 
   const page = createMapPage(
@@ -126,7 +140,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       <p class="hint" data-model-hint></p>
     </section>
     ${siteSectionHtml('Sitio celular', 'Haz clic en el mapa para ubicar la torre.')}
-    ${coverageStatusHtml()}
+    ${coverageStatusHtml('Cobertura', KMZ_BUTTON_HTML)}
     <details class="panel-section" open>
       <summary>Sectores</summary>
       <div class="form" data-sectors></div>
@@ -149,6 +163,8 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   const bandDescription = page.find('[data-band-description]');
   const modelHint = page.find('[data-model-hint]');
   const summary = page.find('[data-summary]');
+  const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
+  bindKmzButton(exportButton, exportKmz);
   const coverageLayer = createCoverageLayer(page.map, opacity);
   const legend = createMapLegend(page.legendRoot, {
     onView(id) {
@@ -169,12 +185,9 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   const controller = createCoverageController(page.find('[data-coverage-status]'), (result) => {
     coverage = result;
     geometry = buildRasterGeometry(result.plan);
-    const n = geometry.index.length;
-    bestRsrp = new Float32Array(n);
-    bestSector = new Int16Array(n);
-    sinr = new Float32Array(n);
-    lowConfidence = new Uint8Array(n);
-    pixels = new Uint8ClampedArray(n * 4);
+    values = sectorPixelsFor(geometry.index.length);
+    pixels = new Uint8ClampedArray(geometry.index.length * 4);
+    exportButton.hidden = false;
     redraw();
   });
 
@@ -267,10 +280,10 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     }
   }
 
-  /** RSRP por sector, mejor sector y SINR de cada píxel. */
-  function computePixels() {
-    if (!coverage || !geometry || !bestRsrp || !bestSector || !sinr) return;
-    const grid = coverage.grids[0]!;
+  /** RSRP por sector, mejor sector, SINR y baja confianza de cada píxel de la cuadrícula `geometry`. */
+  function computePixels(result: CoverageResult, geometry: RasterGeometry, out: SectorPixels) {
+    const { bestRsrp, bestSector, sinr } = out;
+    const grid = result.grids[0]!;
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const noise = noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb);
     const base = pRe - siteParams.cableLossDb;
@@ -295,34 +308,78 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       bestSector[p] = best;
       sinr[p] = sinrDb(levels[best]!, levels.filter((_, s) => s !== best), noise);
     }
+    lowConfidencePixels(geometry, result.grids, lowConfidenceMask(result.request.engine), out.lowConfidence);
   }
 
-  function repaint() {
-    if (!coverage || !geometry || !bestRsrp || !bestSector || !sinr || !lowConfidence || !pixels) return;
-    if (view === 'best') {
-      const shown = new Int16Array(bestSector.length);
+  /** Pinta la vista `v` en `out`, igual sobre el mapa que para el KMZ. */
+  function paintView(v: View, size: RasterGeometry, px: SectorPixels, out: Uint8ClampedArray) {
+    if (v === 'best') {
+      const shown = new Int16Array(px.bestSector.length);
       const minRsrp = Math.min(...thresholds.rsrp);
-      for (let p = 0; p < shown.length; p++) shown[p] = bestRsrp[p]! >= minRsrp ? bestSector[p]! : -1;
-      paintCategories(geometry, shown, SECTOR_COLORS, lowConfidence, pixels);
+      for (let p = 0; p < shown.length; p++) shown[p] = px.bestRsrp[p]! >= minRsrp ? px.bestSector[p]! : -1;
+      paintCategories(size, shown, SECTOR_COLORS, px.lowConfidence, out);
     } else {
-      paintBands(geometry, view === 'rsrp' ? bestRsrp : sinr, thresholds[view], LEVEL_COLORS, lowConfidence, pixels);
+      paintBands(size, v === 'rsrp' ? px.bestRsrp : px.sinr, thresholds[v], LEVEL_COLORS, px.lowConfidence, out);
     }
+  }
+
+  /** Título y textos de la leyenda de una vista, iguales en el mapa y en el KMZ. */
+  function legendTexts(v: View) {
+    const descriptions = v === 'rsrp' ? RSRP_DESCRIPTIONS : SINR_DESCRIPTIONS;
+    return {
+      title: VIEWS.find((x) => x.id === v)!.title,
+      entries:
+        v === 'best'
+          ? azimuths.map((a, i) => ({ color: SECTOR_COLORS[i]!, label: `S${i + 1} (azimut ${a}°)` }))
+          : bandLabels(thresholds[v], v === 'rsrp' ? 'dBm' : 'dB').map((label, i) => ({
+              color: LEVEL_COLORS[i]!,
+              label: `${label} · ${descriptions[i]}`,
+            })),
+      emptyLabel: v === 'sinr' ? 'por debajo del umbral más bajo' : `RSRP por debajo de ${Math.min(...thresholds.rsrp)} dBm`,
+      hatchLabel: model === 'itm' ? 'baja confianza (ladera empinada junto a la torre)' : 'fuera del rango de validez del modelo',
+    };
+  }
+
+  /** Descarga un KMZ con RSRP, mejor sector y SINR, cada uno con su leyenda. */
+  async function exportKmz() {
+    if (!coverage) return;
+    const result = coverage;
+    let px: SectorPixels | null = null;
+    const layerOf = (v: View, file: string) => ({
+      name: VIEWS.find((x) => x.id === v)!.label,
+      file,
+      paint(g: RasterGeometry, out: Uint8ClampedArray<ArrayBuffer>) {
+        // Las tres capas comparten cuadrícula: se calcula una vez, con la primera.
+        if (!px) {
+          px = sectorPixelsFor(g.index.length);
+          computePixels(result, g, px);
+        }
+        paintView(v, g, px, out);
+      },
+      legend: legendTexts(v),
+    });
+    await downloadCoverageKmz({
+      documentName: `Hertzo · Celular ${bandName()}`,
+      fileName: exportFileName('celular', bandName(), result.plan.site, 'kmz'),
+      plan: result.plan,
+      layers: [layerOf('rsrp', 'rsrp'), layerOf('best', 'mejor-sector'), layerOf('sinr', 'sinr')],
+      opacity,
+    });
+  }
+
+  /** «700 MHz», «AWS» o «3500 MHz». */
+  const bandName = () => (/^\d+$/.test(band.label) ? `${band.label} MHz` : band.label);
+
+  function repaint() {
+    if (!coverage || !geometry || !values || !pixels) return;
+    paintView(view, geometry, values, pixels);
     coverageLayer.draw(geometry, pixels);
 
     const isBands = view !== 'best';
-    const descriptions = view === 'rsrp' ? RSRP_DESCRIPTIONS : SINR_DESCRIPTIONS;
     legend.update({
       views: VIEWS,
       activeView: view,
-      title: VIEWS.find((v) => v.id === view)!.title,
-      entries: isBands
-        ? bandLabels(thresholds[view as 'rsrp' | 'sinr'], view === 'rsrp' ? 'dBm' : 'dB').map((label, i) => ({
-            color: LEVEL_COLORS[i]!,
-            label: `${label} · ${descriptions[i]}`,
-          }))
-        : azimuths.map((a, i) => ({ color: SECTOR_COLORS[i]!, label: `S${i + 1} (azimut ${a}°)` })),
-      emptyLabel: view === 'sinr' ? 'por debajo del umbral más bajo' : `RSRP por debajo de ${Math.min(...thresholds.rsrp)} dBm`,
-      hatchLabel: model === 'itm' ? 'baja confianza (ladera empinada junto a la torre)' : 'fuera del rango de validez del modelo',
+      ...legendTexts(view),
       thresholds: isBands
         ? { values: thresholds[view as 'rsrp' | 'sinr'], unit: view === 'rsrp' ? 'dBm' : 'dB', min: view === 'rsrp' ? -150 : -20, max: view === 'rsrp' ? -20 : 50 }
         : undefined,
@@ -332,7 +389,8 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   }
 
   function showSummary() {
-    if (!coverage || !geometry || !bestRsrp || !sinr) return;
+    if (!coverage || !geometry || !values) return;
+    const { bestRsrp, sinr } = values;
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const area = pixelAreaKm2(geometry, coverage.plan.radiusM);
     const minRsrp = Math.min(...thresholds.rsrp);
@@ -359,10 +417,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
 
   function redraw() {
     showModelHint();
-    computePixels();
-    if (coverage && geometry && lowConfidence) {
-      lowConfidencePixels(geometry, coverage.grids, lowConfidenceMask(coverage.request.engine), lowConfidence);
-    }
+    if (coverage && geometry && values) computePixels(coverage, geometry, values);
     repaint();
   }
 
@@ -386,7 +441,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
 
   const readout = createHoverReadout(page.readoutRoot);
   page.map.on('mousemove', (event) => {
-    if (!coverage || !bestRsrp || !bestSector || !sinr || !geometry) return readout.hide();
+    if (!coverage || !values || !geometry) return readout.hide();
     const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
     const g = gridIndexAt(coverage.plan, point);
     if (g < 0) return readout.hide();
