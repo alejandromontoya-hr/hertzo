@@ -3,6 +3,7 @@
 
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { createMap } from '../../map/map';
+import { infoButton } from '../../ui/infoTip';
 import { siteFieldsHtml } from '../../ui/siteFields';
 
 export interface MapPage {
@@ -56,19 +57,16 @@ export function createMapPage(root: HTMLElement, panelHtml: string, ariaLabel: s
 export function siteSectionHtml(title = 'Sitio', what = 'el sitio'): string {
   return `
     <section class="panel-section" data-site-panel>
-      <h2>${title}</h2>
+      <h2>${title}${infoButton(
+        `Escribe las coordenadas (puedes pegar «6.27940, -75.68530» de Google Maps en Latitud) o pulsa «Elegir en el mapa» y haz clic donde va ${what}. Después puedes arrastrar el marcador para moverlo.`,
+      )}</h2>
       ${siteFieldsHtml('site')}
       <button type="button" class="button" data-pick-site aria-pressed="false">Elegir en el mapa</button>
-      <p class="hint" data-site-hint>
-        Escribe las coordenadas (puedes pegar «6.27940, -75.68530» de Google Maps en Latitud) o pulsa
-        «Elegir en el mapa» y haz clic donde va ${what}.
-      </p>
       <div data-site-details hidden>
         <dl class="site-details">
           <dt>Cota del terreno</dt>
           <dd data-site-elevation></dd>
         </dl>
-        <p class="hint">Arrastra el marcador para moverlo.</p>
         <button type="button" class="button" data-profile-toggle aria-pressed="false">
           Ver perfil del terreno
         </button>
@@ -101,12 +99,15 @@ export function coverageStatusHtml(title = 'Cobertura'): string {
     </section>`;
 }
 
-/** Selector de una opción en una lista (banda, servicio, tipo de enlace), en una sola línea. */
-export function choiceHtml(name: string, options: { id: string; label: string }[], label: string): string {
+/**
+ * Selector de una opción en una lista (banda, servicio, tipo de enlace), en una sola línea. Con
+ * `info`, lleva un botón «i» junto a la etiqueta (`[data-choice-info="nombre"]`, para cambiarlo).
+ */
+export function choiceHtml(name: string, options: { id: string; label: string }[], label: string, info?: string): string {
   return `
     <div class="form">
       <div class="field">
-        <label for="opcion-${name}">${label}</label>
+        <label for="opcion-${name}">${label}${info === undefined ? '' : infoButton(info, `data-choice-info="${name}"`)}</label>
         <select id="opcion-${name}" data-choice="${name}">
           ${options.map((o) => `<option value="${o.id}">${o.label}</option>`).join('')}
         </select>

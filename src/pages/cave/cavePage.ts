@@ -39,6 +39,7 @@ import {
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
+import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
 import { bindChoice, bindSegmented, choiceHtml, segmentedHtml } from '../shared/mapPage';
 
@@ -127,10 +128,8 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     <div class="page-split">
       <aside class="panel" aria-label="Galerías, antenas y cable">
         <section class="panel-section page-intro">
-          <h2>Cavernas, túneles y minas</h2>
-          <p class="hint">Dibuja la red de galerías, ubica antenas y cable radiante. Cada galería se comporta como una guía de onda: pierde más cuanto más baja es la frecuencia y más pequeña la sección.</p>
-          ${choiceHtml('banda', CAVE_BANDS.map((b) => ({ id: b.id, label: bandOptionLabel(b) })), 'Banda')}
-          <p class="hint" data-band-hint></p>
+          <h2>Cavernas, túneles y minas${infoButton('Dibuja la red de galerías, ubica antenas y cable radiante. Cada galería se comporta como una guía de onda: pierde más cuanto más baja es la frecuencia y más pequeña la sección.')}</h2>
+          ${choiceHtml('banda', CAVE_BANDS.map((b) => ({ id: b.id, label: bandOptionLabel(b) })), 'Banda', '')}
         </section>
         <section class="panel-section">
           <h2>Escenario</h2>
@@ -138,15 +137,13 @@ export function mountCavePage({ root, params }: PageContext): () => void {
           ${PROJECT_BUTTONS_HTML}
         </section>
         <section class="panel-section">
-          <h2>Herramientas</h2>
+          <h2>Herramientas${infoButton('', 'data-tool-info')}</h2>
           ${segmentedHtml('herramienta', TOOLS.map((t) => ({ id: t.id, label: t.label })), 'Herramienta')}
-          <p class="hint" data-tool-hint></p>
           <div class="form" data-new-gallery></div>
           <div class="button-row">
             <button type="button" class="button" data-undo>Deshacer</button>
             <button type="button" class="button" data-fit>Ajustar vista</button>
           </div>
-          <p class="hint">Rueda del ratón: acercar o alejar. Botón derecho: mover la vista.</p>
         </section>
         <section class="panel-section" data-selection hidden></section>
         <section class="panel-section">
@@ -158,8 +155,9 @@ export function mountCavePage({ root, params }: PageContext): () => void {
           <div class="form" data-settings></div>
         </details>
         <details class="panel-section">
-          <summary>A través de la roca (baja frecuencia)</summary>
-          <p class="hint">Para comunicarse de la superficie a una galería sin cable se usa inducción magnética en baja frecuencia (kHz). La roca absorbe más cuanto más conductora es y más alta la frecuencia.</p>
+          <summary>A través de la roca (baja frecuencia)${infoButton(
+            'Para comunicarse de la superficie a una galería sin cable se usa inducción magnética en baja frecuencia (kHz). La roca absorbe más cuanto más conductora es y más alta la frecuencia. La absorción es 8,686·profundidad/δ, con δ = 503·√(ρ/f); además el campo magnético cae con el cubo de la distancia. Roca seca: 1000 Ω·m o más; con agua: 10 a 100 Ω·m.',
+          )}</summary>
           <div class="form" data-rock-calc></div>
           <div data-rock-result></div>
         </details>
@@ -178,8 +176,8 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     [{ label: 'Imagen de la red (PNG)', description: 'Galerías pintadas por nivel, la leyenda y el resumen, para informes.', run: exportImage }],
     'Exportar: primero dibuja una galería',
   );
-  const bandHint = find('[data-band-hint]');
-  const toolHint = find('[data-tool-hint]');
+  const bandHint = find('[data-choice-info="banda"]');
+  const toolHint = find('[data-tool-info]');
   const selectionBox = find('[data-selection]');
   const summaryBox = find('[data-summary]');
   const readout = createHoverReadout(find('.readout'));
@@ -814,7 +812,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   }
 
   function renderSummary() {
-    bandHint.textContent = band.description;
+    setInfo(bandHint, band.description);
     exporter.setEnabled(result !== null && model.galleries.length > 0);
     const table = summaryTable();
     if (!table) {
@@ -950,8 +948,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
           <tr><th scope="row">Profundidad de penetración</th><td>${meters(delta)}</td></tr>
           <tr class="strong"><th scope="row">Absorción en ${meters(v.depthM)} de roca</th><td>${oneDecimal.format(absorption)} dB</td></tr>
           <tr><th scope="row">Caída por distancia (campo magnético)</th><td>60 dB por década</td></tr>
-        </tbody></table>
-        <p class="hint">La absorción es 8,686·profundidad/δ, con δ = 503·√(ρ/f). Además el campo magnético cae con el cubo de la distancia. Roca seca: 1000 Ω·m o más; con agua: 10 a 100 Ω·m.</p>`;
+        </tbody></table>`;
     };
     createFieldGroup(
       find('[data-rock-calc]'),
@@ -984,7 +981,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     if (drawing.length) finishDrawing();
     tool = id;
     drawing = [];
-    toolHint.textContent = TOOLS.find((t) => t.id === id)!.hint;
+    setInfo(toolHint, `${TOOLS.find((t) => t.id === id)!.hint} Rueda del ratón: acercar o alejar. Botón derecho: mover la vista.`);
     find('[data-new-gallery]').hidden = id !== 'gallery';
     planView.redraw();
   };

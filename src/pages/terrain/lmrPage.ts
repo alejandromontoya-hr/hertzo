@@ -24,6 +24,7 @@ import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms
 import { createMapLegend } from '../../ui/coverageLegend';
 import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
+import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
@@ -57,10 +58,8 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     root,
     `
     <section class="panel-section page-intro">
-      <h2>Radiocomunicaciones en terreno</h2>
-      <p class="hint">Trunking P25, SmartZone y convencional. Bajada y subida por separado, cada una con su frecuencia y su cadena.</p>
-      ${choiceHtml('banda', LMR_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda')}
-      <p class="hint" data-band-range></p>
+      <h2>Radiocomunicaciones en terreno${infoButton('Trunking P25, SmartZone y convencional. Bajada y subida por separado, cada una con su frecuencia y su cadena.')}</h2>
+      ${choiceHtml('banda', LMR_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda', '')}
     </section>
     ${siteSectionHtml()}
     ${coverageStatusHtml()}
@@ -94,8 +93,8 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   let geometry: RasterGeometry | null = null;
   let pixels: Uint8ClampedArray<ArrayBuffer> | null = null;
 
-  const bandRange = page.find('[data-band-range]');
-  const showBandRange = () => (bandRange.textContent = `Banda ${band.label}: ${band.range}.`);
+  const bandRange = page.find('[data-choice-info="banda"]');
+  const showBandRange = () => setInfo(bandRange, `Banda ${band.label}: ${band.range}.`);
   showBandRange();
 
   const exporter = addExportControl(page.map, [

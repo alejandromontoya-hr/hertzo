@@ -43,7 +43,6 @@ export function createSiteControls(page: MapPage, options: SiteControlsOptions):
     if (next || site) setSite(next);
   });
   const pickButton = page.find<HTMLButtonElement>('[data-pick-site]');
-  const hint = page.find('[data-site-hint]');
 
   const sitePanel = createSitePanel(page.find('[data-site-panel]'), () => setProfileMode(!profileMode));
   const profileTool = createProfileTool(
@@ -103,7 +102,6 @@ export function createSiteControls(page: MapPage, options: SiteControlsOptions):
   function setSite(next: LonLat | null) {
     site = next;
     if (next) {
-      hint.hidden = true;
       sitePanel.showSite(next);
       void updateProfile();
     }

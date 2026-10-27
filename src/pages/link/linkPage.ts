@@ -28,6 +28,7 @@ import { dbmToWatts } from '../../rf/units';
 import { loadTerrain } from '../../terrain/elevation';
 import { profileBounds, sampleProfile, type TerrainProfile } from '../../terrain/profile';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { infoButton } from '../../ui/infoTip';
 import { bindSiteFields, siteFieldsHtml } from '../../ui/siteFields';
 import { formatHeight, formatLonLat, formatMeters, formatWatts } from '../../ui/format';
 import { createLinkChart } from '../../ui/linkChart';
@@ -136,10 +137,9 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       ${choiceHtml('tipo', [{ id: 'microondas', label: 'Microondas' }, { id: 'radio', label: 'Radioenlace VHF/UHF' }], 'Tipo de enlace')}
     </section>
     <section class="panel-section">
-      <h2>Extremos</h2>
+      <h2>Extremos${infoButton('Escribe las coordenadas (puedes pegar las de Google Maps en Latitud), pulsa «Elegir A (o B) en el mapa» y haz clic donde va, o arrastra los marcadores A y B.')}</h2>
       ${endHtml('A', 'Cerro El Padre Amaya')}
       ${endHtml('B', 'Cerro El Volador')}
-      <p class="hint">Escribe las coordenadas (puedes pegar las de Google Maps en Latitud), pulsa «Elegir … en el mapa» o arrastra los marcadores A y B.</p>
       ${simulateBoxHtml()}
     </section>
     <section class="panel-section">

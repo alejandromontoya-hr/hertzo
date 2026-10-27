@@ -26,6 +26,7 @@ import { AM_ANTENNAS, GROUND_TYPES, flatEarthLimitKm, groundwaveRangeKm } from '
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
+import { setInfo } from '../../ui/infoTip';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
@@ -105,8 +106,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     `
     <section class="panel-section page-intro">
       <h2>Radiodifusión</h2>
-      ${choiceHtml('servicio', [{ id: 'fm', label: 'FM (88 a 108 MHz)' }, { id: 'am', label: 'AM (530 a 1710 kHz)' }], 'Servicio')}
-      <p class="hint" data-service-hint></p>
+      ${choiceHtml('servicio', [{ id: 'fm', label: 'FM (88 a 108 MHz)' }, { id: 'am', label: 'AM (530 a 1710 kHz)' }], 'Servicio', '')}
     </section>
     ${siteSectionHtml('Transmisor', 'la antena de la emisora')}
     ${coverageStatusHtml()}
@@ -117,12 +117,12 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     </section>
     <section class="panel-section">
       <h2>Zonas de servicio</h2>
-      <div data-zones><p class="hint">Ubica el transmisor para ver el alcance de cada zona.</p></div>
+      <div data-zones><p class="hint">Ubica el transmisor y pulsa «Simular» para ver el alcance de cada zona.</p></div>
     </section>`,
     'Parámetros de la emisora',
   );
 
-  const serviceHint = page.find('[data-service-hint]');
+  const serviceHint = page.find('[data-choice-info="servicio"]');
   const stationForm = page.find('[data-station-form]');
   const stationSummary = page.find('[data-station-summary]');
   const zones = page.find('[data-zones]');
@@ -161,15 +161,19 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   function buildStationForm() {
     stationForm.replaceChildren();
     if (service === 'fm') {
-      serviceHint.textContent =
-        'Banda de 88 a 108 MHz. La señal llega por línea de vista y difracción sobre el relieve: el motor es el ITM sobre terreno SRTM.';
+      setInfo(
+        serviceHint,
+        'Banda de 88 a 108 MHz. La señal llega por línea de vista y difracción sobre el relieve: el motor es el ITM sobre terreno SRTM.',
+      );
       createFieldGroup(stationForm, FM_FIELDS, fm, (next) => {
         fm = next;
         onChange();
       });
     } else {
-      serviceHint.textContent =
-        'Onda media de 530 a 1710 kHz. La señal viaja pegada al suelo (onda de tierra): manda la conductividad del terreno, no el relieve.';
+      setInfo(
+        serviceHint,
+        'Onda media de 530 a 1710 kHz. La señal viaja pegada al suelo (onda de tierra): manda la conductividad del terreno, no el relieve.',
+      );
       createFieldGroup(stationForm, AM_FIELDS, am, (next) => {
         am = next;
         onChange();

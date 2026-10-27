@@ -774,6 +774,11 @@ body {
   gap: 8px;
 }
 
+/* Sin esto, `display: grid` le gana al atributo `hidden` (por ejemplo, el material del muro nuevo). */
+.form[hidden] {
+  display: none;
+}
+
 .field {
   display: grid;
   grid-template-columns: 1fr 150px;
@@ -838,15 +843,10 @@ body {
   color: var(--muted);
 }
 
-.field-hint,
 .field-error {
   grid-column: 1 / -1;
   margin: 0;
   font-size: 0.75rem;
-}
-
-.field-hint {
-  color: var(--muted);
 }
 
 .field-error {
@@ -916,6 +916,55 @@ body {
   margin: 0;
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+/* Botón «i»: la explicación de un título o de un campo, en un globo. */
+.info-tip {
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  margin-left: 6px;
+  padding: 0;
+  vertical-align: 0.1em;
+  font: italic 600 0.68rem/1 Georgia, 'Times New Roman', serif;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  cursor: help;
+}
+
+.info-tip:hover,
+.info-tip[aria-expanded='true'] {
+  color: var(--ink);
+}
+
+.info-tip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.info-tip[hidden] {
+  display: none;
+}
+
+.info-tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.info-tooltip[hidden] {
+  display: none;
 }
 
 .site-details {

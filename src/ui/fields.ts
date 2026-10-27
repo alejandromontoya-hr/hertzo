@@ -1,5 +1,7 @@
 // Campos numéricos del formulario: lectura con coma o punto decimal y validación de rango.
 
+import { infoButton } from './infoTip';
+
 export interface NumberFieldSpec<K extends string = string> {
   key: K;
   label: string;
@@ -8,6 +10,7 @@ export interface NumberFieldSpec<K extends string = string> {
   max: number;
   /** El mínimo no se admite (potencias: deben ser mayores que 0 W). */
   minExclusive?: boolean;
+  /** Explicación del campo; va en el botón «i» junto a la etiqueta. */
   hint?: string;
 }
 
@@ -56,12 +59,11 @@ export function createNumberField(
   const element = document.createElement('div');
   element.className = 'field';
   element.innerHTML = `
-    <label for="${id}">${spec.label}</label>
+    <label for="${id}">${spec.label}${spec.hint ? infoButton(spec.hint) : ''}</label>
     <div class="field-input">
       <input id="${id}" type="text" inputmode="decimal" autocomplete="off" />
       <span class="field-unit">${spec.unit}</span>
     </div>
-    ${spec.hint ? `<p class="field-hint">${spec.hint}</p>` : ''}
     <p class="field-error" hidden></p>`;
   const input = element.querySelector('input')!;
   const error = element.querySelector<HTMLElement>('.field-error')!;

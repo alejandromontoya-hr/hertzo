@@ -5,10 +5,14 @@ import { inject } from '@vercel/analytics';
 import { startRouter, type Route } from './pages/router';
 import { CHOOSER_PATH, SCENARIOS } from './pages/scenarios';
 import { pageMeta } from './seo/seo';
+import { installInfoTips } from './ui/infoTip';
 
 // Contador de visitas de Vercel Web Analytics: sin cookies ni datos personales. Fuera de
 // Vercel (por ejemplo en desarrollo) no envía nada.
 inject();
+
+// Globo de los botones «i» de todas las páginas.
+installInfoTips();
 
 const titleOf = (path: string) => SCENARIOS.find((s) => s.path === path)!.title;
 

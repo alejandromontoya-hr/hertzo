@@ -33,6 +33,7 @@ import {
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
+import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
 import { bindChoice, bindSegmented, choiceHtml, segmentedHtml } from '../shared/mapPage';
 
@@ -112,8 +113,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     <div class="page-split">
       <aside class="panel" aria-label="Plano y access points">
         <section class="panel-section page-intro">
-          <h2>Interiores (WiFi)</h2>
-          <p class="hint">Dibuja el plano con sus muros, elige el material de cada uno y ubica los access points. El mapa de calor usa el modelo multipared.</p>
+          <h2>Interiores (WiFi)${infoButton('Dibuja el plano con sus muros, elige el material de cada uno y ubica los access points. El mapa de calor usa el modelo multipared.')}</h2>
           ${choiceHtml('banda', WIFI_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda WiFi')}
         </section>
         <section class="panel-section">
@@ -123,15 +123,13 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
           ${PROJECT_BUTTONS_HTML}
         </section>
         <section class="panel-section">
-          <h2>Herramientas</h2>
+          <h2>Herramientas${infoButton('', 'data-tool-info')}</h2>
           ${segmentedHtml('herramienta', TOOLS.map((t) => ({ id: t.id, label: t.label })), 'Herramienta')}
-          <p class="hint" data-tool-hint></p>
           <div class="form" data-material></div>
           <div class="button-row">
             <button type="button" class="button" data-undo>Deshacer</button>
             <button type="button" class="button" data-fit>Ajustar vista</button>
           </div>
-          <p class="hint">Rueda del ratón: acercar o alejar. Botón derecho: mover la vista.</p>
         </section>
         <section class="panel-section" data-selection hidden></section>
         <section class="panel-section">
@@ -143,7 +141,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
           <div data-summary></div>
         </section>
         <details class="panel-section">
-          <summary>Pérdida de cada material</summary>
+          <summary>Pérdida de cada material${infoButton('Valores típicos (ITU-R P.2040 y guías de diseño WiFi). Varían con el grosor y la humedad del muro.')}</summary>
           <div data-materials></div>
         </details>
       </aside>
@@ -161,7 +159,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
 
   const find = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
   const panel = find('.panel');
-  const toolHint = find('[data-tool-hint]');
+  const toolHint = find('[data-tool-info]');
   const selectionBox = find('[data-selection]');
   const apsBox = find('[data-aps]');
   const summaryBox = find('[data-summary]');
@@ -732,8 +730,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     materialsBox.innerHTML = `
       <table class="budget"><thead><tr><th></th>${WIFI_BANDS.map((b) => `<th>${b.label}</th>`).join('')}</tr></thead><tbody>
       ${MATERIALS.map((m) => `<tr><th scope="row"><span class="legend-swatch" style="background:${m.color}"></span>${m.label}</th>${WIFI_BANDS.map((b) => `<td>${m.lossDb[b.id]} dB</td>`).join('')}</tr>`).join('')}
-      </tbody></table>
-      <p class="hint">Valores típicos (ITU-R P.2040 y guías de diseño WiFi). Varían con el grosor y la humedad del muro.</p>`;
+      </tbody></table>`;
   }
 
   // --- Controles ---
@@ -763,7 +760,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   const setTool = (id: Tool) => {
     tool = id;
     drawingFrom = null;
-    toolHint.textContent = TOOLS.find((t) => t.id === id)!.hint;
+    setInfo(toolHint, `${TOOLS.find((t) => t.id === id)!.hint} Rueda del ratón: acercar o alejar. Botón derecho: mover la vista.`);
     find('[data-material]').hidden = id !== 'wall';
     planView.redraw();
   };

@@ -30,6 +30,7 @@ import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { formatDb, formatDbi, formatHeight, formatLonLat, formatWatts } from '../../ui/format';
 import { createHoverReadout } from '../../ui/hoverReadout';
+import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
@@ -134,12 +135,10 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     root,
     `
     <section class="panel-section page-intro">
-      <h2>Celular (LTE / 5G)</h2>
-      <p class="hint">Un sitio con sectores. La pérdida de trayecto se calcula una vez; el patrón de cada antena se aplica al pintar.</p>
-      ${choiceHtml('banda', BANDS.map((b) => ({ id: b.id, label: b.id === 'aws' ? 'AWS (2100 MHz)' : `${b.label} MHz` })), 'Banda')}
-      <p class="hint" data-band-description></p>
+      <h2>Celular (LTE / 5G)${infoButton('Un sitio con sectores. La pérdida de trayecto se calcula una vez; el patrón de cada antena se aplica al pintar.')}</h2>
+      ${choiceHtml('banda', BANDS.map((b) => ({ id: b.id, label: b.id === 'aws' ? 'AWS (2100 MHz)' : `${b.label} MHz` })), 'Banda', '')}
       <div class="form" data-model></div>
-      <p class="hint" data-model-hint></p>
+      <p class="notice" data-model-warning hidden></p>
     </section>
     ${siteSectionHtml('Sitio celular', 'la torre')}
     ${coverageStatusHtml()}
@@ -157,13 +156,13 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     </details>
     <section class="panel-section">
       <h2>Resumen</h2>
-      <div data-summary><p class="hint">Ubica la torre para ver la cobertura.</p></div>
+      <div data-summary><p class="hint">Ubica la torre y pulsa «Simular» para ver la cobertura.</p></div>
     </section>`,
     'Parámetros del sitio celular',
   );
 
-  const bandDescription = page.find('[data-band-description]');
-  const modelHint = page.find('[data-model-hint]');
+  const bandDescription = page.find('[data-choice-info="banda"]');
+  const modelWarning = page.find('[data-model-warning]');
   const summary = page.find('[data-summary]');
   const exporter = addExportControl(page.map, [
     { label: 'KMZ para Google Earth', description: 'RSRP, mejor sector y SINR con sus leyendas, y la torre con sus sectores.', run: exportKmz },
@@ -194,7 +193,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     redraw();
   });
 
-  const modelSelect = createSelectField('Modelo de propagación', MODELS, model, (id) => {
+  const modelSelect = createSelectField(`Modelo de propagación${infoButton('', 'data-model-info')}`, MODELS, model, (id) => {
     model = id as ModelId;
     onGeometryChange();
   });
@@ -248,7 +247,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   buildSectorFields();
 
   function showBand() {
-    bandDescription.textContent = `${band.description} Frecuencia de cálculo: ${band.frequencyMHz} MHz.`;
+    setInfo(bandDescription, `${band.description} Frecuencia de cálculo: ${band.frequencyMHz} MHz.`);
   }
   showBand();
 
@@ -271,15 +270,19 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
 
   function showModelHint() {
     const f = band.frequencyMHz;
-    if (model.startsWith('hata') && f > 2000) {
-      modelHint.textContent = `Hata solo vale hasta 2000 MHz; a ${f} MHz todo el mapa queda rayado. Para esta banda usa 3GPP 38.901 o ITM.`;
-    } else if (model.startsWith('hata')) {
-      modelHint.textContent =
-        'Hata se ajustó de 1 a 20 km con la antena de 30 a 200 m; entre 0,5 y 1 km se extrapola y fuera de eso aparece rayado. Altura efectiva: la mayor entre la de la torre y su altura sobre el terreno promedio de 3 a 15 km.';
+    const modelInfo = page.find('[data-model-info]');
+    // El aviso se ve siempre que el modelo no sirve para la banda; la explicación va en «i».
+    modelWarning.hidden = !(model.startsWith('hata') && f > 2000);
+    modelWarning.textContent = `Hata solo vale hasta 2000 MHz; a ${f} MHz todo el mapa queda rayado. Para esta banda usa 3GPP 38.901 o ITM.`;
+    if (model.startsWith('hata')) {
+      setInfo(
+        modelInfo,
+        'Hata se ajustó de 1 a 20 km con la antena de 30 a 200 m; entre 0,5 y 1 km se extrapola y fuera de eso aparece rayado. Altura efectiva: la mayor entre la de la torre y su altura sobre el terreno promedio de 3 a 15 km.',
+      );
     } else if (model === 'uma') {
-      modelHint.textContent = '3GPP 38.901 UMa vale hasta 5 km; más allá aparece rayado. Supone ciudad sin línea de vista.';
+      setInfo(modelInfo, '3GPP 38.901 UMa vale hasta 5 km; más allá aparece rayado. Supone ciudad sin línea de vista.');
     } else {
-      modelHint.textContent = 'ITM usa el relieve real: sirve en campo abierto y montaña, pero no ve edificios.';
+      setInfo(modelInfo, 'ITM usa el relieve real: sirve en campo abierto y montaña, pero no ve edificios.');
     }
   }
 
