@@ -49,6 +49,12 @@ export interface NumberField {
 
 let fieldCounter = 0;
 
+/** Etiqueta con su botón «i» pegado a la última palabra, para que no quede solo en otra línea. */
+function withInfo(label: string, hint: string): string {
+  const cut = label.lastIndexOf(' ');
+  return `${label.slice(0, cut + 1)}<span class="nowrap">${label.slice(cut + 1)}${infoButton(hint)}</span>`;
+}
+
 /** Campo con etiqueta, unidad y mensaje de error. `onValid` solo recibe valores válidos. */
 export function createNumberField(
   spec: NumberFieldSpec,
@@ -59,7 +65,7 @@ export function createNumberField(
   const element = document.createElement('div');
   element.className = 'field';
   element.innerHTML = `
-    <label for="${id}">${spec.label}${spec.hint ? infoButton(spec.hint) : ''}</label>
+    <label for="${id}">${spec.hint ? withInfo(spec.label, spec.hint) : spec.label}</label>
     <div class="field-input">
       <input id="${id}" type="text" inputmode="decimal" autocomplete="off" />
       <span class="field-unit">${spec.unit}</span>

@@ -84,7 +84,7 @@ const samePoint = (p: LonLat, q: LonLat) => p.lon === q.lon && p.lat === q.lat;
 const endHtml = (label: EndLabel, name: string) => `
   <h3 class="end-title"><span class="end-badge" style="background:${END_COLORS[label]}">${label}</span>Extremo ${label}</h3>
   ${siteFieldsHtml(`end-${label.toLowerCase()}`, name, `el extremo ${label}`)}
-  <p class="hint" data-end-elevation="${label}" hidden></p>`;
+  <dl class="site-details" data-end-elevation="${label}" hidden><dt>Cota del terreno</dt><dd></dd></dl>`;
 
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const twoDecimals = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -456,7 +456,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     for (const [label, elevation] of [['A', elevA], ['B', elevB]] as const) {
       const box = page.find(`[data-end-elevation="${label}"]`);
       box.hidden = false;
-      box.textContent = `Cota del terreno: ${formatMeters(elevation)}`;
+      box.querySelector('dd')!.textContent = formatMeters(elevation);
     }
 
     const signed = (v: number) => `${v >= 0 ? '+' : ''}${oneDecimal.format(v)}`;

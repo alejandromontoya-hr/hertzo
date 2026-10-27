@@ -108,7 +108,9 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   let rock = ROCKS.find((r) => r.id === (saved?.rockId ?? preset.rockId)) ?? ROCKS[0]!;
   let roughnessM = rock.roughnessM;
   let polarization: Polarization = 'vertical';
-  let corner90Db = cornerLoss90Db(band.frequencyMHz);
+  /** Pérdida por curva típica de la banda, con un decimal como el resto del panel. */
+  const typicalCornerDb = (f: number) => Math.round(cornerLoss90Db(f) * 10) / 10;
+  let corner90Db = typicalCornerDb(band.frequencyMHz);
   let sensitivityDbm = band.sensitivityDbm;
   let cable: LeakyCable = typicalLeakyCable(band.frequencyMHz);
   let newGallery = { widthM: 4.5, heightM: 3.5 };
@@ -990,7 +992,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   const bandControl = bindChoice(panel, 'banda', band.id, (id) => selectBand(id));
   function selectBand(id: string) {
     band = CAVE_BANDS.find((b) => b.id === id)!;
-    corner90Db = cornerLoss90Db(band.frequencyMHz);
+    corner90Db = typicalCornerDb(band.frequencyMHz);
     sensitivityDbm = band.sensitivityDbm;
     cable = typicalLeakyCable(band.frequencyMHz);
     thresholds = [30, 20, 10, 0].map((m) => sensitivityDbm + m);

@@ -796,14 +796,26 @@ body {
   grid-template-columns: auto 1fr;
 }
 
-.field-select {
+/* Menús con opciones largas («Espacio libre + difracción (Deygout) + gases»): la etiqueta va
+   arriba y el menú usa todo el ancho, para que la opción elegida no se corte. */
+.field.field-select {
   grid-template-columns: 1fr;
+}
+
+/* Que el botón «i» no quede solo en una línea cuando la etiqueta se parte. */
+.nowrap {
+  white-space: nowrap;
 }
 
 .field-input {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Todos los campos del mismo ancho: una unidad larga («dB/100 m») se sale hacia el margen en vez de angostar el campo. */
+.field-input input {
+  flex: 0 0 92px;
 }
 
 .field input,
@@ -839,6 +851,7 @@ body {
 .field-unit {
   flex: 0 0 auto;
   min-width: 52px;
+  white-space: nowrap;
   font-size: 0.8rem;
   color: var(--muted);
 }
@@ -967,12 +980,19 @@ body {
   display: none;
 }
 
+/* Datos de solo lectura (cota del terreno) con la misma columna que los campos: el valor
+   termina donde termina el texto de un campo. */
 .site-details {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 12px;
-  margin: 0 0 12px;
-  font-size: 0.9rem;
+  grid-template-columns: 1fr 150px;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 10px 0 12px;
+  font-size: 0.875rem;
+}
+
+.site-details[hidden] {
+  display: none;
 }
 
 .site-details dt {
@@ -980,7 +1000,9 @@ body {
 }
 
 .site-details dd {
+  width: 92px;
   margin: 0;
+  padding-right: 9px;
   font-family: var(--font-mono);
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
@@ -1035,19 +1057,26 @@ body {
   margin: 10px 0 6px;
 }
 
-/* Latitud y longitud a la izquierda; a la derecha, el botón para elegir el punto en el mapa. */
+/*
+ * Latitud y longitud en la misma columna que los demás campos; el botón para elegir el punto en
+ * el mapa va a la derecha, entre las dos filas, en el espacio de la unidad («°» es angosto).
+ */
 .coords {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 10px;
+  position: relative;
+}
+
+.coords .pick-button {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
 }
 
 .pick-button {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   color: var(--text);
   background: var(--surface);
@@ -1057,8 +1086,8 @@ body {
 }
 
 .pick-button svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .pick-button:hover {

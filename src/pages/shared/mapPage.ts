@@ -105,7 +105,7 @@ export function coverageStatusHtml(title = 'Cobertura'): string {
 export function choiceHtml(name: string, options: { id: string; label: string }[], label: string, info?: string): string {
   return `
     <div class="form">
-      <div class="field">
+      <div class="field field-select">
         <label for="opcion-${name}">${label}${info === undefined ? '' : infoButton(info, `data-choice-info="${name}"`)}</label>
         <select id="opcion-${name}" data-choice="${name}">
           ${options.map((o) => `<option value="${o.id}">${o.label}</option>`).join('')}

@@ -73,7 +73,7 @@ export function createRadioForm(
 ): void {
   const selectId = 'perfil-radio';
   const wrapper = document.createElement('div');
-  wrapper.className = 'field';
+  wrapper.className = 'field field-select';
   wrapper.innerHTML = `<label for="${selectId}">Perfil</label><select id="${selectId}"></select>`;
   const select = wrapper.querySelector('select')!;
   for (const profile of RADIO_PROFILES) select.add(new Option(profile.name, profile.id));
