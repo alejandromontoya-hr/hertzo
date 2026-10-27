@@ -32,6 +32,11 @@ const ROWS: Row[] = [
   { label: 'Pérdida de trayecto máxima', value: (b) => formatDb(b.maxPathLossDb), strong: true },
 ];
 
+/** Filas del balance como texto, igual que en el panel: etiqueta, bajada y subida. */
+export function budgetRows(talkOut: LinkBudget, talkIn: LinkBudget): string[][] {
+  return ROWS.map((row) => [row.label, row.value(talkOut), row.value(talkIn)]);
+}
+
 /** Frase que dice qué dirección limita la cobertura y por cuántos dB. */
 export function balanceSummary(talkOut: LinkBudget, talkIn: LinkBudget): string {
   const diff = talkOut.maxPathLossDb - talkIn.maxPathLossDb;

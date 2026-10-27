@@ -15,15 +15,15 @@ import {
   type LmrBandId,
 } from '../../data/defaults';
 import { encodePng, saveFile } from '../../export/download';
-import { coverageKml, exportFileName, type KmlCoverageLayer } from '../../export/kml';
+import { coverageKml, exportFileName, type KmlCoverageLayer, type KmlPlacemark } from '../../export/kml';
 import { drawLegendImage } from '../../export/legendImage';
 import { zipStore, type ZipEntry } from '../../export/zip';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
-import { createBudgetPanel } from '../../ui/budgetPanel';
+import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { formatMHz } from '../../ui/format';
+import { formatLonLat, formatMeters, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
@@ -37,6 +37,7 @@ const VIEWS: { id: CoverageView; label: string; title: string }[] = [
 ];
 
 const KMZ_MIME = 'application/vnd.google-earth.kmz';
+const kmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 const LEVEL_EMPTY_LABEL = 'no llega a la sensibilidad';
 const HATCH_LABEL = 'baja confianza (ladera empinada junto al sitio)';
 
@@ -192,7 +193,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
 
   /**
    * Descarga un KMZ con la bajada y la subida en carpetas separadas, cada una con su leyenda,
-   * con los mismos colores y umbrales del mapa.
+   * con los mismos colores, umbrales y opacidad del mapa, y el sitio con su ficha.
    */
   async function exportKmz() {
     if (!coverage) return;
@@ -226,11 +227,41 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
         name,
         href: `${d.file}.png`,
         bounds: { north, south, east, west },
+        opacity,
         legend: { href: `leyenda-${d.file}.png`, width: legendImage.width, height: legendImage.height },
       });
     }
 
-    const kml = coverageKml(`Hertzo · Terreno ${band.label}`, layers);
+    const { site: position, radiusM } = coverage.plan;
+    const site: KmlPlacemark = {
+      name: `Sitio · ${band.label}`,
+      position,
+      tables: [
+        {
+          rows: [
+            ['Ubicación (lat, lon)', formatLonLat(position.lon, position.lat)],
+            ['Banda', `${band.label} (${band.range})`],
+            ['Antena de transmisión', `${formatMeters(tx.antennaHeightM)} sobre el terreno`],
+            ['Antena de recepción', `${formatMeters(rx.antennaHeightM)} sobre el terreno`],
+            ['Radio de cálculo', `${kmFormat.format(radiusM / 1000)} km`],
+          ],
+        },
+        {
+          title: 'Radio de usuario',
+          rows: [
+            ['Perfil', radio.name],
+            ['Altura de la antena', formatMeters(radio.heightM)],
+          ],
+        },
+        {
+          title: 'Balance de enlace',
+          header: ['', 'Bajada', 'Subida'],
+          rows: budgetRows(down, up),
+          note: balanceSummary(down, up),
+        },
+      ],
+    };
+    const kml = coverageKml(`Hertzo · Terreno ${band.label}`, layers, { site });
     const kmz = zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }, ...files]);
     saveFile(kmz, exportFileName('terreno', band.label, coverage.plan.site, 'kmz'), KMZ_MIME);
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LinkBudget } from '../rf/linkBudget';
-import { balanceSummary } from './budgetPanel';
+import { balanceSummary, budgetRows } from './budgetPanel';
 
 function budget(maxPathLossDb: number): LinkBudget {
   return {
@@ -18,6 +18,15 @@ function budget(maxPathLossDb: number): LinkBudget {
     maxPathLossDb,
   };
 }
+
+describe('budgetRows', () => {
+  it('12 filas con bajada y subida; 50 dBm se muestran también en vatios: 100 W', () => {
+    const rows = budgetRows(budget(160.9), budget(148.7));
+    expect(rows).toHaveLength(12);
+    expect(rows[2]).toEqual(['Potencia', '50,0 dBm (100 W)', '50,0 dBm (100 W)']);
+    expect(rows[11]).toEqual(['Pérdida de trayecto máxima', '160,9 dB', '148,7 dB']);
+  });
+});
 
 describe('balanceSummary', () => {
   it('bajada 160,9 dB y subida 148,7 dB: limita la subida por 12,2 dB', () => {

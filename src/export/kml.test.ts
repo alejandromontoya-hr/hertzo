@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coverageKml, exportFileName } from './kml';
+import { coverageKml, exportFileName, kmlOpacityColor, placemarkHtml } from './kml';
 
 describe('coverageKml', () => {
   // Sitio en Medellín con 100 km de radio, en 800 MHz: bajada en 860 MHz y subida en 815 MHz.
@@ -50,6 +50,48 @@ describe('coverageKml', () => {
 
   it('escapa los caracteres especiales de XML en los nombres', () => {
     expect(coverageKml('A & B <C>', [])).toContain('<name>A &amp; B &lt;C&gt;</name>');
+  });
+
+  it('sin opacidad, la imagen va opaca (ff); con 0,7, al 70 % (b3)', () => {
+    expect(folder('Bajada · 860 MHz')).toContain('<color>ffffffff</color>');
+    expect(coverageKml('X', [{ name: 'Bajada', href: 'bajada.png', bounds, opacity: 0.7 }])).toContain(
+      '<color>b3ffffff</color>',
+    );
+  });
+
+  it('el sitio va como punto fuera de la carpeta «Cobertura», con longitud y latitud en ese orden', () => {
+    const withSite = coverageKml('X', [{ name: 'Bajada', href: 'bajada.png', bounds }], {
+      site: { name: 'Sitio', position: { lon: -75.6853, lat: 6.2794 }, tables: [{ rows: [['Banda', '800 MHz']] }] },
+    });
+    expect(withSite).toContain('<coordinates>-75.685300,6.279400,0</coordinates>');
+    expect(withSite.indexOf('<Placemark>')).toBeLessThan(withSite.indexOf('<name>Cobertura</name>'));
+    expect(withSite).toContain('<description><![CDATA[<table><tr><th>Banda</th><td>800 MHz</td></tr></table>]]></description>');
+  });
+});
+
+describe('kmlOpacityColor', () => {
+  it('0 → 00, 0,5 → 80, 1 → ff; fuera de rango se recorta', () => {
+    expect(kmlOpacityColor(0)).toBe('00ffffff');
+    expect(kmlOpacityColor(0.5)).toBe('80ffffff');
+    expect(kmlOpacityColor(1)).toBe('ffffffff');
+    expect(kmlOpacityColor(1.4)).toBe('ffffffff');
+  });
+});
+
+describe('placemarkHtml', () => {
+  it('tabla con título, encabezados, filas (la primera celda como encabezado) y nota', () => {
+    expect(
+      placemarkHtml([
+        { title: 'Balance', header: ['', 'Bajada', 'Subida'], rows: [['PIRE', '52,3 dBm', '36,6 dBm']], note: 'Limita la subida.' },
+      ]),
+    ).toBe(
+      '<h3>Balance</h3><table><tr><th></th><th>Bajada</th><th>Subida</th></tr>' +
+        '<tr><th>PIRE</th><td>52,3 dBm</td><td>36,6 dBm</td></tr></table><p>Limita la subida.</p>',
+    );
+  });
+
+  it('un texto con «]]>» no cierra el CDATA: el > se escapa', () => {
+    expect(placemarkHtml([{ rows: [['a]]>b']] }])).toBe('<table><tr><th>a]]&gt;b</th></tr></table>');
   });
 });
 
