@@ -7,6 +7,7 @@ import { saveFile } from '../../export/download';
 import { exportFileName, linkKml, type KmlPlacemark } from '../../export/kml';
 import { linkRayPath } from '../../export/linkPath';
 import { drawProfileReport } from '../../export/profileImage';
+import { reportDate } from '../../export/reportImage';
 import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
 import { addExportControl } from '../../map/exportControl';
@@ -421,7 +422,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       subtitle: [
         endLine('A', p.from, p.elevationsM[0]!, params.heightAM),
         endLine('B', p.to, p.elevationsM[p.elevationsM.length - 1]!, params.heightBM),
-        `Curvatura: ${kLabel} · ${new Intl.DateTimeFormat('es-CO', { dateStyle: 'long' }).format(new Date())}`,
+        `Curvatura: ${kLabel} · ${reportDate()}`,
       ],
       points: r.points,
       verdict: r.verdict,

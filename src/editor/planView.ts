@@ -74,12 +74,7 @@ export function createPlanView(container: HTMLElement, options: PlanViewOptions)
       });
     },
     fit() {
-      const b = options.bounds();
-      const w = Math.max(1, b.maxX - b.minX);
-      const h = Math.max(1, b.maxY - b.minY);
-      pxPerM = Math.max(0.01, Math.min((cssWidth - 2 * FIT_MARGIN_PX) / w, (cssHeight - 2 * FIT_MARGIN_PX) / h));
-      offsetX = (cssWidth - w * pxPerM) / 2 - b.minX * pxPerM;
-      offsetY = (cssHeight - h * pxPerM) / 2 - b.minY * pxPerM;
+      ({ pxPerM, offsetX, offsetY } = fitTo(options.bounds(), cssWidth, cssHeight));
       view.redraw();
     },
     destroy() {
@@ -89,60 +84,10 @@ export function createPlanView(container: HTMLElement, options: PlanViewOptions)
     },
   };
 
-  function drawGrid() {
-    const step = gridStepM(pxPerM);
-    const [x0, y0] = view.toWorld(0, 0);
-    const [x1, y1] = view.toWorld(cssWidth, cssHeight);
-    ctx.lineWidth = 1;
-    for (let gx = Math.floor(x0 / step) * step; gx <= x1; gx += step) {
-      const major = Math.abs(gx / (step * 5) - Math.round(gx / (step * 5))) < 1e-6;
-      ctx.strokeStyle = major ? 'rgba(27,31,36,0.12)' : 'rgba(27,31,36,0.05)';
-      const sx = Math.round(gx * pxPerM + offsetX) + 0.5;
-      ctx.beginPath();
-      ctx.moveTo(sx, 0);
-      ctx.lineTo(sx, cssHeight);
-      ctx.stroke();
-    }
-    for (let gy = Math.floor(y0 / step) * step; gy <= y1; gy += step) {
-      const major = Math.abs(gy / (step * 5) - Math.round(gy / (step * 5))) < 1e-6;
-      ctx.strokeStyle = major ? 'rgba(27,31,36,0.12)' : 'rgba(27,31,36,0.05)';
-      const sy = Math.round(gy * pxPerM + offsetY) + 0.5;
-      ctx.beginPath();
-      ctx.moveTo(0, sy);
-      ctx.lineTo(cssWidth, sy);
-      ctx.stroke();
-    }
-  }
-
-  function drawScaleBar() {
-    const meters = gridStepM(pxPerM) * 5;
-    const length = meters * pxPerM;
-    const x = 12;
-    const y = cssHeight - 14;
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.fillRect(x - 4, y - 16, length + 8 + 50, 22);
-    ctx.strokeStyle = '#1f2328';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(x, y - 4);
-    ctx.lineTo(x, y);
-    ctx.lineTo(x + length, y);
-    ctx.lineTo(x + length, y - 4);
-    ctx.stroke();
-    ctx.fillStyle = '#1f2328';
-    ctx.font = '12px system-ui, sans-serif';
-    ctx.fillText(meters >= 1000 ? `${meters / 1000} km` : `${meters} m`, x + length + 6, y);
-  }
-
   function paint() {
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssWidth, cssHeight);
-    ctx.fillStyle = '#f6f7f9';
-    ctx.fillRect(0, 0, cssWidth, cssHeight);
-    if (options.grid !== false) drawGrid();
-    options.draw(ctx, view);
-    drawScaleBar();
+    paintPlan(ctx, view, cssWidth, cssHeight, options);
   }
 
   const observer = new ResizeObserver(() => {
@@ -215,4 +160,109 @@ export function createPlanView(container: HTMLElement, options: PlanViewOptions)
   );
 
   return view;
+}
+
+/** Escala y desplazamiento que encuadran `b` en un lienzo de `width` × `height`, con margen. */
+function fitTo(b: ReturnType<PlanViewOptions['bounds']>, width: number, height: number, marginPx = FIT_MARGIN_PX) {
+  const w = Math.max(1, b.maxX - b.minX);
+  const h = Math.max(1, b.maxY - b.minY);
+  const pxPerM = Math.max(0.01, Math.min((width - 2 * marginPx) / w, (height - 2 * marginPx) / h));
+  return {
+    pxPerM,
+    offsetX: (width - w * pxPerM) / 2 - b.minX * pxPerM,
+    offsetY: (height - h * pxPerM) / 2 - b.minY * pxPerM,
+  };
+}
+
+/** Fondo, grilla, contenido y barra de escala: lo mismo en el editor y en la imagen. */
+function paintPlan(
+  ctx: CanvasRenderingContext2D,
+  view: PlanView,
+  width: number,
+  height: number,
+  options: Pick<PlanViewOptions, 'draw' | 'grid'>,
+) {
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = '#f6f7f9';
+  ctx.fillRect(0, 0, width, height);
+  if (options.grid !== false) drawGrid(ctx, view, width, height);
+  options.draw(ctx, view);
+  drawScaleBar(ctx, view, height);
+}
+
+function drawGrid(ctx: CanvasRenderingContext2D, view: PlanView, width: number, height: number) {
+  const step = gridStepM(view.scale());
+  const [x0, y0] = view.toWorld(0, 0);
+  const [x1, y1] = view.toWorld(width, height);
+  ctx.lineWidth = 1;
+  for (let gx = Math.floor(x0 / step) * step; gx <= x1; gx += step) {
+    const major = Math.abs(gx / (step * 5) - Math.round(gx / (step * 5))) < 1e-6;
+    ctx.strokeStyle = major ? 'rgba(27,31,36,0.12)' : 'rgba(27,31,36,0.05)';
+    const sx = Math.round(view.toScreen(gx, 0)[0]) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(sx, 0);
+    ctx.lineTo(sx, height);
+    ctx.stroke();
+  }
+  for (let gy = Math.floor(y0 / step) * step; gy <= y1; gy += step) {
+    const major = Math.abs(gy / (step * 5) - Math.round(gy / (step * 5))) < 1e-6;
+    ctx.strokeStyle = major ? 'rgba(27,31,36,0.12)' : 'rgba(27,31,36,0.05)';
+    const sy = Math.round(view.toScreen(0, gy)[1]) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, sy);
+    ctx.lineTo(width, sy);
+    ctx.stroke();
+  }
+}
+
+function drawScaleBar(ctx: CanvasRenderingContext2D, view: PlanView, height: number) {
+  const pxPerM = view.scale();
+  const meters = gridStepM(pxPerM) * 5;
+  const length = meters * pxPerM;
+  const x = 12;
+  const y = height - 14;
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillRect(x - 4, y - 16, length + 8 + 50, 22);
+  ctx.strokeStyle = '#1f2328';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y - 4);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + length, y);
+  ctx.lineTo(x + length, y - 4);
+  ctx.stroke();
+  ctx.fillStyle = '#1f2328';
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.fillText(meters >= 1000 ? `${meters / 1000} km` : `${meters} m`, x + length + 6, y);
+}
+
+/**
+ * El plano completo y encuadrado en un lienzo aparte de `width` × `height` (píxeles de pantalla),
+ * dibujado a `scale` veces su tamaño para una imagen. No depende del zoom que tenga el editor.
+ * `marginPx` deja espacio alrededor, por ejemplo para los nombres de las antenas de los bordes.
+ */
+export function renderPlanImage(
+  options: Pick<PlanViewOptions, 'bounds' | 'draw' | 'grid'>,
+  width: number,
+  height: number,
+  scale: number,
+  marginPx = FIT_MARGIN_PX,
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const ctx = canvas.getContext('2d')!;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  const { pxPerM, offsetX, offsetY } = fitTo(options.bounds(), width, height, marginPx);
+  const view: PlanView = {
+    canvas,
+    scale: () => pxPerM,
+    toScreen: (x, y) => [x * pxPerM + offsetX, y * pxPerM + offsetY],
+    toWorld: (sx, sy) => [(sx - offsetX) / pxPerM, (sy - offsetY) / pxPerM],
+    redraw() {},
+    fit() {},
+    destroy() {},
+  };
+  paintPlan(ctx, view, width, height, options);
+  return canvas;
 }

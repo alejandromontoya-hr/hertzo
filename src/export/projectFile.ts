@@ -11,7 +11,7 @@ export const PROJECT_VERSION = 1;
 export type ParseResult<T> = { ok: true; data: T } | { ok: false; message: string };
 
 /** Fecha local AAAA-MM-DD, para el nombre del archivo. */
-const isoDate = (d: Date) =>
+export const isoDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /** Contenido del archivo: quién lo hizo, de qué simulador, cuándo y los datos. */

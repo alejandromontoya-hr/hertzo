@@ -18,8 +18,12 @@ import {
 } from '../../cave/network';
 import { CAVE_BANDS, CAVE_PRESETS, ROCKS, type CaveBand } from '../../cave/presets';
 import { readCaveProject, type CaveProject } from '../../cave/project';
-import { createPlanView, type PlanPointer, type PlanView } from '../../editor/planView';
+import { createPlanView, renderPlanImage, type PlanPointer, type PlanView } from '../../editor/planView';
+import { saveFile } from '../../export/download';
+import { isoDate } from '../../export/projectFile';
+import { REPORT_CONTENT_WIDTH, REPORT_SCALE, drawReport, reportDate, swatchKey } from '../../export/reportImage';
 import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectButtons';
+import { addPlanExport } from '../../map/exportControl';
 import { distanceToSegment, newId, snap } from '../../indoor/plan';
 import {
   breakpointDistanceM,
@@ -109,6 +113,8 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   let graph: CaveGraph = buildGraph([]);
   let result: SimulationResult | null = null;
   const undoStack: string[] = [];
+  /** Al dibujar para la imagen: sin selección, vértices editables ni la línea que se está trazando. */
+  let forImage = false;
 
   root.innerHTML = `
     <div class="page-split">
@@ -160,6 +166,11 @@ export function mountCavePage({ root, params }: PageContext): () => void {
 
   const find = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
   const panel = find('.panel');
+  const exporter = addPlanExport(
+    find('.editor-area'),
+    [{ label: 'Imagen de la red (PNG)', description: 'Galerías pintadas por nivel, la leyenda y el resumen, para informes.', run: exportImage }],
+    'Exportar: primero dibuja una galería',
+  );
   const bandHint = find('[data-band-hint]');
   const toolHint = find('[data-tool-hint]');
   const selectionBox = find('[data-selection]');
@@ -222,16 +233,21 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     return UNCOVERED;
   }
 
-  function updateLegend() {
+  /** Franjas de nivel de la leyenda, iguales en pantalla y en la imagen. */
+  function legendEntries() {
     const sorted = [...thresholds].sort((a, b) => b - a);
+    return [
+      ...bandLabels(sorted, 'dBm').map((label, i) => ({ color: LEVEL_COLORS[i]!, label })),
+      { color: UNCOVERED, label: `< ${sorted[sorted.length - 1]} dBm · sin cobertura` },
+    ];
+  }
+
+  function updateLegend() {
     legend.update({
       views: [{ id: 'nivel', label: 'Nivel' }],
       activeView: 'nivel',
       title: `Nivel recibido en la galería (dBm), ${band.label}`,
-      entries: [
-        ...bandLabels(sorted, 'dBm').map((label, i) => ({ color: LEVEL_COLORS[i]!, label })),
-        { color: UNCOVERED, label: `< ${sorted[sorted.length - 1]} dBm · sin cobertura` },
-      ],
+      entries: legendEntries(),
       thresholds: { values: thresholds, unit: 'dBm', min: -160, max: 0 },
       opacity,
     });
@@ -241,6 +257,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
 
   function draw(ctx: CanvasRenderingContext2D, v: PlanView) {
     const px = v.scale();
+    const sel = forImage ? null : selection;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -255,7 +272,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
           else ctx.lineTo(sx, sy);
         });
       };
-      if (selection?.kind === 'gallery' && selection.id === gallery.id) {
+      if (sel?.kind === 'gallery' && sel.id === gallery.id) {
         ctx.strokeStyle = 'rgba(9,105,218,0.5)';
         ctx.lineWidth = width + 10;
         path();
@@ -294,7 +311,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     }
 
     // Vértices editables.
-    if (tool === 'select' || tool === 'gallery' || tool === 'cable') {
+    if (!forImage && (tool === 'select' || tool === 'gallery' || tool === 'cable')) {
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = '#57606a';
       ctx.lineWidth = 1;
@@ -311,7 +328,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
 
     // Cables radiantes.
     for (const c of model.cables) {
-      const selected = selection?.kind === 'cable' && selection.id === c.id;
+      const selected = sel?.kind === 'cable' && sel.id === c.id;
       ctx.strokeStyle = selected ? '#9a6700' : '#d4a72c';
       ctx.lineWidth = selected ? 4 : 2.5;
       ctx.setLineDash([7, 5]);
@@ -339,7 +356,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     // Antenas.
     for (const tx of model.transmitters) {
       const [sx, sy] = v.toScreen(tx.x, tx.y);
-      const selected = selection?.kind === 'tx' && selection.id === tx.id;
+      const selected = sel?.kind === 'tx' && sel.id === tx.id;
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = '#0969da';
       ctx.lineWidth = selected ? 4 : 2.5;
@@ -366,7 +383,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     }
 
     // Polilínea que se está dibujando.
-    if ((tool === 'gallery' || tool === 'cable') && hover) {
+    if (!forImage && (tool === 'gallery' || tool === 'cable') && hover) {
       const target = snapTarget(hover.x, hover.y);
       const points = [...drawing, target.point];
       if (drawing.length) {
@@ -753,39 +770,116 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     }
   }
 
-  function renderSummary() {
-    bandHint.textContent = band.description;
-    if (!result || model.galleries.length === 0) {
-      summaryBox.innerHTML = '<p class="hint">Dibuja al menos una galería con la herramienta «Galería».</p>';
-      return;
-    }
+  /** Resumen del panel: aviso de corte, filas (etiqueta, valor, resaltada) y nota. La misma tabla va a la imagen. */
+  function summaryTable(): { warning: string | null; rows: [string, string, boolean][]; note: string } | null {
+    if (!result || model.galleries.length === 0) return null;
     const { totalM, coveredM } = coveredLength(graph, result.levelDbm, sensitivityDbm);
     const reference = model.galleries[0]!;
     const alpha = galleryAttenuationDbPerM(band.frequencyMHz, reference, { epsilonR: rock.epsilonR, roughnessM }, polarization);
     const smallest = model.galleries.reduce((a, g) => (Math.max(g.widthM, g.heightM) < Math.max(a.widthM, a.heightM) ? g : a));
     const cutoff = cutoffFrequencyMHz(smallest);
     const covered = totalM > 0 ? coveredM / totalM : 0;
-    const warning =
-      band.frequencyMHz < cutoff
-        ? `<p class="verdict" style="border-color:${UNCOVERED}">A ${band.frequencyMHz} MHz la señal está por debajo del corte práctico de la galería más pequeña (${integerFormat.format(cutoff)} MHz): casi no avanza sin cable radiante.</p>`
-        : '';
     const sources = model.transmitters.length + model.cables.length;
-    summaryBox.innerHTML = `${warning}
-      <table class="budget"><tbody>
-        <tr class="strong"><th scope="row">Galerías con cobertura</th><td>${integerFormat.format(covered * 100)} %</td></tr>
-        <tr><th scope="row">Largo cubierto / total</th><td>${meters(coveredM)} / ${meters(totalM)}</td></tr>
-        <tr><th scope="row">Sin cobertura</th><td>${meters(totalM - coveredM)}</td></tr>
-        <tr><th scope="row">Atenuación en «${reference.name}»</th><td>${oneDecimal.format(alpha * 100)} dB/100 m</td></tr>
-        <tr><th scope="row">Pérdida en una curva de 90°</th><td>${oneDecimal.format(corner90Db)} dB</td></tr>
-        <tr><th scope="row">Fuentes</th><td>${model.transmitters.length} antena${model.transmitters.length === 1 ? '' : 's'}, ${model.cables.length} cable${model.cables.length === 1 ? '' : 's'}</td></tr>
-      </tbody></table>
-      <p class="hint">${
+    return {
+      warning:
+        band.frequencyMHz < cutoff
+          ? `A ${band.frequencyMHz} MHz la señal está por debajo del corte práctico de la galería más pequeña (${integerFormat.format(cutoff)} MHz): casi no avanza sin cable radiante.`
+          : null,
+      rows: [
+        ['Galerías con cobertura', `${integerFormat.format(covered * 100)} %`, true],
+        ['Largo cubierto / total', `${meters(coveredM)} / ${meters(totalM)}`, false],
+        ['Sin cobertura', meters(totalM - coveredM), false],
+        [`Atenuación en «${reference.name}»`, `${oneDecimal.format(alpha * 100)} dB/100 m`, false],
+        ['Pérdida en una curva de 90°', `${oneDecimal.format(corner90Db)} dB`, false],
+        [
+          'Fuentes',
+          `${model.transmitters.length} antena${model.transmitters.length === 1 ? '' : 's'}, ${model.cables.length} cable${model.cables.length === 1 ? '' : 's'}`,
+          false,
+        ],
+      ],
+      note:
         sources === 0
           ? 'Ubica una antena o un cable radiante para ver la señal.'
           : covered < 1
             ? 'Los tramos en rojo no tienen cobertura: ahí van otro repetidor o el cable radiante.'
-            : 'Toda la red queda cubierta.'
-      }</p>`;
+            : 'Toda la red queda cubierta.',
+    };
+  }
+
+  function renderSummary() {
+    bandHint.textContent = band.description;
+    exporter.setEnabled(result !== null && model.galleries.length > 0);
+    const table = summaryTable();
+    if (!table) {
+      summaryBox.innerHTML = '<p class="hint">Dibuja al menos una galería con la herramienta «Galería».</p>';
+      return;
+    }
+    const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    summaryBox.innerHTML = `${table.warning ? `<p class="verdict" style="border-color:${UNCOVERED}">${table.warning}</p>` : ''}
+      <table class="budget"><tbody>
+        ${table.rows
+          .map(([label, value, strong]) => `<tr${strong ? ' class="strong"' : ''}><th scope="row">${escape(label)}</th><td>${value}</td></tr>`)
+          .join('')}
+      </tbody></table>
+      <p class="hint">${table.note}</p>`;
+  }
+
+  /** Rectángulo que encuadra galerías y antenas, con 15 m de margen. */
+  function planBounds() {
+    const all = [...model.galleries.flatMap((g) => g.points), ...model.transmitters];
+    if (all.length === 0) return { minX: 0, minY: 0, maxX: 200, maxY: 120 };
+    const xs = all.map((p) => p.x);
+    const ys = all.map((p) => p.y);
+    const margin = 15;
+    return { minX: Math.min(...xs) - margin, minY: Math.min(...ys) - margin, maxX: Math.max(...xs) + margin, maxY: Math.max(...ys) + margin };
+  }
+
+  /** Descarga una imagen PNG con la red de galerías pintada por nivel, la leyenda y el resumen. */
+  async function exportImage() {
+    const summary = summaryTable();
+    if (!summary) return;
+    const b = planBounds();
+    // Alto según la forma de la red, entre 280 y 620 px.
+    const height = Math.round(
+      Math.min(620, Math.max(280, ((REPORT_CONTENT_WIDTH - 160) * (b.maxY - b.minY)) / (b.maxX - b.minX) + 160)),
+    );
+    forImage = true;
+    let figure: HTMLCanvasElement;
+    try {
+      // 80 px de margen: el nombre de una antena en el extremo de la red no se corta.
+      figure = renderPlanImage({ bounds: planBounds, draw }, REPORT_CONTENT_WIDTH, height, REPORT_SCALE, 80);
+    } finally {
+      forImage = false;
+    }
+    const cableKey = {
+      label: 'Cable radiante',
+      draw(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        ctx.save();
+        ctx.strokeStyle = '#d4a72c';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 14, y);
+        ctx.stroke();
+        ctx.restore();
+      },
+    };
+    const count = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const png = await drawReport({
+      title: `Radio en túneles, minas y cavernas · ${band.label} (${integerFormat.format(band.frequencyMHz)} MHz)`,
+      subtitle: [
+        `${count(model.galleries.length, 'galería')} · ${count(model.transmitters.length, 'antena')} · ${count(model.cables.length, 'cable')} · ${rock.label}`,
+        `Nivel recibido en la galería (dBm) · polarización ${polarization} · ${reportDate()}`,
+      ],
+      figure,
+      figureHeight: height,
+      key: [...legendEntries().map((e) => swatchKey(e.label, e.color)), cableKey],
+      verdict: summary.warning ? { color: UNCOVERED, text: summary.warning } : undefined,
+      rows: summary.rows,
+      note: summary.note,
+    });
+    saveFile(png, `hertzo-cavernas-${band.id}-${isoDate(new Date())}.png`, 'image/png');
   }
 
   function renderSettings() {
@@ -998,14 +1092,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   window.addEventListener('keydown', onKey);
 
   const planView = createPlanView(find('.plan-host'), {
-    bounds() {
-      const all = [...model.galleries.flatMap((g) => g.points), ...model.transmitters];
-      if (all.length === 0) return { minX: 0, minY: 0, maxX: 200, maxY: 120 };
-      const xs = all.map((p) => p.x);
-      const ys = all.map((p) => p.y);
-      const margin = 15;
-      return { minX: Math.min(...xs) - margin, minY: Math.min(...ys) - margin, maxX: Math.max(...xs) + margin, maxY: Math.max(...ys) + margin };
-    },
+    bounds: planBounds,
     draw,
     onPointer,
   });

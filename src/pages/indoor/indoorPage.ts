@@ -2,8 +2,12 @@
 // y mapa de calor de señal con el modelo multipared.
 
 import { paintBands, paintCategories, bandLabels } from '../../coverage/paint';
-import { createPlanView, type PlanPointer, type PlanView } from '../../editor/planView';
+import { createPlanView, renderPlanImage, type PlanPointer, type PlanView } from '../../editor/planView';
+import { isoDate } from '../../export/projectFile';
+import { REPORT_CONTENT_WIDTH, REPORT_SCALE, drawReport, reportDate, swatchKey } from '../../export/reportImage';
+import { saveFile } from '../../export/download';
 import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectButtons';
+import { addPlanExport } from '../../map/exportControl';
 import {
   computeHeatmap,
   coverageFraction,
@@ -101,6 +105,8 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   let heatmap: Heatmap | null = null;
   const undoStack: string[] = [];
   const heatCanvas = document.createElement('canvas');
+  /** Al dibujar para la imagen: sin selección, puntos editables ni el muro que se está trazando. */
+  let forImage = false;
 
   root.innerHTML = `
     <div class="page-split">
@@ -147,6 +153,11 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
         <div class="readout" role="status" hidden></div>
       </div>
     </div>`;
+  const exporter = addPlanExport(
+    root.querySelector<HTMLElement>('.editor-area')!,
+    [{ label: 'Imagen del plano (PNG)', description: 'Plano con el mapa de calor, la leyenda y el resumen, para informes.', run: exportImage }],
+    'Exportar: primero ubica al menos un access point',
+  );
 
   const find = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
   const panel = find('.panel');
@@ -209,13 +220,22 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       paintCategories(size, heatmap.bestAp, AP_COLORS, null, pixels);
     }
     heatCanvas.getContext('2d')!.putImageData(new ImageData(pixels, heatmap.cols, heatmap.rows), 0, 0);
-    const sorted = [...thresholds].sort((a, b) => b - a);
     legend.update({
       views: [
         { id: 'rssi', label: 'Señal' },
         { id: 'best', label: 'Mejor AP' },
       ],
       activeView: view,
+      ...legendTexts(),
+      thresholds: view === 'rssi' ? { values: thresholds, unit: 'dBm', min: -120, max: -20 } : undefined,
+      opacity,
+    });
+  }
+
+  /** Título y franjas de la leyenda de la vista activa, iguales en pantalla y en la imagen. */
+  function legendTexts() {
+    const sorted = [...thresholds].sort((a, b) => b - a);
+    return {
       title: view === 'rssi' ? 'Señal recibida (dBm)' : 'Access point que da la mejor señal',
       entries:
         view === 'rssi'
@@ -225,15 +245,14 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
             }))
           : plan.aps.map((ap, i) => ({ color: AP_COLORS[i % AP_COLORS.length]!, label: ap.name })),
       emptyLabel: view === 'rssi' ? 'sin servicio' : undefined,
-      thresholds: view === 'rssi' ? { values: thresholds, unit: 'dBm', min: -120, max: -20 } : undefined,
-      opacity,
-    });
+    };
   }
 
   // --- Dibujo ---
 
   function draw(ctx: CanvasRenderingContext2D, v: PlanView) {
     const px = v.scale();
+    const sel = forImage ? null : selection;
     const [ox, oy] = v.toScreen(0, 0);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(ox, oy, plan.widthM * px, plan.heightM * px);
@@ -255,7 +274,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       const [x1, y1] = v.toScreen(wall.x1, wall.y1);
       const [x2, y2] = v.toScreen(wall.x2, wall.y2);
       const material = materialById(wall.material);
-      if (selection?.kind === 'wall' && selection.id === wall.id) {
+      if (sel?.kind === 'wall' && sel.id === wall.id) {
         ctx.strokeStyle = 'rgba(9,105,218,0.45)';
         ctx.lineWidth = material.drawWidth + 8;
         ctx.beginPath();
@@ -271,7 +290,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       ctx.stroke();
     }
 
-    if (tool === 'select' || tool === 'wall') {
+    if (!forImage && (tool === 'select' || tool === 'wall')) {
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = '#57606a';
       ctx.lineWidth = 1;
@@ -289,7 +308,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     plan.aps.forEach((ap, i) => {
       const [sx, sy] = v.toScreen(ap.x, ap.y);
       const color = AP_COLORS[i % AP_COLORS.length]!;
-      const selected = selection?.kind === 'ap' && selection.id === ap.id;
+      const selected = sel?.kind === 'ap' && sel.id === ap.id;
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = color;
       ctx.lineWidth = selected ? 4 : 2.5;
@@ -317,7 +336,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       ctx.textAlign = 'start';
     });
 
-    if (tool === 'wall' && hover) {
+    if (!forImage && tool === 'wall' && hover) {
       const target = snapPoint(hover.x, hover.y, false);
       const [hx, hy] = v.toScreen(target.x, target.y);
       if (drawingFrom) {
@@ -630,27 +649,83 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     );
   }
 
-  function renderSummary() {
-    if (!heatmap || plan.aps.length === 0) {
-      summaryBox.innerHTML = '<p class="hint">Ubica al menos un access point para ver la señal.</p>';
-      return;
-    }
+  /** Resumen del panel: filas (etiqueta, valor, resaltada) y consejo. La misma tabla va a la imagen. */
+  function summaryTable(): { rows: [string, string, boolean][]; note: string } | null {
+    if (!heatmap || plan.aps.length === 0) return null;
     const sorted = [...thresholds].sort((a, b) => b - a);
     const good = coverageFraction(heatmap, sorted[2] ?? -67);
     const usable = coverageFraction(heatmap, sorted[3] ?? -75);
     const none = 1 - coverageFraction(heatmap, sorted[sorted.length - 1] ?? -85);
-    const advice =
-      good >= 0.9
-        ? 'El plano queda bien cubierto para voz y video.'
-        : 'Para mejorar, acerca el access point al centro de las zonas naranja y roja, o agrega otro.';
+    return {
+      rows: [
+        [`Área con ≥ ${sorted[2]} dBm (voz y video)`, `${integerFormat.format(good * 100)} %`, true],
+        [`Área con ≥ ${sorted[3]} dBm (navegar)`, `${integerFormat.format(usable * 100)} %`, false],
+        [`Sin servicio (< ${sorted[sorted.length - 1]} dBm)`, `${integerFormat.format(none * 100)} %`, false],
+        ['Plano', `${meters(plan.widthM)} × ${meters(plan.heightM)}, ${plan.walls.length} muros`, false],
+      ],
+      note:
+        good >= 0.9
+          ? 'El plano queda bien cubierto para voz y video.'
+          : 'Para mejorar, acerca el access point al centro de las zonas naranja y roja, o agrega otro.',
+    };
+  }
+
+  function renderSummary() {
+    exporter.setEnabled(plan.aps.length > 0 && heatmap !== null);
+    const table = summaryTable();
+    if (!table) {
+      summaryBox.innerHTML = '<p class="hint">Ubica al menos un access point para ver la señal.</p>';
+      return;
+    }
+    const escape = (text: string) => text.replace(/</g, '&lt;');
     summaryBox.innerHTML = `
       <table class="budget"><tbody>
-        <tr class="strong"><th scope="row">Área con ≥ ${sorted[2]} dBm (voz y video)</th><td>${integerFormat.format(good * 100)} %</td></tr>
-        <tr><th scope="row">Área con ≥ ${sorted[3]} dBm (navegar)</th><td>${integerFormat.format(usable * 100)} %</td></tr>
-        <tr><th scope="row">Sin servicio (&lt; ${sorted[sorted.length - 1]} dBm)</th><td>${integerFormat.format(none * 100)} %</td></tr>
-        <tr><th scope="row">Plano</th><td>${meters(plan.widthM)} × ${meters(plan.heightM)}, ${plan.walls.length} muros</td></tr>
+        ${table.rows
+          .map(([label, value, strong]) => `<tr${strong ? ' class="strong"' : ''}><th scope="row">${escape(label)}</th><td>${value}</td></tr>`)
+          .join('')}
       </tbody></table>
-      <p class="hint">${advice}</p>`;
+      <p class="hint">${table.note}</p>`;
+  }
+
+  /** Descarga una imagen PNG con el plano, el mapa de calor de la vista activa, la leyenda y el resumen. */
+  async function exportImage() {
+    const summary = summaryTable();
+    if (!summary) return;
+    const bandInfo = WIFI_BANDS.find((b) => b.id === band)!;
+    // Alto según la forma del plano, entre 280 y 620 px.
+    const height = Math.round(Math.min(620, Math.max(280, ((REPORT_CONTENT_WIDTH - 56) * plan.heightM) / plan.widthM + 56)));
+    forImage = true;
+    let figure: HTMLCanvasElement;
+    try {
+      figure = renderPlanImage(
+        { bounds: () => ({ minX: 0, minY: 0, maxX: plan.widthM, maxY: plan.heightM }), draw },
+        REPORT_CONTENT_WIDTH,
+        height,
+        REPORT_SCALE,
+      );
+    } finally {
+      forImage = false;
+    }
+    const texts = legendTexts();
+    const apRows = plan.aps.map(
+      (ap): [string, string, boolean] => [ap.name, `${oneDecimal.format(ap.powerDbm)} dBm · ${oneDecimal.format(ap.gainDbi)} dBi`, false],
+    );
+    const png = await drawReport({
+      title: `Cobertura WiFi en interiores · ${bandInfo.label}`,
+      subtitle: [
+        `Plano de ${meters(plan.widthM)} × ${meters(plan.heightM)} · ${plan.walls.length} muros · ${plan.aps.length} access point${plan.aps.length === 1 ? '' : 's'}`,
+        `${texts.title} · modelo multipared · ${reportDate()}`,
+      ],
+      figure,
+      figureHeight: height,
+      key: [
+        ...texts.entries.map((e) => swatchKey(e.label, e.color)),
+        ...(texts.emptyLabel ? [swatchKey(`Sin color: ${texts.emptyLabel}`, '#ffffff', true)] : []),
+      ],
+      rows: [...summary.rows, ...apRows],
+      note: summary.note,
+    });
+    saveFile(png, `hertzo-interiores-${band}GHz-${isoDate(new Date())}.png`, 'image/png');
   }
 
   function renderMaterials() {

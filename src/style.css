@@ -1283,6 +1283,13 @@ body {
   cursor: progress;
 }
 
+/* «Exportar» en los editores de planos, donde no hay mapa: misma esquina que sobre el mapa. */
+.maplibregl-ctrl.map-menu.plan-export {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+}
+
 .map-menu-panel {
   position: absolute;
   right: 0;
