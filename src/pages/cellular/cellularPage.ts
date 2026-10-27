@@ -8,7 +8,7 @@ import { bandLabels, paintBands, paintCategories } from '../../coverage/paint';
 import { lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { LEVEL_COLORS } from '../../coverage/colorScale';
-import { KMZ_BUTTON_HTML, bindKmzButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { KMZ_BUTTON_HTML, bindExportButton, downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { destinationPoint, distanceM, initialBearingDeg } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
@@ -165,7 +165,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   const modelHint = page.find('[data-model-hint]');
   const summary = page.find('[data-summary]');
   const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  bindKmzButton(exportButton, exportKmz);
+  bindExportButton(exportButton, exportKmz);
   const coverageLayer = createCoverageLayer(page.map, opacity);
   const legend = createMapLegend(page.legendRoot, {
     onView(id) {

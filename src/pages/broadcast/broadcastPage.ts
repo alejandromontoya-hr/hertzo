@@ -8,7 +8,7 @@ import { paintBands, bandLabels } from '../../coverage/paint';
 import { contourRing } from '../../coverage/contours';
 import { areaAboveKm2, gridValues, lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
-import { KMZ_BUTTON_HTML, bindKmzButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { KMZ_BUTTON_HTML, bindExportButton, downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName } from '../../export/kml';
 import { distanceM } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
@@ -126,7 +126,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   const stationSummary = page.find('[data-station-summary]');
   const zones = page.find('[data-zones]');
   const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  bindKmzButton(exportButton, exportKmz);
+  bindExportButton(exportButton, exportKmz);
   const coverageLayer = createCoverageLayer(page.map, opacity);
   const legend = createMapLegend(page.legendRoot, {
     onView() {},

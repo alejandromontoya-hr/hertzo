@@ -14,7 +14,7 @@ import {
   RADIO_PROFILES,
   type LmrBandId,
 } from '../../data/defaults';
-import { KMZ_BUTTON_HTML, bindKmzButton, downloadCoverageKmz } from '../../export/coverageKmz';
+import { KMZ_BUTTON_HTML, bindExportButton, downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
@@ -98,7 +98,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   showBandRange();
 
   const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  bindKmzButton(exportButton, exportKmz);
+  bindExportButton(exportButton, exportKmz);
 
   const showBudget = createBudgetPanel(page.find('[data-budget]'));
   const coverageLayer = createCoverageLayer(page.map, opacity);

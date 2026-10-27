@@ -71,11 +71,11 @@ export async function downloadCoverageKmz(spec: KmzSpec): Promise<void> {
   saveFile(zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }, ...files]), spec.fileName, KMZ_MIME);
 }
 
-/** Botón «Exportar KMZ»: se apaga mientras arma el archivo para no descargarlo dos veces. */
-export function bindKmzButton(button: HTMLButtonElement, exportKmz: () => Promise<void>): void {
+/** Botón de exportar: se apaga mientras arma el archivo para no descargarlo dos veces. */
+export function bindExportButton(button: HTMLButtonElement, exportFile: () => Promise<void>): void {
   button.addEventListener('click', () => {
     button.disabled = true;
-    exportKmz()
+    exportFile()
       .catch((error) => console.error(error))
       .finally(() => (button.disabled = false));
   });

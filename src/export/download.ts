@@ -1,7 +1,7 @@
 // Del navegador: paso de una imagen RGBA a PNG y descarga de un archivo generado en la página.
 
 /** Codifica la imagen (RGBA, fila por fila) como PNG. */
-export async function encodePng(pixels: Uint8ClampedArray<ArrayBuffer>, width: number, height: number): Promise<Uint8Array> {
+export async function encodePng(pixels: Uint8ClampedArray<ArrayBuffer>, width: number, height: number): Promise<Uint8Array<ArrayBuffer>> {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -10,7 +10,7 @@ export async function encodePng(pixels: Uint8ClampedArray<ArrayBuffer>, width: n
 }
 
 /** El contenido del lienzo como PNG. */
-export async function canvasToPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+export async function canvasToPng(canvas: HTMLCanvasElement): Promise<Uint8Array<ArrayBuffer>> {
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('No se pudo crear la imagen PNG.');
   return new Uint8Array(await blob.arrayBuffer());

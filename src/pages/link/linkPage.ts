@@ -3,10 +3,11 @@
 
 import { Marker, type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
-import { KMZ_BUTTON_HTML, bindKmzButton } from '../../export/coverageKmz';
+import { KMZ_BUTTON_HTML, bindExportButton } from '../../export/coverageKmz';
 import { saveFile } from '../../export/download';
 import { exportFileName, linkKml, type KmlPlacemark } from '../../export/kml';
 import { linkRayPath } from '../../export/linkPath';
+import { drawProfileReport } from '../../export/profileImage';
 import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
 import { loadItm } from '../../propagation/itm';
@@ -123,7 +124,10 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     <section class="panel-section">
       <h2>Resultado</h2>
       <div data-results><p class="hint">Calculando…</p></div>
-      ${KMZ_BUTTON_HTML}
+      <div class="button-row">
+        ${KMZ_BUTTON_HTML}
+        <button type="button" class="button" data-export-profile hidden title="Perfil y resultados en una imagen, para informes">Descargar perfil (PNG)</button>
+      </div>
     </section>
     <details class="panel-section" open>
       <summary>Equipos y antenas</summary>
@@ -141,7 +145,9 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   const endsBox = page.find('[data-ends]');
   const results = page.find('[data-results]');
   const exportButton = page.find<HTMLButtonElement>('[data-export-kmz]');
-  bindKmzButton(exportButton, exportKmz);
+  bindExportButton(exportButton, exportKmz);
+  const profileButton = page.find<HTMLButtonElement>('[data-export-profile]');
+  bindExportButton(profileButton, exportProfile);
   const linkForm = page.find('[data-link-form]');
   const propagationForm = page.find('[data-propagation-form]');
 
@@ -284,6 +290,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   function forgetResult() {
     last = null;
     exportButton.hidden = true;
+    profileButton.hidden = true;
   }
 
   async function compute() {
@@ -401,8 +408,33 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       <p class="hint">${note}</p>`;
     last = { profile: p, points, type, params: { ...link }, kFactor, verdict, rows, note, gainA, gainB, azAB, azBA, tiltA, tiltB };
     exportButton.hidden = false;
+    profileButton.hidden = false;
 
     chart.show(points, `Perfil del enlace · ${twoDecimals.format(dKm)} km · ${frequencyLabel(link.frequencyMHz)}`);
+  }
+
+  /** Descarga una imagen PNG con el perfil, los extremos, el veredicto y la tabla de resultados. */
+  async function exportProfile() {
+    if (!last) return;
+    const r = last;
+    const { profile: p, params } = r;
+    const frequency = frequencyLabel(params.frequencyMHz);
+    const endLine = (label: 'A' | 'B', at: LonLat, elevation: number, height: number) =>
+      `${label}: ${formatLonLat(at.lon, at.lat)} · cota ${formatMeters(elevation)} · antena a ${formatHeight(height)}`;
+    const kLabel = K_FACTORS.find((k) => Number(k.id) === Number(r.kFactor.toFixed(4)))?.label ?? `k = ${r.kFactor}`;
+    const png = await drawProfileReport({
+      title: `Perfil del enlace · ${twoDecimals.format(p.distanceM / 1000)} km · ${frequency}`,
+      subtitle: [
+        endLine('A', p.from, p.elevationsM[0]!, params.heightAM),
+        endLine('B', p.to, p.elevationsM[p.elevationsM.length - 1]!, params.heightBM),
+        `Curvatura: ${kLabel} · ${new Intl.DateTimeFormat('es-CO', { dateStyle: 'long' }).format(new Date())}`,
+      ],
+      points: r.points,
+      verdict: r.verdict,
+      rows: r.rows,
+      note: r.note,
+    });
+    saveFile(png, exportFileName('enlace-perfil', frequency, p.from, 'png'), 'image/png');
   }
 
   /**
