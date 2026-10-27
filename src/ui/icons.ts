@@ -4,6 +4,7 @@
 import boomBox from 'lucide-static/icons/boom-box.svg?raw';
 import download from 'lucide-static/icons/download.svg?raw';
 import houseWifi from 'lucide-static/icons/house-wifi.svg?raw';
+import mapPin from 'lucide-static/icons/map-pin.svg?raw';
 import pickaxe from 'lucide-static/icons/pickaxe.svg?raw';
 import radioTower from 'lucide-static/icons/radio-tower.svg?raw';
 import satelliteDish from 'lucide-static/icons/satellite-dish.svg?raw';
@@ -14,6 +15,9 @@ const decorative = (raw: string) => raw.replace(/<!--[\s\S]*?-->/, '').trim().re
 
 /** Ícono del botón «Exportar» sobre el mapa. */
 export const DOWNLOAD_ICON = decorative(download);
+
+/** Ícono del botón «Elegir en el mapa» junto a las coordenadas. */
+export const PIN_ICON = decorative(mapPin);
 
 /** Ícono de cada escenario, por su dirección. */
 export const SCENARIO_ICONS: Record<string, string> = {

@@ -3,32 +3,43 @@
 
 import { isLatitude, isLongitude, parseDegrees, parseLatLonPair } from '../geo/coordinates';
 import type { LonLat } from '../geo/geodesy';
+import { PIN_ICON } from './icons';
 
 /** Coordenadas con 5 decimales (≈ 1 m), con punto, como las muestra un GPS. */
 const degrees = (v: number) => v.toFixed(5);
 
-/** Los tres campos; `id` distingue los de cada punto de la página («site», «end-a»…). */
-export function siteFieldsHtml(id: string, name = ''): string {
+/**
+ * Los tres campos y el botón con ícono de ubicación para elegir el punto en el mapa. `id`
+ * distingue los de cada punto de la página («site», «end-a»…); `what` dice qué se ubica
+ * («la torre», «el extremo A») para el aviso sobre el mapa.
+ */
+export function siteFieldsHtml(id: string, name = '', what = 'el sitio'): string {
   return `
     <div class="form" data-site-fields="${id}">
       <div class="field field-name">
         <label for="${id}-name">Nombre</label>
         <input id="${id}-name" type="text" maxlength="60" autocomplete="off" placeholder="Opcional" value="${name.replace(/"/g, '&quot;')}" data-site-name />
       </div>
-      <div class="field">
-        <label for="${id}-lat">Latitud</label>
-        <div class="field-input">
-          <input id="${id}-lat" type="text" inputmode="decimal" autocomplete="off" placeholder="6.27940" data-site-lat />
-          <span class="field-unit">°</span>
+      <div class="coords">
+        <div class="form">
+          <div class="field">
+            <label for="${id}-lat">Latitud</label>
+            <div class="field-input">
+              <input id="${id}-lat" type="text" inputmode="decimal" autocomplete="off" placeholder="6.27940" data-site-lat />
+              <span class="field-unit">°</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="${id}-lon">Longitud</label>
+            <div class="field-input">
+              <input id="${id}-lon" type="text" inputmode="decimal" autocomplete="off" placeholder="-75.68530" data-site-lon />
+              <span class="field-unit">°</span>
+            </div>
+            <p class="field-error" data-site-error hidden></p>
+          </div>
         </div>
-      </div>
-      <div class="field">
-        <label for="${id}-lon">Longitud</label>
-        <div class="field-input">
-          <input id="${id}-lon" type="text" inputmode="decimal" autocomplete="off" placeholder="-75.68530" data-site-lon />
-          <span class="field-unit">°</span>
-        </div>
-        <p class="field-error" data-site-error hidden></p>
+        <button type="button" class="pick-button" data-site-pick data-pick-what="${what}" aria-pressed="false"
+          aria-label="Elegir en el mapa" title="Elegir en el mapa">${PIN_ICON}</button>
       </div>
     </div>`;
 }

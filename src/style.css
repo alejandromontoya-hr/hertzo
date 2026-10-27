@@ -1035,6 +1035,86 @@ body {
   margin: 10px 0 6px;
 }
 
+/* Latitud y longitud a la izquierda; a la derecha, el botón para elegir el punto en el mapa. */
+.coords {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.pick-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pick-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.pick-button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.pick-button[aria-pressed='true'] {
+  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pick-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Aviso arriba del mapa mientras se elige un punto. */
+.pick-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 120px);
+  padding: 6px 6px 6px 12px;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  transform: translateX(-50%);
+}
+
+.pick-banner[hidden] {
+  display: none;
+}
+
+.pick-banner-cancel {
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.pick-banner-cancel:hover {
+  border-color: var(--ink);
+}
+
 /* Título de cada extremo de un enlace, con la misma insignia que su marcador en el mapa. */
 .end-title {
   display: flex;

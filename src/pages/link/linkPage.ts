@@ -11,6 +11,7 @@ import { reportDate, type ReportRow } from '../../export/reportImage';
 import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
 import { addExportControl } from '../../map/exportControl';
+import { createPickBanner } from '../../map/pickBanner';
 import { loadItm } from '../../propagation/itm';
 import { freeSpaceLossDb } from '../../rf/fieldStrength';
 import {
@@ -82,8 +83,7 @@ const samePoint = (p: LonLat, q: LonLat) => p.lon === q.lon && p.lat === q.lat;
 /** Bloque de un extremo: título con su color, nombre, coordenadas y «Elegir en el mapa». */
 const endHtml = (label: EndLabel, name: string) => `
   <h3 class="end-title"><span class="end-badge" style="background:${END_COLORS[label]}">${label}</span>Extremo ${label}</h3>
-  ${siteFieldsHtml(`end-${label.toLowerCase()}`, name)}
-  <button type="button" class="button" data-pick-end="${label}" aria-pressed="false">Elegir ${label} en el mapa</button>
+  ${siteFieldsHtml(`end-${label.toLowerCase()}`, name, `el extremo ${label}`)}
   <p class="hint" data-end-elevation="${label}" hidden></p>`;
 
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -137,7 +137,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       ${choiceHtml('tipo', [{ id: 'microondas', label: 'Microondas' }, { id: 'radio', label: 'Radioenlace VHF/UHF' }], 'Tipo de enlace')}
     </section>
     <section class="panel-section">
-      <h2>Extremos${infoButton('Escribe las coordenadas (puedes pegar las de Google Maps en Latitud), pulsa «Elegir A (o B) en el mapa» y haz clic donde va, o arrastra los marcadores A y B.')}</h2>
+      <h2>Extremos${infoButton('Escribe las coordenadas (puedes pegar las de Google Maps en Latitud), pulsa el ícono de ubicación de A o de B y haz clic donde va, o arrastra los marcadores A y B.')}</h2>
       ${endHtml('A', 'Cerro El Padre Amaya')}
       ${endHtml('B', 'Cerro El Volador')}
       ${simulateBoxHtml()}
@@ -207,15 +207,18 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
 
   let picking: EndLabel | null = null;
   const pickButtons = Object.fromEntries(
-    (['A', 'B'] as const).map((label) => [label, page.find<HTMLButtonElement>(`[data-pick-end="${label}"]`)]),
+    (['A', 'B'] as const).map((label) => [
+      label,
+      page.find<HTMLButtonElement>(`[data-site-fields="end-${label.toLowerCase()}"] [data-site-pick]`),
+    ]),
   ) as Record<EndLabel, HTMLButtonElement>;
+  const banner = createPickBanner(page.map, () => setPicking(null));
   function setPicking(label: EndLabel | null) {
     picking = label;
     page.map.getCanvas().style.cursor = label ? 'crosshair' : '';
-    for (const end of ['A', 'B'] as const) {
-      pickButtons[end].setAttribute('aria-pressed', String(end === label));
-      pickButtons[end].textContent = end === label ? 'Haz clic en el mapa…' : `Elegir ${end} en el mapa`;
-    }
+    for (const end of ['A', 'B'] as const) pickButtons[end].setAttribute('aria-pressed', String(end === label));
+    if (label) banner.show(`Haz clic en el mapa donde va el extremo ${label}.`);
+    else banner.hide();
   }
   for (const end of ['A', 'B'] as const) {
     pickButtons[end].addEventListener('click', () => setPicking(picking === end ? null : end));

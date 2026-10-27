@@ -2,6 +2,7 @@
 // perfil entre el sitio y otro punto, y radio de cálculo.
 
 import type { LonLat } from '../../geo/geodesy';
+import { createPickBanner } from '../../map/pickBanner';
 import { createProfileTool } from '../../map/profileTool';
 import { createSiteMarker } from '../../map/siteMarker';
 import { loadTerrain } from '../../terrain/elevation';
@@ -42,7 +43,8 @@ export function createSiteControls(page: MapPage, options: SiteControlsOptions):
     if (next) marker.set(next);
     if (next || site) setSite(next);
   });
-  const pickButton = page.find<HTMLButtonElement>('[data-pick-site]');
+  const pickButton = page.find<HTMLButtonElement>('[data-site-fields="site"] [data-site-pick]');
+  const banner = createPickBanner(map, () => marker.setPicking(false));
 
   const sitePanel = createSitePanel(page.find('[data-site-panel]'), () => setProfileMode(!profileMode));
   const profileTool = createProfileTool(
@@ -67,7 +69,8 @@ export function createSiteControls(page: MapPage, options: SiteControlsOptions):
     },
     (active) => {
       pickButton.setAttribute('aria-pressed', String(active));
-      pickButton.textContent = active ? 'Haz clic en el mapa…' : 'Elegir en el mapa';
+      if (active) banner.show(`Haz clic en el mapa donde va ${pickButton.dataset.pickWhat}.`);
+      else banner.hide();
     },
   );
 

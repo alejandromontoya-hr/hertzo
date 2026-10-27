@@ -58,10 +58,9 @@ export function siteSectionHtml(title = 'Sitio', what = 'el sitio'): string {
   return `
     <section class="panel-section" data-site-panel>
       <h2>${title}${infoButton(
-        `Escribe las coordenadas (puedes pegar «6.27940, -75.68530» de Google Maps en Latitud) o pulsa «Elegir en el mapa» y haz clic donde va ${what}. Después puedes arrastrar el marcador para moverlo.`,
+        `Escribe las coordenadas (puedes pegar «6.27940, -75.68530» de Google Maps en Latitud) o pulsa el ícono de ubicación y haz clic donde va ${what}. Después puedes arrastrar el marcador para moverlo.`,
       )}</h2>
-      ${siteFieldsHtml('site')}
-      <button type="button" class="button" data-pick-site aria-pressed="false">Elegir en el mapa</button>
+      ${siteFieldsHtml('site', '', what)}
       <div data-site-details hidden>
         <dl class="site-details">
           <dt>Cota del terreno</dt>
