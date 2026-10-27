@@ -21,10 +21,16 @@ export interface ParsedLocation {
   params: URLSearchParams;
 }
 
-/** "/terreno/" + "?banda=uhf" → { path: "terreno", params: banda=uhf }. Solo cuenta el primer tramo. */
+/** Punto, coma o paréntesis pegados al final de un enlace copiado de un texto. */
+const TRAILING_PUNCTUATION = /[.,)]+$/;
+
+/**
+ * "/terreno/" + "?banda=uhf" → { path: "terreno", params: banda=uhf }. Solo cuenta el primer tramo.
+ * Ignora la puntuación final de un enlace copiado: "/terreno." → terreno.
+ */
 export function parseLocation(pathname: string, search: string): ParsedLocation {
   const path = pathname.replace(/^\/+/, '').split('/')[0] ?? '';
-  return { path: decodeURIComponent(path), params: new URLSearchParams(search) };
+  return { path: decodeURIComponent(path).replace(TRAILING_PUNCTUATION, ''), params: new URLSearchParams(search) };
 }
 
 /** Cambia un parámetro de la dirección sin recargar (por ejemplo la banda elegida). */
@@ -44,7 +50,8 @@ export async function startRouter(
 ): Promise<void> {
   const { path, params } = parseLocation(location.pathname, location.search);
   const route = routes.find((r) => r.path === path) ?? routes.find((r) => r.path === fallbackPath)!;
-  if (route.path !== path) history.replaceState(null, '', `/${route.path}${location.search}`);
+  const dirtyPath = TRAILING_PUNCTUATION.test(decodeURIComponent(location.pathname));
+  if (route.path !== path || dirtyPath) history.replaceState(null, '', `/${route.path}${location.search}`);
   onNavigate(route);
   const mount = await route.load();
   mount({ root, params });

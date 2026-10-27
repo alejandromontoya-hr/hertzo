@@ -16,6 +16,13 @@ describe('parseLocation', () => {
     expect(parseLocation('/interiores/index.html', '').path).toBe('interiores');
   });
 
+  it('ignora la puntuación final de un enlace copiado: "/terreno." "/enlace," "/celular)" → la página', () => {
+    expect(parseLocation('/terreno.', '?banda=uhf').path).toBe('terreno');
+    expect(parseLocation('/enlace,', '').path).toBe('enlace');
+    expect(parseLocation('/celular)', '').path).toBe('celular');
+    expect(parseLocation('/interiores%29', '').path).toBe('interiores');
+  });
+
   it('la raíz no es ninguna simulación', () => {
     expect(parseLocation('/', '').path).toBe('');
   });
