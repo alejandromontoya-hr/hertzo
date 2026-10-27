@@ -29,7 +29,7 @@ import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
-import { bindSegmented, coverageStatusHtml, createMapPage, segmentedHtml, siteSectionHtml } from '../shared/mapPage';
+import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createSiteControls } from '../shared/siteControls';
 
 type Service = 'fm' | 'am';
@@ -105,7 +105,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     `
     <section class="panel-section page-intro">
       <h2>Radiodifusión</h2>
-      ${segmentedHtml('servicio', [{ id: 'fm', label: 'FM' }, { id: 'am', label: 'AM' }], 'Servicio')}
+      ${choiceHtml('servicio', [{ id: 'fm', label: 'FM (88 a 108 MHz)' }, { id: 'am', label: 'AM (530 a 1710 kHz)' }], 'Servicio')}
       <p class="hint" data-service-hint></p>
     </section>
     ${siteSectionHtml('Transmisor', 'la antena de la emisora')}
@@ -389,7 +389,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     controller.setRequest(request());
   }
 
-  bindSegmented(page.panel, 'servicio', service, (id) => {
+  bindChoice(page.panel, 'servicio', service, (id) => {
     service = id as Service;
     thresholds = [...SERVICE[service].thresholds];
     site.setRadiusKm(SERVICE[service].radiusKm);

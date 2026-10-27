@@ -32,7 +32,7 @@ import { bindSiteFields, siteFieldsHtml } from '../../ui/siteFields';
 import { formatHeight, formatLonLat, formatMeters, formatWatts } from '../../ui/format';
 import { createLinkChart } from '../../ui/linkChart';
 import { replaceQuery, type PageContext } from '../router';
-import { bindSegmented, createMapPage, segmentedHtml, simulateBoxHtml } from '../shared/mapPage';
+import { bindChoice, choiceHtml, createMapPage, simulateBoxHtml } from '../shared/mapPage';
 
 type LinkType = 'microondas' | 'radio';
 
@@ -133,7 +133,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     `
     <section class="panel-section page-intro">
       <h2>Enlace punto a punto</h2>
-      ${segmentedHtml('tipo', [{ id: 'microondas', label: 'Microondas' }, { id: 'radio', label: 'Radioenlace VHF/UHF' }], 'Tipo de enlace')}
+      ${choiceHtml('tipo', [{ id: 'microondas', label: 'Microondas' }, { id: 'radio', label: 'Radioenlace VHF/UHF' }], 'Tipo de enlace')}
     </section>
     <section class="panel-section">
       <h2>Extremos</h2>
@@ -589,7 +589,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     );
   }
 
-  bindSegmented(page.panel, 'tipo', type, (id) => {
+  bindChoice(page.panel, 'tipo', type, (id) => {
     type = id as LinkType;
     link = { ...PRESETS[type].params };
     lossModel = type === 'radio' ? 'itm' : 'difraccion';

@@ -32,7 +32,7 @@ import { formatDb, formatDbi, formatHeight, formatLonLat, formatWatts } from '..
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
-import { bindSegmented, coverageStatusHtml, createMapPage, segmentedHtml, siteSectionHtml } from '../shared/mapPage';
+import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createSiteControls } from '../shared/siteControls';
 
 interface Band {
@@ -136,7 +136,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     <section class="panel-section page-intro">
       <h2>Celular (LTE / 5G)</h2>
       <p class="hint">Un sitio con sectores. La pérdida de trayecto se calcula una vez; el patrón de cada antena se aplica al pintar.</p>
-      ${segmentedHtml('banda', BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda')}
+      ${choiceHtml('banda', BANDS.map((b) => ({ id: b.id, label: b.id === 'aws' ? 'AWS (2100 MHz)' : `${b.label} MHz` })), 'Banda')}
       <p class="hint" data-band-description></p>
       <div class="form" data-model></div>
       <p class="hint" data-model-hint></p>
@@ -503,7 +503,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     controller.setRequest(request());
   }
 
-  bindSegmented(page.panel, 'banda', band.id, (id) => {
+  bindChoice(page.panel, 'banda', band.id, (id) => {
     band = BANDS.find((b) => b.id === id)!;
     carrier = CARRIERS.find((c) => c.id === band.carrier)!;
     if (band.frequencyMHz > 2000 && model.startsWith('hata')) {

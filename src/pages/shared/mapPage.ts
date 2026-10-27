@@ -101,7 +101,37 @@ export function coverageStatusHtml(title = 'Cobertura'): string {
     </section>`;
 }
 
-/** Selector de opciones en botones (bandas, servicios, modelos). */
+/** Selector de una opción en una lista (banda, servicio, tipo de enlace), en una sola línea. */
+export function choiceHtml(name: string, options: { id: string; label: string }[], label: string): string {
+  return `
+    <div class="form">
+      <div class="field">
+        <label for="opcion-${name}">${label}</label>
+        <select id="opcion-${name}" data-choice="${name}">
+          ${options.map((o) => `<option value="${o.id}">${o.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+}
+
+/** Conecta un selector de `choiceHtml`: marca el elegido y avisa cuando cambia. */
+export function bindChoice(
+  root: HTMLElement,
+  name: string,
+  initial: string,
+  onChange: (value: string) => void,
+): { set(value: string): void } {
+  const select = root.querySelector<HTMLSelectElement>(`[data-choice="${name}"]`)!;
+  select.value = initial;
+  select.addEventListener('change', () => onChange(select.value));
+  return {
+    set(value) {
+      select.value = value;
+    },
+  };
+}
+
+/** Selector de opciones en botones, para cambios frecuentes como las herramientas de un editor. */
 export function segmentedHtml(name: string, options: { id: string; label: string }[], ariaLabel: string): string {
   return `<div class="segmented" role="radiogroup" aria-label="${ariaLabel}" data-segmented="${name}">
     ${options.map((o) => `<button type="button" role="radio" data-value="${o.id}">${o.label}</button>`).join('')}

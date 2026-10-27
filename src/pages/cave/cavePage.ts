@@ -40,7 +40,7 @@ import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
-import { bindSegmented, segmentedHtml } from '../shared/mapPage';
+import { bindChoice, bindSegmented, choiceHtml, segmentedHtml } from '../shared/mapPage';
 
 type Tool = 'select' | 'gallery' | 'antenna' | 'cable' | 'erase';
 type Selection = { kind: 'gallery' | 'tx' | 'cable'; id: string } | null;
@@ -64,6 +64,13 @@ const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, ma
 const twoDecimals = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 const meters = (m: number) => (m >= 1000 ? `${twoDecimals.format(m / 1000)} km` : `${integerFormat.format(m)} m`);
+
+/** «AM (1 MHz)», «UHF (460 MHz)», «800 MHz», «2,4 GHz»: el nombre de la banda con su frecuencia. */
+function bandOptionLabel(b: CaveBand): string {
+  if (/^\d+$/.test(b.label)) return `${b.label} MHz`;
+  if (/Hz/.test(b.label)) return b.label;
+  return `${b.label} (${b.frequencyMHz} MHz)`;
+}
 
 interface Saved {
   model: CaveModel;
@@ -122,7 +129,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
         <section class="panel-section page-intro">
           <h2>Cavernas, túneles y minas</h2>
           <p class="hint">Dibuja la red de galerías, ubica antenas y cable radiante. Cada galería se comporta como una guía de onda: pierde más cuanto más baja es la frecuencia y más pequeña la sección.</p>
-          ${segmentedHtml('banda', CAVE_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda')}
+          ${choiceHtml('banda', CAVE_BANDS.map((b) => ({ id: b.id, label: bandOptionLabel(b) })), 'Banda')}
           <p class="hint" data-band-hint></p>
         </section>
         <section class="panel-section">
@@ -983,7 +990,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   };
   bindSegmented(panel, 'herramienta', tool, (id) => setTool(id as Tool));
 
-  const bandControl = bindSegmented(panel, 'banda', band.id, (id) => selectBand(id));
+  const bandControl = bindChoice(panel, 'banda', band.id, (id) => selectBand(id));
   function selectBand(id: string) {
     band = CAVE_BANDS.find((b) => b.id === id)!;
     corner90Db = cornerLoss90Db(band.frequencyMHz);

@@ -34,7 +34,7 @@ import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
-import { bindSegmented, segmentedHtml } from '../shared/mapPage';
+import { bindChoice, bindSegmented, choiceHtml, segmentedHtml } from '../shared/mapPage';
 
 type Tool = 'select' | 'wall' | 'ap' | 'erase';
 type View = 'rssi' | 'best';
@@ -114,7 +114,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
         <section class="panel-section page-intro">
           <h2>Interiores (WiFi)</h2>
           <p class="hint">Dibuja el plano con sus muros, elige el material de cada uno y ubica los access points. El mapa de calor usa el modelo multipared.</p>
-          ${segmentedHtml('banda', WIFI_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda WiFi')}
+          ${choiceHtml('banda', WIFI_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda WiFi')}
         </section>
         <section class="panel-section">
           <h2>Plano</h2>
@@ -769,7 +769,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   };
   const toolControl = bindSegmented(panel, 'herramienta', tool, (id) => setTool(id as Tool));
 
-  const bandControl = bindSegmented(panel, 'banda', band, (id) => {
+  const bandControl = bindChoice(panel, 'banda', band, (id) => {
     band = id as WifiBand;
     renderMaterials();
     changed();

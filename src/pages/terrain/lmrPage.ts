@@ -26,7 +26,7 @@ import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
-import { bindSegmented, coverageStatusHtml, createMapPage, segmentedHtml, siteSectionHtml } from '../shared/mapPage';
+import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createSiteControls } from '../shared/siteControls';
 
 const VIEWS: { id: CoverageView; label: string; title: string }[] = [
@@ -59,7 +59,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     <section class="panel-section page-intro">
       <h2>Radiocomunicaciones en terreno</h2>
       <p class="hint">Trunking P25, SmartZone y convencional. Bajada y subida por separado, cada una con su frecuencia y su cadena.</p>
-      ${segmentedHtml('banda', LMR_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda')}
+      ${choiceHtml('banda', LMR_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda')}
       <p class="hint" data-band-range></p>
     </section>
     ${siteSectionHtml()}
@@ -145,7 +145,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     rx = next;
     onParametersChange();
   });
-  bindSegmented(page.panel, 'banda', band.id, (id) => {
+  bindChoice(page.panel, 'banda', band.id, (id) => {
     band = LMR_BANDS.find((b) => b.id === (id as LmrBandId))!;
     // Se conservan las alturas y la potencia que el usuario ya puso; cambia lo propio de la banda.
     tx = { ...tx, frequencyMHz: band.tx.frequencyMHz, lineLossDbPer100m: band.tx.lineLossDbPer100m, antennaGainDbd: band.tx.antennaGainDbd };
