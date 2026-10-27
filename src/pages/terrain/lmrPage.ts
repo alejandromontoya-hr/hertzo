@@ -15,13 +15,15 @@ import {
   type LmrBandId,
 } from '../../data/defaults';
 import { encodePng, saveFile } from '../../export/download';
-import { coverageKml, exportFileName } from '../../export/kml';
-import { zipStore } from '../../export/zip';
+import { coverageKml, exportFileName, type KmlCoverageLayer } from '../../export/kml';
+import { drawLegendImage } from '../../export/legendImage';
+import { zipStore, type ZipEntry } from '../../export/zip';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
+import { formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
@@ -35,6 +37,14 @@ const VIEWS: { id: CoverageView; label: string; title: string }[] = [
 ];
 
 const KMZ_MIME = 'application/vnd.google-earth.kmz';
+const LEVEL_EMPTY_LABEL = 'no llega a la sensibilidad';
+const HATCH_LABEL = 'baja confianza (ladera empinada junto al sitio)';
+
+const viewTitle = (id: CoverageView) => VIEWS.find((v) => v.id === id)!.title;
+
+/** Franjas de nivel de una dirección, de la más fuerte a la sensibilidad. */
+const levelEntries = (sensitivityDbm: number, thresholds: readonly number[]) =>
+  levelBandLabels(sensitivityDbm, thresholds).map((label, i) => ({ color: LEVEL_COLORS[i]!, label }));
 
 const gridsOf = (result: CoverageResult): CoverageGrids => ({
   talkOut: result.grids[TALK_OUT]!,
@@ -169,31 +179,59 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     legend.update({
       views: VIEWS,
       activeView: view,
-      title: VIEWS.find((v) => v.id === view)!.title,
+      title: viewTitle(view),
       entries: isLevel
-        ? levelBandLabels(sensitivity, thresholds).map((label, i) => ({ color: LEVEL_COLORS[i]!, label }))
+        ? levelEntries(sensitivity, thresholds)
         : BALANCE_LEGEND.map((e) => ({ color: e.color, label: e.label })),
-      emptyLabel: isLevel ? 'no llega a la sensibilidad' : 'no llega ninguna',
-      hatchLabel: 'baja confianza (ladera empinada junto al sitio)',
+      emptyLabel: isLevel ? LEVEL_EMPTY_LABEL : 'no llega ninguna',
+      hatchLabel: HATCH_LABEL,
       thresholds: isLevel ? { values: thresholds, unit: 'dBm', min: -150, max: -20 } : undefined,
       opacity,
     });
   }
 
-  /** Descarga la bajada como KMZ, con los mismos colores y umbrales del mapa. */
+  /**
+   * Descarga un KMZ con la bajada y la subida en carpetas separadas, cada una con su leyenda,
+   * con los mismos colores y umbrales del mapa.
+   */
   async function exportKmz() {
     if (!coverage) return;
     const g = (kmzGeometry ??= buildRasterGeometry(coverage.plan, 'geographic'));
-    const image = new Uint8ClampedArray(g.width * g.height * 4);
-    renderCoverage(g, gridsOf(coverage), 'talkOut', talkOutBudget(tx, radio), talkInBudget(rx, radio), thresholds, image);
     const [[west, north], , [east, south]] = g.coordinates;
-    const kml = coverageKml(`Hertzo · Terreno ${band.label}`, [
-      { name: 'Bajada', href: 'bajada.png', bounds: { north, south, east, west } },
-    ]);
-    const kmz = zipStore([
-      { name: 'doc.kml', data: new TextEncoder().encode(kml) },
-      { name: 'bajada.png', data: await encodePng(image, g.width, g.height) },
-    ]);
+    const down = talkOutBudget(tx, radio);
+    const up = talkInBudget(rx, radio);
+    const directions = [
+      { view: 'talkOut', label: 'Bajada', file: 'bajada', frequencyMHz: tx.frequencyMHz, sensitivityDbm: down.sensitivityDbm },
+      { view: 'talkIn', label: 'Subida', file: 'subida', frequencyMHz: rx.frequencyMHz, sensitivityDbm: up.sensitivityDbm },
+    ] as const;
+
+    const files: ZipEntry[] = [];
+    const layers: KmlCoverageLayer[] = [];
+    for (const d of directions) {
+      const name = `${d.label} · ${formatMHz(d.frequencyMHz)}`;
+      const image = new Uint8ClampedArray(g.width * g.height * 4);
+      renderCoverage(g, gridsOf(coverage), d.view, down, up, thresholds, image);
+      const legendImage = await drawLegendImage({
+        heading: name,
+        title: viewTitle(d.view),
+        entries: levelEntries(d.sensitivityDbm, thresholds),
+        emptyLabel: LEVEL_EMPTY_LABEL,
+        hatchLabel: HATCH_LABEL,
+      });
+      files.push(
+        { name: `${d.file}.png`, data: await encodePng(image, g.width, g.height) },
+        { name: `leyenda-${d.file}.png`, data: legendImage.png },
+      );
+      layers.push({
+        name,
+        href: `${d.file}.png`,
+        bounds: { north, south, east, west },
+        legend: { href: `leyenda-${d.file}.png`, width: legendImage.width, height: legendImage.height },
+      });
+    }
+
+    const kml = coverageKml(`Hertzo · Terreno ${band.label}`, layers);
+    const kmz = zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }, ...files]);
     saveFile(kmz, exportFileName('terreno', band.label, coverage.plan.site, 'kmz'), KMZ_MIME);
   }
 

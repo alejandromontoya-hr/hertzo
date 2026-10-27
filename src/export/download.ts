@@ -6,6 +6,11 @@ export async function encodePng(pixels: Uint8ClampedArray<ArrayBuffer>, width: n
   canvas.width = width;
   canvas.height = height;
   canvas.getContext('2d')!.putImageData(new ImageData(pixels, width, height), 0, 0);
+  return canvasToPng(canvas);
+}
+
+/** El contenido del lienzo como PNG. */
+export async function canvasToPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('No se pudo crear la imagen PNG.');
   return new Uint8Array(await blob.arrayBuffer());
