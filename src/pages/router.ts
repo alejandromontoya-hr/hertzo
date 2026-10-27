@@ -28,10 +28,12 @@ export function parseLocation(pathname: string, search: string): ParsedLocation 
 }
 
 /** Cambia un parámetro de la dirección sin recargar (por ejemplo la banda elegida). */
-export function replaceQuery(key: string, value: string): void {
+export function replaceQuery(key: string, value: string | null): void {
   const params = new URLSearchParams(location.search);
-  params.set(key, value);
-  history.replaceState(null, '', `${location.pathname}?${params}`);
+  if (value === null) params.delete(key);
+  else params.set(key, value);
+  const query = params.toString();
+  history.replaceState(null, '', query ? `${location.pathname}?${query}` : location.pathname);
 }
 
 export async function startRouter(

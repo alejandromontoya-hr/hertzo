@@ -3,6 +3,7 @@
 
 import { paintBands, paintCategories, bandLabels } from '../../coverage/paint';
 import { createPlanView, type PlanPointer, type PlanView } from '../../editor/planView';
+import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectButtons';
 import {
   computeHeatmap,
   coverageFraction,
@@ -15,6 +16,7 @@ import {
   type Wall,
 } from '../../indoor/plan';
 import { PLAN_PRESETS } from '../../indoor/presets';
+import { readIndoorProject, type IndoorProject } from '../../indoor/project';
 import {
   MATERIALS,
   WIFI_BANDS,
@@ -61,6 +63,9 @@ interface Saved {
   plan: FloorPlan;
   band: WifiBand;
 }
+
+/** Entrada del historial: el plano antes de un cambio, o el proyecto entero antes de abrir otro. */
+type UndoEntry = { plan: FloorPlan } | { project: IndoorProject };
 
 function loadSaved(): Saved | null {
   try {
@@ -109,6 +114,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
           <h2>Plano</h2>
           <div class="preset-buttons">${PLAN_PRESETS.map((p) => `<button type="button" class="button" data-preset="${p.id}">${p.label}</button>`).join('')}</div>
           <div class="form" data-size></div>
+          ${PROJECT_BUTTONS_HTML}
         </section>
         <section class="panel-section">
           <h2>Herramientas</h2>
@@ -170,9 +176,13 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
 
   // --- Historial y cambios ---
 
-  function snapshot() {
-    undoStack.push(JSON.stringify(plan));
+  function pushUndo(entry: UndoEntry) {
+    undoStack.push(JSON.stringify(entry));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
+  }
+
+  function snapshot() {
+    pushUndo({ plan });
   }
 
   function changed() {
@@ -684,7 +694,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   };
   const toolControl = bindSegmented(panel, 'herramienta', tool, (id) => setTool(id as Tool));
 
-  bindSegmented(panel, 'banda', band, (id) => {
+  const bandControl = bindSegmented(panel, 'banda', band, (id) => {
     band = id as WifiBand;
     renderMaterials();
     changed();
@@ -703,10 +713,41 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     });
   }
 
+  const currentProject = (): IndoorProject => ({ plan, band, thresholds });
+
+  /** Pone en la página un proyecto abierto de un archivo (o el anterior, al deshacer). */
+  function applyProject(data: IndoorProject) {
+    plan = data.plan;
+    band = data.band;
+    thresholds = data.thresholds;
+    selection = null;
+    drawingFrom = null;
+    readout.hide();
+    bandControl.set(band);
+    sizeFields.setValues({ widthM: plan.widthM, heightM: plan.heightM });
+    // Sin «?plano=…» en la dirección, al recargar se ve este proyecto y no el plano de ejemplo.
+    replaceQuery('plano', null);
+    renderMaterials();
+    changed();
+    planView.fit();
+  }
+
+  bindProjectButtons(panel, {
+    scenario: 'interiores',
+    collect: currentProject,
+    read: readIndoorProject,
+    apply(data) {
+      pushUndo({ project: currentProject() });
+      applyProject(data);
+    },
+  });
+
   function undo() {
     const previous = undoStack.pop();
     if (!previous) return;
-    plan = JSON.parse(previous) as FloorPlan;
+    const entry = JSON.parse(previous) as UndoEntry;
+    if ('project' in entry) return applyProject(entry.project);
+    plan = entry.plan;
     selection = null;
     sizeFields.setValues({ widthM: plan.widthM, heightM: plan.heightM });
     changed();

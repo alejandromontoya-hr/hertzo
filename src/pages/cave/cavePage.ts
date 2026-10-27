@@ -17,7 +17,9 @@ import {
   type SimulationResult,
 } from '../../cave/network';
 import { CAVE_BANDS, CAVE_PRESETS, ROCKS, type CaveBand } from '../../cave/presets';
+import { readCaveProject, type CaveProject } from '../../cave/project';
 import { createPlanView, type PlanPointer, type PlanView } from '../../editor/planView';
+import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectButtons';
 import { distanceToSegment, newId, snap } from '../../indoor/plan';
 import {
   breakpointDistanceM,
@@ -64,6 +66,9 @@ interface Saved {
   bandId: string;
   rockId: string;
 }
+
+/** Entrada del historial: la red antes de un cambio, o el proyecto entero antes de abrir otro. */
+type UndoEntry = { model: CaveModel } | { project: CaveProject };
 
 function loadSaved(): Saved | null {
   try {
@@ -117,6 +122,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
         <section class="panel-section">
           <h2>Escenario</h2>
           <div class="preset-buttons">${CAVE_PRESETS.map((p) => `<button type="button" class="button" data-preset="${p.id}">${p.label}</button>`).join('')}</div>
+          ${PROJECT_BUTTONS_HTML}
         </section>
         <section class="panel-section">
           <h2>Herramientas</h2>
@@ -192,9 +198,13 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     result = simulate(model, graph, settings());
   }
 
-  function snapshot() {
-    undoStack.push(JSON.stringify(model));
+  function pushUndo(entry: UndoEntry) {
+    undoStack.push(JSON.stringify(entry));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
+  }
+
+  function snapshot() {
+    pushUndo({ model });
   }
 
   function changed() {
@@ -906,10 +916,56 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     });
   }
 
+  const currentProject = (): CaveProject => ({
+    model,
+    bandId: band.id,
+    rockId: rock.id,
+    roughnessM,
+    polarization,
+    corner90Db,
+    sensitivityDbm,
+    cable,
+    thresholds,
+  });
+
+  bindProjectButtons(panel, {
+    scenario: 'cavernas',
+    collect: currentProject,
+    read: readCaveProject,
+    apply(data) {
+      pushUndo({ project: currentProject() });
+      applyProject(data);
+    },
+  });
+
+  /** Pone en la página un proyecto abierto de un archivo (o el anterior, al deshacer). */
+  function applyProject(data: CaveProject) {
+    model = data.model;
+    band = CAVE_BANDS.find((b) => b.id === data.bandId)!;
+    rock = ROCKS.find((r) => r.id === data.rockId)!;
+    roughnessM = data.roughnessM;
+    polarization = data.polarization;
+    corner90Db = data.corner90Db;
+    sensitivityDbm = data.sensitivityDbm;
+    cable = data.cable;
+    thresholds = data.thresholds;
+    selection = null;
+    drawing = [];
+    readout.hide();
+    bandControl.set(band.id);
+    // Sin «?escenario=…» en la dirección, al recargar se ve este proyecto y no el de ejemplo.
+    replaceQuery('escenario', null);
+    renderSettings();
+    changed();
+    planView.fit();
+  }
+
   function undo() {
     const previous = undoStack.pop();
     if (!previous) return;
-    model = JSON.parse(previous) as CaveModel;
+    const entry = JSON.parse(previous) as UndoEntry;
+    if ('project' in entry) return applyProject(entry.project);
+    model = entry.model;
     selection = null;
     drawing = [];
     changed();
