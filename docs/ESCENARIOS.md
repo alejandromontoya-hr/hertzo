@@ -1,6 +1,6 @@
 # Escenarios de simulación
 
-El selector de escenarios (`/escenarios`) pregunta «¿Qué quieres simular?» y cada respuesta abre una página con su propio modelo de propagación y su propio entorno. Este documento resume qué calcula cada una, con qué modelo y con qué valores por omisión.
+El selector de escenarios (`/escenarios`) pregunta "¿Qué quieres simular?" y cada respuesta abre una página con su propio modelo de propagación y su propio entorno. Este documento resume qué calcula cada una, con qué modelo y con qué valores por omisión.
 
 | Página | Dirección | Entorno | Modelo |
 | --- | --- | --- | --- |

@@ -1,13 +1,13 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 
 export interface PickBanner {
-  /** Muestra el aviso, por ejemplo «Haz clic en el mapa donde va la torre». */
+  /** Muestra el aviso, por ejemplo "Haz clic en el mapa donde va la torre". */
   show(text: string): void;
   hide(): void;
 }
 
 /**
- * Aviso arriba del mapa mientras se elige un punto con un clic. Esc o «Cancelar» llaman a
+ * Aviso arriba del mapa mientras se elige un punto con un clic. Esc o "Cancelar" llaman a
  * `onCancel`, que debe apagar el modo de elegir (y con él, el aviso).
  */
 export function createPickBanner(map: MapLibreMap, onCancel: () => void): PickBanner {

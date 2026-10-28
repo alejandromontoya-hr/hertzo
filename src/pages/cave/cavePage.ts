@@ -66,7 +66,7 @@ const twoDecimals = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, m
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 const meters = (m: number) => (m >= 1000 ? `${twoDecimals.format(m / 1000)} km` : `${integerFormat.format(m)} m`);
 
-/** «AM (1 MHz)», «UHF (460 MHz)», «800 MHz», «2,4 GHz»: el nombre de la banda con su frecuencia. */
+/** "AM (1 MHz)", "UHF (460 MHz)", "800 MHz", "2,4 GHz": el nombre de la banda con su frecuencia. */
 function bandOptionLabel(b: CaveBand): string {
   if (/^\d+$/.test(b.label)) return `${b.label} MHz`;
   if (/Hz/.test(b.label)) return b.label;
@@ -796,7 +796,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
         ['Galerías con cobertura', `${integerFormat.format(covered * 100)} %`, true],
         ['Largo cubierto / total', `${meters(coveredM)} / ${meters(totalM)}`, false],
         ['Sin cobertura', meters(totalM - coveredM), false],
-        [`Atenuación en «${reference.name}»`, `${oneDecimal.format(alpha * 100)} dB/100 m`, false],
+        [`Atenuación en "${reference.name}"`, `${oneDecimal.format(alpha * 100)} dB/100 m`, false],
         ['Pérdida en una curva de 90°', `${oneDecimal.format(corner90Db)} dB`, false],
         [
           'Fuentes',
@@ -818,7 +818,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     exporter.setEnabled(result !== null && model.galleries.length > 0);
     const table = summaryTable();
     if (!table) {
-      summaryBox.innerHTML = '<p class="hint">Dibuja al menos una galería con la herramienta «Galería».</p>';
+      summaryBox.innerHTML = '<p class="hint">Dibuja al menos una galería con la herramienta "Galería".</p>';
       return;
     }
     const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -1054,7 +1054,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     drawing = [];
     readout.hide();
     bandControl.set(band.id);
-    // Sin «?escenario=…» en la dirección, al recargar se ve este proyecto y no el de ejemplo.
+    // Sin "?escenario=…" en la dirección, al recargar se ve este proyecto y no el de ejemplo.
     replaceQuery('escenario', null);
     renderSettings();
     changed();

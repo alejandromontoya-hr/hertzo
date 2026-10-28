@@ -5,7 +5,7 @@ const integerFormat = new Intl.NumberFormat('es-CO');
 
 export interface CoverageStatus {
   showProgress(progress: CoverageProgress): void;
-  /** `detail` completa la frase, por ejemplo «bajada y subida». */
+  /** `detail` completa la frase, por ejemplo "bajada y subida". */
   showDone(result: CoverageResult, detail?: string): void;
   showError(message: string): void;
 }

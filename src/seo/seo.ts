@@ -29,7 +29,7 @@ export const SITE = {
 export interface PageMeta {
   /** '' es la página principal; 'terreno' es hertzo.site/terreno. */
   path: string;
-  /** Título completo de la pestaña y de Google: primero lo que hace la página y al final « | Hertzo». */
+  /** Título completo de la pestaña y de Google: primero lo que hace la página y al final " | Hertzo". */
   title: string;
   description: string;
   /** Fecha del último cambio de contenido (AAAA-MM-DD), para el sitemap. */
@@ -304,7 +304,7 @@ Idioma: español
 ## Páginas principales
 
 - [Inicio](${pageUrl('')}): Qué hace Hertzo, por qué separa la bajada de la subida y la entrada a los seis escenarios.
-- [Escenarios](${pageUrl(CHOOSER_PATH)}): Selector «¿Qué quieres simular?» con cada escenario y sus variantes.
+- [Escenarios](${pageUrl(CHOOSER_PATH)}): Selector "¿Qué quieres simular?" con cada escenario y sus variantes.
 
 ## Escenarios
 

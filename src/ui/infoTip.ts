@@ -1,4 +1,4 @@
-// Botón «i» con su explicación en un globo, para no llenar el panel de texto. El globo vive en
+// Botón "i" con su explicación en un globo, para no llenar el panel de texto. El globo vive en
 // el <body> con posición fija: así no lo recorta el panel cuando tiene barra de desplazamiento.
 // Se abre al pasar el mouse o al enfocar el botón con el teclado; en pantallas táctiles, al tocarlo.
 
@@ -9,14 +9,14 @@ const MARGIN_PX = 8;
 const escapeAttr = (text: string) => text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 /**
- * Botón «i»; `text` es la explicación (puede cambiarse después con `setInfo`). `attrs` agrega
+ * Botón "i"; `text` es la explicación (puede cambiarse después con `setInfo`). `attrs` agrega
  * atributos para encontrarlo, por ejemplo `data-choice-info="banda"`.
  */
 export function infoButton(text = '', attrs = ''): string {
   return `<button type="button" class="info-tip" data-info="${escapeAttr(text)}" aria-label="Más información"${attrs ? ` ${attrs}` : ''}${text ? '' : ' hidden'}>i</button>`;
 }
 
-/** Cambia la explicación de un botón «i», por ejemplo al elegir otra banda. */
+/** Cambia la explicación de un botón "i", por ejemplo al elegir otra banda. */
 export function setInfo(button: HTMLElement, text: string): void {
   button.dataset.info = text;
   button.hidden = text === '';
@@ -57,7 +57,7 @@ function hide() {
 
 const infoTarget = (event: Event) => (event.target as HTMLElement | null)?.closest?.<HTMLElement>('.info-tip') ?? null;
 
-/** Una sola vez, al arrancar la app: escucha todos los botones «i» de cualquier página. */
+/** Una sola vez, al arrancar la app: escucha todos los botones "i" de cualquier página. */
 export function installInfoTips(): void {
   tooltip = document.createElement('div');
   tooltip.id = TOOLTIP_ID;

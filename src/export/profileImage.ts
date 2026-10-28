@@ -6,7 +6,7 @@ import { linkProfileSvg } from '../ui/linkChart';
 import { REPORT_CONTENT_WIDTH, REPORT_SCALE, drawReport, type ReportKeyItem, type ReportRow } from './reportImage';
 
 export interface ProfileReport {
-  /** Por ejemplo «Perfil del enlace · 11,42 km · 11 GHz». */
+  /** Por ejemplo "Perfil del enlace · 11,42 km · 11 GHz". */
   title: string;
   /** Líneas bajo el título: los extremos y la fecha. */
   subtitle: string[];

@@ -5,9 +5,9 @@ import type { LegendEntry } from '../ui/coverageLegend';
 import { canvasToPng } from './download';
 
 export interface LegendImageContent {
-  /** Primera línea, en negrita: por ejemplo «Bajada · 860 MHz». */
+  /** Primera línea, en negrita: por ejemplo "Bajada · 860 MHz". */
   heading: string;
-  /** Qué muestran los colores: por ejemplo «Nivel recibido en el radio (dBm)». */
+  /** Qué muestran los colores: por ejemplo "Nivel recibido en el radio (dBm)". */
   title: string;
   entries: LegendEntry[];
   /** Qué significa un píxel sin color. */
@@ -31,7 +31,7 @@ const SWATCH_W = 22;
 const SWATCH_H = 12;
 const SWATCH_GAP = 8;
 const FONT = '"Geist Variable", system-ui, "Segoe UI", Roboto, sans-serif';
-// Colores del estilo «Carta» (src/style.css).
+// Colores del estilo "Carta" (src/style.css).
 const SURFACE = '#fbfaf6';
 const INK = '#1f2328';
 const MUTED = '#5d6168';

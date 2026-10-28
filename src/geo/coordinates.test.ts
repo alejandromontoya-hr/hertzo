@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isLatitude, isLongitude, parseDegrees, parseLatLonPair } from './coordinates';
 
 describe('parseDegrees', () => {
-  it('acepta punto o coma decimal: «6.2794» y «6,2794» son 6,2794', () => {
+  it('acepta punto o coma decimal: "6.2794" y "6,2794" son 6,2794', () => {
     expect(parseDegrees('6.2794')).toBe(6.2794);
     expect(parseDegrees(' 6,2794 ')).toBe(6.2794);
     expect(parseDegrees('-75.6853')).toBe(-75.6853);
@@ -25,7 +25,7 @@ describe('isLatitude / isLongitude', () => {
 });
 
 describe('parseLatLonPair', () => {
-  it('lo que copia Google Maps del Padre Amaya: «6.27940, -75.68530»', () => {
+  it('lo que copia Google Maps del Padre Amaya: "6.27940, -75.68530"', () => {
     expect(parseLatLonPair('6.27940, -75.68530')).toEqual({ lat: 6.2794, lon: -75.6853 });
   });
 
@@ -35,7 +35,7 @@ describe('parseLatLonPair', () => {
     expect(parseLatLonPair('6.2794,-75.6853')).toEqual({ lat: 6.2794, lon: -75.6853 });
   });
 
-  it('«6,75» es un número con coma decimal, no el par (6, 75)', () => {
+  it('"6,75" es un número con coma decimal, no el par (6, 75)', () => {
     expect(parseLatLonPair('6,75')).toBeNull();
   });
 

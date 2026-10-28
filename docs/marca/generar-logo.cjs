@@ -1,5 +1,5 @@
-﻿// Genera el logo de Hertzo: «hertz» en Geist Mono Medium convertido a trazos + el aro de Hertz
-// calzado en la celda exacta de la «o» (mismo ancho de avance, mismo contorno, mismo grosor).
+﻿// Genera el logo de Hertzo: "hertz" en Geist Mono Medium convertido a trazos + el aro de Hertz
+// calzado en la celda exacta de la "o" (mismo ancho de avance, mismo contorno, mismo grosor).
 //
 // Uso (las dependencias no son del proyecto; se instalan aparte):
 //   npm install --prefix <carpeta-deps> opentype.js@1.3.4 geist@1.3.1
@@ -16,7 +16,7 @@ const SIZE = 100, s = SIZE / font.unitsPerEm, f = (v) => +v.toFixed(2);
 const o = font.charToGlyph("o"), h = font.charToGlyph("h");
 const adv = o.advanceWidth * s;
 
-// Grosor del trazo de la «o»: distancia entre el contorno exterior y el interior a la izquierda
+// Grosor del trazo de la "o": distancia entre el contorno exterior y el interior a la izquierda
 const contours = [];
 let cur = [];
 for (const c of o.path.commands) {
@@ -30,7 +30,7 @@ const sw = (boxes[1].xMin - boxes[0].xMin) * s;
 
 const ob = o.getBoundingBox(), hb = h.getBoundingBox();
 const baseline = hb.y2 * s;                          // y de la línea base con el borde superior en 0
-const x0 = 5 * adv;                                   // la «o» es la sexta celda
+const x0 = 5 * adv;                                   // la "o" es la sexta celda
 const oxMin = x0 + ob.x1 * s, oxMax = x0 + ob.x2 * s;
 const oyTop = baseline - ob.y2 * s, oyBot = baseline - ob.y1 * s;
 const cx = (oxMin + oxMax) / 2, cy = (oyTop + oyBot) / 2;

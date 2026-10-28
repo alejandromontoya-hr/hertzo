@@ -80,7 +80,7 @@ const END_COLORS: Record<EndLabel, string> = { A: '#0969da', B: '#bc4c00' };
 /** Mismo punto, aunque sean objetos distintos (por ejemplo, escrito de nuevo en los campos). */
 const samePoint = (p: LonLat, q: LonLat) => p.lon === q.lon && p.lat === q.lat;
 
-/** Bloque de un extremo: título con su color, nombre, coordenadas y «Elegir en el mapa». */
+/** Bloque de un extremo: título con su color, nombre, coordenadas y "Elegir en el mapa". */
 const endHtml = (label: EndLabel, name: string) => `
   <h3 class="end-title"><span class="end-badge" style="background:${END_COLORS[label]}">${label}</span>Extremo ${label}</h3>
   ${siteFieldsHtml(`end-${label.toLowerCase()}`, name, `el extremo ${label}`)}
@@ -93,7 +93,7 @@ const percentFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 4 
 
 const SECONDS_PER_YEAR = 365.25 * 24 * 3600;
 
-/** «11 GHz» o «450 MHz». */
+/** "11 GHz" o "450 MHz". */
 const frequencyLabel = (mhz: number) => (mhz >= 1000 ? `${mhz / 1000} GHz` : `${mhz} MHz`);
 
 /** Lo que muestra el panel tras un cálculo, guardado tal cual para exportarlo. */
@@ -144,7 +144,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     </section>
     <section class="panel-section">
       <h2>Resultado</h2>
-      <div data-results><p class="hint">Pulsa «Simular» para ver el perfil y el balance del enlace.</p></div>
+      <div data-results><p class="hint">Pulsa "Simular" para ver el perfil y el balance del enlace.</p></div>
     </section>
     <details class="panel-section" open>
       <summary>Equipos y antenas</summary>
@@ -250,7 +250,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     });
   };
 
-  // Solo con «Elegir A (o B) en el mapa» activo un clic mueve un extremo.
+  // Solo con "Elegir A (o B) en el mapa" activo un clic mueve un extremo.
   page.map.on('click', (event) => {
     if (!picking) return;
     const label = picking;
@@ -364,7 +364,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
 
   /**
    * Cambió un equipo, la frecuencia o la propagación. Si el resultado es de los extremos de
-   * ahora, se recalcula al instante con el perfil que ya se descargó; si no, espera «Simular».
+   * ahora, se recalcula al instante con el perfil que ya se descargó; si no, espera "Simular".
    */
   function schedule() {
     clearTimeout(timer);
@@ -505,7 +505,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
 
   /** Nombre escrito para un extremo, o vacío. */
   const endName = (label: EndLabel) => fields[label].getName();
-  /** Para el archivo: «Cerro El Padre Amaya a Cerro El Volador»; vacío si ninguno tiene nombre. */
+  /** Para el archivo: "Cerro El Padre Amaya a Cerro El Volador"; vacío si ninguno tiene nombre. */
   const linkName = () => [endName('A'), endName('B')].filter(Boolean).join(' a ');
 
   /** Descarga una imagen PNG con el perfil, los extremos, el veredicto y la tabla de resultados. */

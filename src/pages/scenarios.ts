@@ -9,7 +9,7 @@ export interface ScenarioOption {
 export interface Scenario {
   path: string;
   title: string;
-  /** Título de la pestaña y de Google, sin « | Hertzo»; con las palabras que la gente busca. */
+  /** Título de la pestaña y de Google, sin " | Hertzo"; con las palabras que la gente busca. */
   pageTitle: string;
   /** Descripción para Google y la vista previa al compartir: unos 150 caracteres. */
   description: string;

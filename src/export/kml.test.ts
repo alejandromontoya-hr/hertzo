@@ -17,7 +17,7 @@ describe('coverageKml', () => {
     expect(kml).toContain('<name>Hertzo · Terreno 800 MHz</name>');
   });
 
-  it('las capas van en una carpeta «Cobertura» donde se prende una a la vez', () => {
+  it('las capas van en una carpeta "Cobertura" donde se prende una a la vez', () => {
     expect(kml).toContain('<name>Cobertura</name>');
     expect(kml).toContain('<listItemType>radioFolder</listItemType>');
   });
@@ -59,7 +59,7 @@ describe('coverageKml', () => {
     );
   });
 
-  it('el sitio va como punto fuera de la carpeta «Cobertura», con longitud y latitud en ese orden', () => {
+  it('el sitio va como punto fuera de la carpeta "Cobertura", con longitud y latitud en ese orden', () => {
     const withSite = coverageKml('X', [{ name: 'Bajada', href: 'bajada.png', bounds }], {
       site: { name: 'Sitio', position: { lon: -75.6853, lat: 6.2794 }, tables: [{ rows: [['Banda', '800 MHz']] }] },
     });
@@ -88,7 +88,7 @@ describe('contornos en coverageKml', () => {
     },
   });
 
-  it('van en su propia carpeta, después y fuera de la carpeta «Cobertura»', () => {
+  it('van en su propia carpeta, después y fuera de la carpeta "Cobertura"', () => {
     const coverageEnd = kml.indexOf('</Folder>', kml.indexOf('<name>Campo FM 98,5 MHz</name>'));
     const coverageFolderEnd = kml.indexOf('</Folder>', coverageEnd + 1);
     expect(kml.indexOf('<name>Contornos</name>')).toBeGreaterThan(coverageFolderEnd);
@@ -172,7 +172,7 @@ describe('placemarkHtml', () => {
     );
   });
 
-  it('un texto con «]]>» no cierra el CDATA: el > se escapa', () => {
+  it('un texto con "]]>" no cierra el CDATA: el > se escapa', () => {
     expect(placemarkHtml([{ rows: [['a]]>b']] }])).toBe('<table><tr><th>a]]&gt;b</th></tr></table>');
   });
 });
@@ -190,13 +190,13 @@ describe('exportFileName', () => {
     );
   });
 
-  it('con nombre, el nombre reemplaza las coordenadas: «Cerro El Padre Amaya»', () => {
+  it('con nombre, el nombre reemplaza las coordenadas: "Cerro El Padre Amaya"', () => {
     expect(exportFileName('terreno', '800 MHz', { lon: -75.6853, lat: 6.2794 }, 'kmz', 'Cerro El Padre Amaya')).toBe(
       'hertzo-terreno-800MHz-cerro-el-padre-amaya.kmz',
     );
   });
 
-  it('un nombre sin letras ni números («***») deja las coordenadas', () => {
+  it('un nombre sin letras ni números ("***") deja las coordenadas', () => {
     expect(exportFileName('terreno', 'VHF', { lon: -58.3816, lat: -34.6037 }, 'kmz', '***')).toBe(
       'hertzo-terreno-VHF-34.6037S-58.3816W.kmz',
     );
@@ -210,7 +210,7 @@ describe('exportFileName', () => {
 });
 
 describe('slugify', () => {
-  it('quita tildes, eñes y signos: «Torre Ñuñoa – Sector Norte (2)» → «torre-nunoa-sector-norte-2»', () => {
+  it('quita tildes, eñes y signos: "Torre Ñuñoa – Sector Norte (2)" → "torre-nunoa-sector-norte-2"', () => {
     expect(slugify('Torre Ñuñoa – Sector Norte (2)')).toBe('torre-nunoa-sector-norte-2');
   });
 

@@ -12,7 +12,7 @@ import { zipStore, type ZipEntry } from './zip';
 const KMZ_MIME = 'application/vnd.google-earth.kmz';
 
 export interface KmzLayerSpec {
-  /** Nombre de la carpeta en Google Earth, por ejemplo «Bajada · 860 MHz». */
+  /** Nombre de la carpeta en Google Earth, por ejemplo "Bajada · 860 MHz". */
   name: string;
   /** Nombre de la imagen sin extensión, por ejemplo "bajada"; la leyenda va en "leyenda-bajada.png". */
   file: string;

@@ -39,7 +39,7 @@ export function zipStore(entries: readonly ZipEntry[]): Uint8Array<ArrayBuffer> 
   const view = new DataView(out.buffer);
   let p = 0;
 
-  // Campos comunes a la cabecera local y a la del directorio, desde «versión necesaria».
+  // Campos comunes a la cabecera local y a la del directorio, desde "versión necesaria".
   const writeCommon = (f: (typeof files)[number]) => {
     view.setUint16(p, 20, true); // versión 2.0
     view.setUint16(p + 2, 0, true); // sin banderas

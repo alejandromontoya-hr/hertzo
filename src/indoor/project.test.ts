@@ -8,7 +8,7 @@ const project: IndoorProject = { plan: casa, band: '5', thresholds: [-50, -60, -
 const roundTrip = (data: unknown) => JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
 
 describe('readIndoorProject', () => {
-  it('el plano «Casa» en 5 GHz vuelve igual después de guardarlo', () => {
+  it('el plano "Casa" en 5 GHz vuelve igual después de guardarlo', () => {
     expect(readIndoorProject(roundTrip(project))).toEqual(project);
   });
 
@@ -17,7 +17,7 @@ describe('readIndoorProject', () => {
     expect(readIndoorProject(extra)).not.toHaveProperty('script');
   });
 
-  it('un muro de un material que no existe («acero») hace que no se abra', () => {
+  it('un muro de un material que no existe ("acero") hace que no se abra', () => {
     const bad = roundTrip(project);
     (bad.plan as { walls: { material: string }[] }).walls[0]!.material = 'acero';
     expect(readIndoorProject(bad)).toBeNull();

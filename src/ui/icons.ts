@@ -13,10 +13,10 @@ import signal from 'lucide-static/icons/signal.svg?raw';
 /** Quita el comentario de licencia del archivo y marca el ícono como decorativo. */
 const decorative = (raw: string) => raw.replace(/<!--[\s\S]*?-->/, '').trim().replace('<svg', '<svg aria-hidden="true"');
 
-/** Ícono del botón «Exportar» sobre el mapa. */
+/** Ícono del botón "Exportar" sobre el mapa. */
 export const DOWNLOAD_ICON = decorative(download);
 
-/** Ícono del botón «Elegir en el mapa» junto a las coordenadas. */
+/** Ícono del botón "Elegir en el mapa" junto a las coordenadas. */
 export const PIN_ICON = decorative(mapPin);
 
 /** Ícono de cada escenario, por su dirección. */

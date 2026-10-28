@@ -39,7 +39,7 @@ export interface PlanViewOptions {
 
 const FIT_MARGIN_PX = 28;
 
-/** Paso de grilla «redondo» (1, 2 o 5 por potencia de 10) para que las líneas queden a ≥ 18 px. */
+/** Paso de grilla "redondo" (1, 2 o 5 por potencia de 10) para que las líneas queden a ≥ 18 px. */
 export function gridStepM(pixelsPerMeter: number): number {
   const target = 18 / pixelsPerMeter;
   const magnitude = 10 ** Math.floor(Math.log10(target));

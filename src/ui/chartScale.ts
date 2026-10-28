@@ -1,5 +1,5 @@
 /**
- * Marcas «redondas» para un eje: pasos de 1, 2 o 5 por una potencia de 10.
+ * Marcas "redondas" para un eje: pasos de 1, 2 o 5 por una potencia de 10.
  * De 1234 a 3086 m con 5 marcas como máximo: 1500, 2000, 2500, 3000.
  */
 export function niceTicks(min: number, max: number, maxCount: number): number[] {

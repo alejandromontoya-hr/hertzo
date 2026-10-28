@@ -16,7 +16,7 @@ Cada simulación tiene su propia dirección. La raíz (`hertzo.site/`) es la pá
 
 | Dirección | Escenario | Entorno | Qué calcula |
 | --- | --- | --- | --- |
-| `/escenarios` | Selector «¿Qué quieres simular?» | — | Enlaces a cada escenario y sus variantes |
+| `/escenarios` | Selector "¿Qué quieres simular?" | — | Enlaces a cada escenario y sus variantes |
 | `/terreno` | Radiocomunicaciones en terreno (VHF, UHF, 700, 800 MHz) | Mapa con relieve | Bajada, subida y desbalance de un sitio, con su balance de enlace (ITM de NTIA) |
 | `/radiodifusion` | Radiodifusión FM y AM | Mapa con relieve | Campo en dBµV/m y zonas de servicio; AM con onda de tierra según el suelo |
 | `/celular` | Celular LTE / 5G | Mapa con relieve | RSRP, mejor sector y SINR de un sitio con sectores (Hata, 3GPP 38.901 o ITM) |
@@ -87,7 +87,7 @@ Hertzo es una herramienta de planificación. Sus predicciones no reemplazan medi
 
 ## Créditos
 
-Modelo ITM de NTIA (dominio público), mapa © colaboradores de OpenStreetMap, terreno de AWS Terrain Tiles (SRTM y GMTED2010 de USGS, entre otras fuentes) y MapLibre GL JS. Lista completa en [THIRD_PARTY.md](THIRD_PARTY.md) y en «Créditos y licencias» dentro de la app.
+Modelo ITM de NTIA (dominio público), mapa © colaboradores de OpenStreetMap, terreno de AWS Terrain Tiles (SRTM y GMTED2010 de USGS, entre otras fuentes) y MapLibre GL JS. Lista completa en [THIRD_PARTY.md](THIRD_PARTY.md) y en "Créditos y licencias" dentro de la app.
 
 ## Licencia
 

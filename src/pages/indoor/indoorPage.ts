@@ -607,7 +607,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
 
   function renderAps() {
     if (plan.aps.length === 0) {
-      apsBox.innerHTML = '<p class="hint">No hay access points. Usa la herramienta «Access point» para ubicar uno.</p>';
+      apsBox.innerHTML = '<p class="hint">No hay access points. Usa la herramienta "Access point" para ubicar uno.</p>';
       return;
     }
     apsBox.replaceChildren(
@@ -797,7 +797,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     readout.hide();
     bandControl.set(band);
     sizeFields.setValues({ widthM: plan.widthM, heightM: plan.heightM });
-    // Sin «?plano=…» en la dirección, al recargar se ve este proyecto y no el plano de ejemplo.
+    // Sin "?plano=…" en la dirección, al recargar se ve este proyecto y no el plano de ejemplo.
     replaceQuery('plano', null);
     renderMaterials();
     changed();

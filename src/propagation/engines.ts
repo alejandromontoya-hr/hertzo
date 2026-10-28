@@ -28,7 +28,7 @@ export function engineNeedsTerrain(spec: EngineSpec): boolean {
   }
 }
 
-/** Bandera de advertencia que el motor usa para «baja confianza» (0 si no marca nada). */
+/** Bandera de advertencia que el motor usa para "baja confianza" (0 si no marca nada). */
 export function lowConfidenceMask(spec: EngineSpec): number {
   switch (spec.id) {
     case 'itm':

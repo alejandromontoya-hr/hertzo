@@ -1,6 +1,6 @@
 // Control del cálculo de cobertura de una página: guarda los datos del próximo cálculo y lo
-// lanza solo cuando el usuario pulsa «Simular». Si después cambia algo que afecta la
-// propagación, el mapa conserva el cálculo anterior y el botón pasa a «Simular de nuevo».
+// lanza solo cuando el usuario pulsa "Simular". Si después cambia algo que afecta la
+// propagación, el mapa conserva el cálculo anterior y el botón pasa a "Simular de nuevo".
 
 import {
   CoverageAbortedError,
@@ -12,9 +12,9 @@ import {
 import { createCoverageStatus } from '../../ui/coverageStatus';
 
 export interface CoverageController {
-  /** Datos del próximo cálculo (null si falta el sitio); no calcula hasta pulsar «Simular». */
+  /** Datos del próximo cálculo (null si falta el sitio); no calcula hasta pulsar "Simular". */
   setRequest(request: CoverageRequest | null): void;
-  /** La página borró el mapa (por ejemplo al pasar de FM a AM): el botón vuelve a «Simular». */
+  /** La página borró el mapa (por ejemplo al pasar de FM a AM): el botón vuelve a "Simular". */
   forgetResult(): void;
   destroy(): void;
 }

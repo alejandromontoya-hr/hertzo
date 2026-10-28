@@ -37,7 +37,7 @@ const ROW = 22;
 const COLUMN_GAP = 24;
 const KEY_LINE = 20;
 export const REPORT_FONT = '"Geist Variable", system-ui, "Segoe UI", Roboto, sans-serif';
-// Colores del estilo «Carta» (src/style.css).
+// Colores del estilo "Carta" (src/style.css).
 const SURFACE = '#fbfaf6';
 const INK = '#1f2328';
 const MUTED = '#5d6168';
@@ -188,5 +188,5 @@ export async function drawReport(report: Report): Promise<Uint8Array<ArrayBuffer
   return canvasToPng(canvas);
 }
 
-/** «26 de octubre de 2026». */
+/** "26 de octubre de 2026". */
 export const reportDate = () => new Intl.DateTimeFormat('es-CO', { dateStyle: 'long' }).format(new Date());

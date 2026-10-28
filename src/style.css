@@ -1,4 +1,4 @@
-/* Estilo «Carta»: papel de carta topográfica, tinta y el azul de río del logo. */
+/* Estilo "Carta": papel de carta topográfica, tinta y el azul de río del logo. */
 :root {
   --bg: #f3f0e7;
   --surface: #fbfaf6;
@@ -61,13 +61,13 @@ body {
 }
 
 /* Sin centrar aparte: la línea base de la barra es el pie del logo, así las migas y el lema se
-   apoyan en la misma línea que las letras de «hertzo». */
+   apoyan en la misma línea que las letras de "hertzo". */
 .brand {
   display: flex;
   margin: 0;
 }
 
-/* El logo: «hertz» en Geist Mono y el aro de Hertz como la «o» (docs/marca) */
+/* El logo: "hertz" en Geist Mono y el aro de Hertz como la "o" (docs/marca) */
 .brand img {
   display: block;
   height: 22px;
@@ -793,13 +793,13 @@ body {
   grid-template-columns: auto 1fr;
 }
 
-/* Menús con opciones largas («Espacio libre + difracción (Deygout) + gases»): la etiqueta va
+/* Menús con opciones largas ("Espacio libre + difracción (Deygout) + gases"): la etiqueta va
    arriba y el menú usa todo el ancho, para que la opción elegida no se corte. */
 .field.field-select {
   grid-template-columns: 1fr;
 }
 
-/* Que el botón «i» no quede solo en una línea cuando la etiqueta se parte. */
+/* Que el botón "i" no quede solo en una línea cuando la etiqueta se parte. */
 .nowrap {
   white-space: nowrap;
 }
@@ -810,7 +810,7 @@ body {
   gap: 6px;
 }
 
-/* Todos los campos del mismo ancho: una unidad larga («dB/100 m») se sale hacia el margen en vez de angostar el campo. */
+/* Todos los campos del mismo ancho: una unidad larga ("dB/100 m") se sale hacia el margen en vez de angostar el campo. */
 .field-input input {
   flex: 0 0 92px;
 }
@@ -928,7 +928,7 @@ body {
   color: var(--muted);
 }
 
-/* Botón «i»: la explicación de un título o de un campo, en un globo. */
+/* Botón "i": la explicación de un título o de un campo, en un globo. */
 .info-tip {
   display: inline-grid;
   place-items: center;
@@ -1031,7 +1031,7 @@ body {
   border-color: var(--accent);
 }
 
-/* La acción principal del bloque, por ejemplo «Simular». */
+/* La acción principal del bloque, por ejemplo "Simular". */
 .button-primary {
   color: #ffffff;
   background: var(--ink);
@@ -1053,14 +1053,14 @@ body {
   width: 100%;
 }
 
-/* Sin botón ni ayuda a la vista, el bloque de «Simular» no ocupa espacio. */
+/* Sin botón ni ayuda a la vista, el bloque de "Simular" no ocupa espacio. */
 .simulate:not(:has(> :not([hidden]))) {
   display: none;
 }
 
 /*
  * Latitud y longitud en la misma columna que los demás campos; el botón para elegir el punto en
- * el mapa va a la derecha, entre las dos filas, en el espacio de la unidad («°» es angosto).
+ * el mapa va a la derecha, entre las dos filas, en el espacio de la unidad ("°" es angosto).
  */
 .coords {
   position: relative;
@@ -1283,7 +1283,7 @@ body {
   line-height: 1.5;
 }
 
-/* Punto de color junto a un valor de la tabla, por ejemplo el veredicto «Despejado». */
+/* Punto de color junto a un valor de la tabla, por ejemplo el veredicto "Despejado". */
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -1483,7 +1483,7 @@ body {
   background: var(--ink);
 }
 
-/* «Exportar» antes de que haya un cálculo, o mientras arma el archivo. */
+/* "Exportar" antes de que haya un cálculo, o mientras arma el archivo. */
 .maplibregl-ctrl.map-menu .map-menu-toggle:disabled {
   color: var(--muted);
   border-color: var(--border);
@@ -1495,7 +1495,7 @@ body {
   cursor: progress;
 }
 
-/* «Exportar» en los editores de planos, donde no hay mapa: misma esquina que sobre el mapa. */
+/* "Exportar" en los editores de planos, donde no hay mapa: misma esquina que sobre el mapa. */
 .maplibregl-ctrl.map-menu.plan-export {
   position: absolute;
   right: 10px;
@@ -1929,7 +1929,7 @@ body {
   margin-top: 8px;
 }
 
-/* El segundo extremo de un enlace empieza otro bloque: un poco más de aire antes de «Extremo B». */
+/* El segundo extremo de un enlace empieza otro bloque: un poco más de aire antes de "Extremo B". */
 .panel-section > .end-title ~ .end-title {
   margin-top: 16px;
 }

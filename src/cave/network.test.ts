@@ -30,7 +30,7 @@ describe('grafo de galerías', () => {
   it('dos galerías que comparten un vértice quedan unidas en ese nodo', () => {
     const graph = buildGraph([gallery('a', [[0, 0], [100, 0]]), gallery('b', [[100, 0], [100, -50]])]);
     const junction = nearestNode(graph, 100, 0).node;
-    // El vértice (100, 0) es el final de «a» y el inicio de «b»: un nodo con 2 tramos (uno de cada galería).
+    // El vértice (100, 0) es el final de "a" y el inicio de "b": un nodo con 2 tramos (uno de cada galería).
     expect(graph.edges[junction]!.length).toBe(2);
     expect(graph.edges[junction]!.map((e) => e.gallery).sort()).toEqual([0, 1]);
   });

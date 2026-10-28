@@ -10,7 +10,7 @@ export interface NumberFieldSpec<K extends string = string> {
   max: number;
   /** El mínimo no se admite (potencias: deben ser mayores que 0 W). */
   minExclusive?: boolean;
-  /** Explicación del campo; va en el botón «i» junto a la etiqueta. */
+  /** Explicación del campo; va en el botón "i" junto a la etiqueta. */
   hint?: string;
 }
 
@@ -49,7 +49,7 @@ export interface NumberField {
 
 let fieldCounter = 0;
 
-/** Etiqueta con su botón «i» pegado a la última palabra, para que no quede solo en otra línea. */
+/** Etiqueta con su botón "i" pegado a la última palabra, para que no quede solo en otra línea. */
 function withInfo(label: string, hint: string): string {
   const cut = label.lastIndexOf(' ');
   return `${label.slice(0, cut + 1)}<span class="nowrap">${label.slice(cut + 1)}${infoButton(hint)}</span>`;

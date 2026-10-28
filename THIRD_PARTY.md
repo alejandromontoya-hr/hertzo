@@ -13,7 +13,7 @@ Hertzo se publica bajo licencia MIT. Estos son los componentes y datos de tercer
 | [Vercel Web Analytics](https://vercel.com/docs/analytics) (`@vercel/analytics`) | 2.0.1 | MIT | Sí | Contador de visitas del sitio publicado en Vercel; sin cookies ni datos personales |
 | Íconos [Lucide](https://lucide.dev) (`lucide-static`) | 1.61.0 | ISC | Sí | Íconos de los escenarios (`radio-tower`, `boom-box`, `signal`, `satellite-dish`, `house-wifi`, `pickaxe`) |
 | Logos de GitHub y LinkedIn de [Simple Icons](https://simpleicons.org) | GitHub 16.35.0; LinkedIn 8.15.0, la última que lo traía | CC0 1.0 (dominio público) | Sí; los logos siguen siendo marcas de sus dueños y solo se usan para enlazar a esos sitios | Enlaces a GitHub y LinkedIn de la página principal (`src/ui/icons.ts`) |
-| Fuente [Geist Mono](https://github.com/vercel/geist-font) (Vercel) | 1.3.1, peso Medium | SIL Open Font License 1.1 | Sí (la OFL permite usar la fuente en logos e imágenes; no se redistribuye el archivo de la fuente) | Letras «hertz» del logo, convertidas a trazos (`docs/marca/`, `public/logo.svg`) |
+| Fuente [Geist Mono](https://github.com/vercel/geist-font) (Vercel) | 1.3.1, peso Medium | SIL Open Font License 1.1 | Sí (la OFL permite usar la fuente en logos e imágenes; no se redistribuye el archivo de la fuente) | Letras "hertz" del logo, convertidas a trazos (`docs/marca/`, `public/logo.svg`) |
 
 ## Datos que se descargan en tiempo de ejecución
 
@@ -21,7 +21,7 @@ No se copian al repositorio; el navegador los pide y los guarda en caché.
 
 | Datos | Fuente | Licencia / condiciones | Uso |
 | --- | --- | --- | --- |
-| Mapa base | [OpenStreetMap](https://www.openstreetmap.org/copyright) | ODbL; exige el crédito «colaboradores de OpenStreetMap» y respetar su [política de uso de teselas](https://operations.osmfoundation.org/policies/tiles/) | Fondo del mapa en las opciones Carta y Color |
+| Mapa base | [OpenStreetMap](https://www.openstreetmap.org/copyright) | ODbL; exige el crédito "colaboradores de OpenStreetMap" y respetar su [política de uso de teselas](https://operations.osmfoundation.org/policies/tiles/) | Fondo del mapa en las opciones Carta y Color |
 | Mapa topográfico | [OpenTopoMap](https://opentopomap.org/about) | Estilo CC-BY-SA 3.0; datos de OpenStreetMap (ODbL) y SRTM. Exige su crédito, que el mapa muestra al elegir esta opción; sus servidores admiten solo tráfico bajo | Fondo del mapa en la opción Topográfico |
 | Terreno | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/), formato Terrarium | Datos abiertos; en Colombia la fuente es SRTM (cortesía de USGS). Créditos exigidos según la [lista de fuentes](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) | Relieve sombreado y cota del terreno |
 

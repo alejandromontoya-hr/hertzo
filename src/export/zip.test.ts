@@ -4,7 +4,7 @@ import { crc32, zipStore } from './zip';
 const text = (s: string) => new TextEncoder().encode(s);
 
 describe('crc32', () => {
-  it('«123456789» da 0xCBF43926, el valor de control del estándar', () => {
+  it('"123456789" da 0xCBF43926, el valor de control del estándar', () => {
     expect(crc32(text('123456789'))).toBe(0xcbf43926);
   });
 
@@ -14,7 +14,7 @@ describe('crc32', () => {
 });
 
 describe('zipStore', () => {
-  // Un archivo «a.txt» con «hola» (4 bytes):
+  // Un archivo "a.txt" con "hola" (4 bytes):
   // cabecera local 30 + 5 del nombre + 4 de datos = 39; directorio 46 + 5 = 51; cierre 22.
   const zip = zipStore([{ name: 'a.txt', data: text('hola') }]);
   const view = new DataView(zip.buffer);

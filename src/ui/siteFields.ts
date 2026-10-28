@@ -10,8 +10,8 @@ const degrees = (v: number) => v.toFixed(5);
 
 /**
  * Los tres campos y el botón con ícono de ubicación para elegir el punto en el mapa. `id`
- * distingue los de cada punto de la página («site», «end-a»…); `what` dice qué se ubica
- * («la torre», «el extremo A») para el aviso sobre el mapa.
+ * distingue los de cada punto de la página ("site", "end-a"…); `what` dice qué se ubica
+ * ("la torre", "el extremo A") para el aviso sobre el mapa.
  */
 export function siteFieldsHtml(id: string, name = '', what = 'el sitio'): string {
   return `
@@ -53,7 +53,7 @@ export interface SiteFields {
 
 /**
  * Conecta los campos de `siteFieldsHtml`. `onSite` recibe el punto cuando las dos coordenadas son
- * válidas, o null cuando alguna falta o no sirve. Pegar «6.27940, -75.68530» en Latitud llena las dos.
+ * válidas, o null cuando alguna falta o no sirve. Pegar "6.27940, -75.68530" en Latitud llena las dos.
  */
 export function bindSiteFields(root: HTMLElement, onSite: (site: LonLat | null) => void): SiteFields {
   const nameInput = root.querySelector<HTMLInputElement>('[data-site-name]')!;

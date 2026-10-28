@@ -117,8 +117,8 @@ function linesFolder(folderName: string, lines: readonly KmlLine[]): string {
 }
 
 /**
- * Ficha en HTML. Va dentro de CDATA; como cada texto se escapa (« > » pasa a «&gt;»), ninguno
- * puede cerrarla antes de tiempo con «]]>».
+ * Ficha en HTML. Va dentro de CDATA; como cada texto se escapa (" > " pasa a "&gt;"), ninguno
+ * puede cerrarla antes de tiempo con "]]>".
  */
 export function placemarkHtml(tables: readonly KmlTable[]): string {
   const cell = (tag: 'td' | 'th', text: string) => `<${tag}>${escapeXml(text)}</${tag}>`;
@@ -209,7 +209,7 @@ function layerFolder(layer: KmlCoverageLayer, visible: boolean): string {
 }
 
 /**
- * Cada capa va en su carpeta, dentro de una carpeta «Cobertura» en la que se prende una a la
+ * Cada capa va en su carpeta, dentro de una carpeta "Cobertura" en la que se prende una a la
  * vez, como el selector del mapa de Hertzo. Empieza prendida la primera.
  */
 export function coverageKml(
@@ -232,7 +232,7 @@ export function coverageKml(
 `;
 }
 
-/** Texto apto para un nombre de archivo: «Cerro El Padre Amaya» → «cerro-el-padre-amaya» (máximo 60 letras). */
+/** Texto apto para un nombre de archivo: "Cerro El Padre Amaya" → "cerro-el-padre-amaya" (máximo 60 letras). */
 export function slugify(text: string): string {
   return text
     .normalize('NFD')

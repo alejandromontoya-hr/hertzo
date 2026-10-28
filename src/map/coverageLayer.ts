@@ -40,7 +40,7 @@ export function createCoverageLayer(map: MapLibreMap, initialOpacity: number): C
         return;
       }
       source.setCoordinates(geometry.coordinates);
-      // Un lienzo estático solo se vuelve a subir mientras «reproduce»: se activa un cuadro.
+      // Un lienzo estático solo se vuelve a subir mientras "reproduce": se activa un cuadro.
       source.play();
       map.once('render', () => source.pause());
     },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseProject, projectFileName, projectJson, readNumbers } from './projectFile';
 
-// Un lector de prueba: acepta datos con un número «n».
+// Un lector de prueba: acepta datos con un número "n".
 const readN = (d: unknown) =>
   typeof d === 'object' && d !== null && typeof (d as { n: unknown }).n === 'number' ? { n: (d as { n: number }).n } : null;
 const savedAt = new Date(2026, 9, 26, 21, 30);

@@ -19,7 +19,7 @@ describe('páginas', () => {
     ]);
   });
 
-  it('terreno → «Cobertura de radio P25 y trunking sobre terreno | Hertzo»', () => {
+  it('terreno → "Cobertura de radio P25 y trunking sobre terreno | Hertzo"', () => {
     expect(pageMeta('terreno')!.title).toBe('Cobertura de radio P25 y trunking sobre terreno | Hertzo');
   });
 
@@ -27,7 +27,7 @@ describe('páginas', () => {
     expect(pageMeta('')!.title).toBe('Simulador abierto de propagación RF | Hertzo');
   });
 
-  it('todos los títulos terminan en « | Hertzo»', () => {
+  it('todos los títulos terminan en " | Hertzo"', () => {
     for (const page of PAGES) expect(page.title.endsWith(' | Hertzo'), page.title).toBe(true);
   });
 

@@ -64,7 +64,7 @@ export function createRxForm(
 
 /**
  * Selector de perfil de radio y sus campos. Elegir un perfil carga sus valores;
- * editar cualquier campo pasa el selector a «Personalizado» conservando lo escrito.
+ * editar cualquier campo pasa el selector a "Personalizado" conservando lo escrito.
  */
 export function createRadioForm(
   container: HTMLElement,
@@ -91,7 +91,7 @@ export function createRadioForm(
 
   select.addEventListener('change', () => {
     const profile = RADIO_PROFILES.find((p) => p.id === select.value);
-    // «Personalizado» parte de los valores que haya en pantalla.
+    // "Personalizado" parte de los valores que haya en pantalla.
     current = profile ?? { ...current, id: CUSTOM_PROFILE_ID, name: 'Personalizado' };
     fields.setValues(current);
     onChange(current);

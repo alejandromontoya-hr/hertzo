@@ -52,13 +52,13 @@ export function createMapPage(root: HTMLElement, panelHtml: string, ariaLabel: s
 
 /**
  * Bloque del panel del sitio: nombre, coordenadas (escritas o elegidas en el mapa), cota, perfil
- * de terreno, radio de cálculo y el botón «Simular». `what` completa la ayuda: «la torre».
+ * de terreno, radio de cálculo y el botón "Simular". `what` completa la ayuda: "la torre".
  */
 export function siteSectionHtml(title = 'Sitio', what = 'el sitio'): string {
   return `
     <section class="panel-section" data-site-panel>
       <h2>${title}${infoButton(
-        `Escribe las coordenadas (puedes pegar «6.27940, -75.68530» de Google Maps en Latitud) o pulsa el ícono de ubicación y haz clic donde va ${what}. Después puedes arrastrar el marcador para moverlo.`,
+        `Escribe las coordenadas (puedes pegar "6.27940, -75.68530" de Google Maps en Latitud) o pulsa el ícono de ubicación y haz clic donde va ${what}. Después puedes arrastrar el marcador para moverlo.`,
       )}</h2>
       ${siteFieldsHtml('site', '', what)}
       <div data-site-details hidden>
@@ -79,7 +79,7 @@ export function siteSectionHtml(title = 'Sitio', what = 'el sitio'): string {
     </section>`;
 }
 
-/** Botón «Simular» y su ayuda; empieza oculto hasta que hay datos para calcular. */
+/** Botón "Simular" y su ayuda; empieza oculto hasta que hay datos para calcular. */
 export function simulateBoxHtml(): string {
   return `
     <div class="simulate" data-simulate-box>
@@ -100,7 +100,7 @@ export function coverageStatusHtml(title = 'Cobertura'): string {
 
 /**
  * Selector de una opción en una lista (banda, servicio, tipo de enlace), en una sola línea. Con
- * `info`, lleva un botón «i» junto a la etiqueta (`[data-choice-info="nombre"]`, para cambiarlo).
+ * `info`, lleva un botón "i" junto a la etiqueta (`[data-choice-info="nombre"]`, para cambiarlo).
  */
 export function choiceHtml(name: string, options: { id: string; label: string }[], label: string, info?: string): string {
   return `

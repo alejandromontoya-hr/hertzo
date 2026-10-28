@@ -4,12 +4,12 @@ import type { LonLat } from '../geo/geodesy';
 export interface SiteMarker {
   /** Pone (o mueve) el marcador en el sitio, por ejemplo al escribir las coordenadas. */
   set(site: LonLat): void;
-  /** Activa o desactiva «Elegir en el mapa»: el próximo clic ubica el sitio y lo desactiva. */
+  /** Activa o desactiva "Elegir en el mapa": el próximo clic ubica el sitio y lo desactiva. */
   setPicking(active: boolean): void;
 }
 
 /**
- * Marcador del sitio. Solo un clic con «Elegir en el mapa» activo lo ubica; después se puede
+ * Marcador del sitio. Solo un clic con "Elegir en el mapa" activo lo ubica; después se puede
  * arrastrar. `onChange` se llama al ubicarlo con un clic y al soltarlo tras arrastrarlo.
  */
 export function createSiteMarker(

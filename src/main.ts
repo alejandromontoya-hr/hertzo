@@ -11,7 +11,7 @@ import { installInfoTips } from './ui/infoTip';
 // Vercel (por ejemplo en desarrollo) no envía nada.
 inject();
 
-// Globo de los botones «i» de todas las páginas.
+// Globo de los botones "i" de todas las páginas.
 installInfoTips();
 
 const titleOf = (path: string) => SCENARIOS.find((s) => s.path === path)!.title;

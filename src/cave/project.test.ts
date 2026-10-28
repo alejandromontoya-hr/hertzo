@@ -29,12 +29,12 @@ describe('readCaveProject', () => {
     expect(readCaveProject(bad)).toBeNull();
   });
 
-  it('una banda («5g») o una roca («granito») que no existen no se abren', () => {
+  it('una banda ("5g") o una roca ("granito") que no existen no se abren', () => {
     expect(readCaveProject({ ...roundTrip(project), bandId: '5g' })).toBeNull();
     expect(readCaveProject({ ...roundTrip(project), rockId: 'granito' })).toBeNull();
   });
 
-  it('una polarización «circular» no se abre', () => {
+  it('una polarización "circular" no se abre', () => {
     expect(readCaveProject({ ...roundTrip(project), polarization: 'circular' })).toBeNull();
   });
 

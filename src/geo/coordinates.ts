@@ -4,7 +4,7 @@ import type { LonLat } from './geodesy';
 
 const NUMBER = /^[-+]?\d+(?:\.\d+)?$/;
 
-/** Grados decimales con punto o con coma: «6.2794», «6,2794», «-75.6853»; null si no es un número. */
+/** Grados decimales con punto o con coma: "6.2794", "6,2794", "-75.6853"; null si no es un número. */
 export function parseDegrees(text: string): number | null {
   const t = text.trim().replace(/\s+/g, '').replace(',', '.');
   return NUMBER.test(t) ? Number(t) : null;
@@ -14,9 +14,9 @@ export const isLatitude = (v: number) => v >= -90 && v <= 90;
 export const isLongitude = (v: number) => v >= -180 && v <= 180;
 
 /**
- * Par «latitud, longitud» como lo copia Google Maps: «6.27940, -75.68530». También con punto y
- * coma, con espacios, o con coma sin espacio si los dos números llevan punto («6.2794,-75.6853»).
- * Una sola coma sin espacio, como «6,75», se lee como un número con decimales, no como un par.
+ * Par "latitud, longitud" como lo copia Google Maps: "6.27940, -75.68530". También con punto y
+ * coma, con espacios, o con coma sin espacio si los dos números llevan punto ("6.2794,-75.6853").
+ * Una sola coma sin espacio, como "6,75", se lee como un número con decimales, no como un par.
  */
 export function parseLatLonPair(text: string): LonLat | null {
   const t = text.trim();

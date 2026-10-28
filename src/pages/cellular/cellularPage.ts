@@ -156,7 +156,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     </details>
     <section class="panel-section">
       <h2>Resumen</h2>
-      <div data-summary><p class="hint">Ubica la torre y pulsa «Simular» para ver la cobertura.</p></div>
+      <div data-summary><p class="hint">Ubica la torre y pulsa "Simular" para ver la cobertura.</p></div>
     </section>`,
     'Parámetros del sitio celular',
   );
@@ -271,7 +271,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   function showModelHint() {
     const f = band.frequencyMHz;
     const modelInfo = page.find('[data-model-info]');
-    // El aviso se ve siempre que el modelo no sirve para la banda; la explicación va en «i».
+    // El aviso se ve siempre que el modelo no sirve para la banda; la explicación va en "i".
     modelWarning.hidden = !(model.startsWith('hata') && f > 2000);
     modelWarning.textContent = `Hata solo vale hasta 2000 MHz; a ${f} MHz todo el mapa queda rayado. Para esta banda usa 3GPP 38.901 o ITM.`;
     if (model.startsWith('hata')) {
@@ -375,7 +375,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     });
   }
 
-  /** «700 MHz», «AWS» o «3500 MHz». */
+  /** "700 MHz", "AWS" o "3500 MHz". */
   const bandName = () => (/^\d+$/.test(band.label) ? `${band.label} MHz` : band.label);
 
   function repaint() {

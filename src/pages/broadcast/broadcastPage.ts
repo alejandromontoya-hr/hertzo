@@ -117,7 +117,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     </section>
     <section class="panel-section">
       <h2>Zonas de servicio</h2>
-      <div data-zones><p class="hint">Ubica el transmisor y pulsa «Simular» para ver el alcance de cada zona.</p></div>
+      <div data-zones><p class="hint">Ubica el transmisor y pulsa "Simular" para ver el alcance de cada zona.</p></div>
     </section>`,
     'Parámetros de la emisora',
   );
@@ -220,7 +220,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     return result.request.engine;
   }
 
-  /** « · estéreo, urbano» para la franja i, solo si los umbrales siguen siendo los de la norma. */
+  /** " · estéreo, urbano" para la franja i, solo si los umbrales siguen siendo los de la norma. */
   function zoneSuffix(i: number): string {
     const defaults: readonly number[] = SERVICE[service].thresholds;
     const sameAsDefault = [...thresholds].sort((a, b) => b - a).join() === defaults.join();
@@ -281,7 +281,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     };
   }
 
-  /** «FM 98,5 MHz» o «AM 1.000 kHz». */
+  /** "FM 98,5 MHz" o "AM 1.000 kHz". */
   const stationLabel = () =>
     service === 'fm' ? `FM ${formatMHz(fm.frequencyMHz)}` : `AM ${integerFormat.format(am.frequencyKHz)} kHz`;
 

@@ -2,7 +2,7 @@ import type { IControl, Map as MapLibreMap } from 'maplibre-gl';
 import { DOWNLOAD_ICON } from '../ui/icons';
 
 export interface ExportOption {
-  /** Por ejemplo «KMZ para Google Earth». */
+  /** Por ejemplo "KMZ para Google Earth". */
   label: string;
   /** Qué trae, en una línea. */
   description: string;
@@ -23,7 +23,7 @@ interface ExportMenu extends ExportControl {
 }
 
 /**
- * Botón redondo «Exportar» con el estilo del de mapa base. Al abrirlo muestra lo que se puede
+ * Botón redondo "Exportar" con el estilo del de mapa base. Al abrirlo muestra lo que se puede
  * descargar en la página; mientras arma un archivo queda apagado. Empieza apagado.
  */
 function createExportMenu(options: readonly ExportOption[], disabledTitle: string): ExportMenu {
@@ -112,7 +112,7 @@ class ExportMenuControl implements IControl {
   }
 }
 
-/** Agrega el botón «Exportar» encima del de mapa base. */
+/** Agrega el botón "Exportar" encima del de mapa base. */
 export function addExportControl(map: MapLibreMap, options: readonly ExportOption[]): ExportControl {
   const menu = createExportMenu(options, MAP_DISABLED_TITLE);
   // En las esquinas de abajo, MapLibre pone cada control nuevo encima de los anteriores.

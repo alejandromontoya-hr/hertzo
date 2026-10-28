@@ -1,6 +1,6 @@
 # Marca de Hertzo
 
-El logo es el resonador de Heinrich Hertz (1887): un aro de alambre abierto con una esfera en cada punta. Cuando le llegaba una onda, saltaba una chispa entre las esferas; fue la primera vez que alguien vio una onda de radio. En el logo, ese aro es la «o» de «hertzo».
+El logo es el resonador de Heinrich Hertz (1887): un aro de alambre abierto con una esfera en cada punta. Cuando le llegaba una onda, saltaba una chispa entre las esferas; fue la primera vez que alguien vio una onda de radio. En el logo, ese aro es la "o" de "hertzo".
 
 | Archivo | Uso |
 | --- | --- |
@@ -12,7 +12,7 @@ El logo es el resonador de Heinrich Hertz (1887): un aro de alambre abierto con 
 
 ## Letra
 
-«hertz» va en [Geist Mono](https://github.com/vercel/geist-font) Medium, convertida a trazos. El aro ocupa la celda exacta de la «o» de esa fuente: mismo ancho, mismo alto y mismo grosor de trazo, así la separación con la «z» es la de cualquier otra letra.
+"hertz" va en [Geist Mono](https://github.com/vercel/geist-font) Medium, convertida a trazos. El aro ocupa la celda exacta de la "o" de esa fuente: mismo ancho, mismo alto y mismo grosor de trazo, así la separación con la "z" es la de cualquier otra letra.
 
 ## Colores
 

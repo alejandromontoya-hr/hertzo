@@ -1,4 +1,4 @@
-// Del navegador: botones «Guardar proyecto» y «Abrir proyecto» de los simuladores con editor.
+// Del navegador: botones "Guardar proyecto" y "Abrir proyecto" de los simuladores con editor.
 
 import { saveFile } from './download';
 import { parseProject, projectFileName, projectJson, type ProjectScenario } from './projectFile';

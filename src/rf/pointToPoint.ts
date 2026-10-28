@@ -14,7 +14,7 @@ export function fresnelRadiusM(d1M: number, d2M: number, frequencyMHz: number, n
   return Math.sqrt((n * wavelengthM(frequencyMHz) * d1M * d2M) / (d1M + d2M));
 }
 
-/** Cuánto «sube» el terreno por la curvatura de la Tierra con factor k (m): d1·d2 / (2·k·R). */
+/** Cuánto "sube" el terreno por la curvatura de la Tierra con factor k (m): d1·d2 / (2·k·R). */
 export function earthBulgeM(d1M: number, d2M: number, kFactor: number): number {
   return (d1M * d2M) / (2 * kFactor * EARTH_RADIUS_M);
 }
