@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LinkBudget } from '../rf/linkBudget';
-import { balanceSummary, budgetRows } from './budgetPanel';
+import { LORA_BUDGET_NAMES, balanceSummary, budgetRows } from './budgetPanel';
 
 function budget(maxPathLossDb: number): LinkBudget {
   return {
@@ -42,6 +42,21 @@ describe('balanceSummary', () => {
   it('diferencia de 0,4 dB: balanceado', () => {
     expect(balanceSummary(budget(150.4), budget(150))).toBe(
       'Bajada y subida están balanceadas (diferencia de 0,4 dB).',
+    );
+  });
+});
+
+describe('nombres de LoRa', () => {
+  it('11 filas: sin amplificador de torre, y transmite el gateway en bajada', () => {
+    const rows = budgetRows(budget(163.5), budget(164.6), LORA_BUDGET_NAMES);
+    expect(rows).toHaveLength(11);
+    expect(rows[0]).toEqual(['Transmite', 'Gateway', 'Gateway']);
+    expect(rows.some((r) => r[0] === 'Amplificador de torre')).toBe(false);
+  });
+
+  it('medidor en caja: bajada 145,5 dB y subida 140,5 dB, limita la subida por 5 dB', () => {
+    expect(balanceSummary(budget(145.5), budget(140.5), LORA_BUDGET_NAMES)).toBe(
+      'La subida aguanta 5,0 dB menos de pérdida que la bajada: la cobertura la limita la subida (el sensor oye al gateway, pero el gateway no lo oye).',
     );
   });
 });

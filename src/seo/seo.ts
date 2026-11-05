@@ -41,14 +41,15 @@ export interface PageMeta {
  * actualiza su fecha: Google deja de creerle al sitemap si las fechas cambian sin motivo.
  */
 const UPDATED: Record<string, string> = {
-  '': '2026-10-25',
-  [CHOOSER_PATH]: '2026-10-25',
+  '': '2026-11-05',
+  [CHOOSER_PATH]: '2026-11-05',
   terreno: '2026-10-25',
   radiodifusion: '2026-10-25',
   celular: '2026-10-25',
   enlace: '2026-10-25',
   interiores: '2026-10-25',
   cavernas: '2026-10-25',
+  lora: '2026-11-05',
 };
 
 const scenarioMeta = (s: Scenario): PageMeta => ({
@@ -64,14 +65,14 @@ export const PAGES: readonly PageMeta[] = [
     path: '',
     title: `${SITE.tagline} | ${SITE.name}`,
     description:
-      'Simulador abierto de propagación RF: radio profesional sobre terreno real con bajada y subida por separado, FM y AM, celular, enlaces, WiFi y túneles. Gratis.',
+      'Simulador abierto de propagación RF: celular, WiFi, LoRaWAN y radio profesional sobre terreno real con bajada y subida por separado, FM, AM, enlaces y túneles.',
     updated: UPDATED['']!,
   },
   {
     path: CHOOSER_PATH,
     title: `Escenarios de simulación RF | ${SITE.name}`,
     description:
-      'Elige qué simular: radio profesional en terreno, radiodifusión FM y AM, celular LTE y 5G, enlaces punto a punto, WiFi en interiores o túneles y minas.',
+      'Elige qué simular: celular LTE y 5G, WiFi en interiores, LoRaWAN, radio profesional en terreno, enlaces punto a punto, FM y AM, o túneles y minas.',
     updated: UPDATED[CHOOSER_PATH]!,
   },
   ...SCENARIOS.map(scenarioMeta),
@@ -292,7 +293,7 @@ ${s.summary}
 
 > Simulador web de propagación RF, gratuito y de código abierto (licencia MIT), pensado primero para radio profesional: P25, trunking, convencional y punto a punto. Calcula la cobertura sobre el terreno real con la bajada y la subida por separado, y todo corre en el navegador: sin servidores, sin cuentas y sin costo.
 
-Hertzo predice la cobertura de un sitio de radio antes de instalarlo. En radio profesional dibuja por separado la bajada (de la repetidora a los radios) y la subida (de los radios a la repetidora), porque cada una tiene su potencia, sus ganancias y sus pérdidas: en un sitio UHF de ejemplo la bajada aguanta 155,7 dB de pérdida y la subida solo 145,5 dB, así que la subida limita la cobertura por 10,2 dB y hay zonas donde se oye la repetidora pero ella no oye al radio. Además simula radiodifusión FM y AM, celular LTE y 5G, enlaces punto a punto, WiFi en interiores y radio en túneles, minas y cavernas.
+Hertzo predice la cobertura de un sitio de radio antes de instalarlo. En radio profesional dibuja por separado la bajada (de la repetidora a los radios) y la subida (de los radios a la repetidora), porque cada una tiene su potencia, sus ganancias y sus pérdidas: en un sitio UHF de ejemplo la bajada aguanta 155,7 dB de pérdida y la subida solo 145,5 dB, así que la subida limita la cobertura por 10,2 dB y hay zonas donde se oye la repetidora pero ella no oye al radio. Además simula radiodifusión FM y AM, celular LTE y 5G, LoRaWAN, enlaces punto a punto, WiFi en interiores y radio en túneles, minas y cavernas.
 
 Es una herramienta de planificación: sus predicciones no reemplazan mediciones de campo ni estudios de ingeniería certificados.
 
@@ -303,7 +304,7 @@ Idioma: español
 
 ## Páginas principales
 
-- [Inicio](${pageUrl('')}): Qué hace Hertzo, por qué separa la bajada de la subida y la entrada a los seis escenarios.
+- [Inicio](${pageUrl('')}): Qué hace Hertzo, por qué separa la bajada de la subida y la entrada a los siete escenarios.
 - [Escenarios](${pageUrl(CHOOSER_PATH)}): Selector "¿Qué quieres simular?" con cada escenario y sus variantes.
 
 ## Escenarios

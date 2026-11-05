@@ -6,12 +6,13 @@ type Node = Record<string, unknown>;
 const graph = (path: string) => (structuredData(path) as { '@graph': Node[] })['@graph'];
 
 describe('páginas', () => {
-  it('ocho páginas: inicio, escenarios y los seis escenarios', () => {
+  it('nueve páginas: inicio, escenarios y los siete escenarios', () => {
     expect(PAGES.map((p) => p.path)).toEqual([
       '',
       'escenarios',
       'celular',
       'interiores',
+      'lora',
       'terreno',
       'enlace',
       'radiodifusion',
@@ -81,7 +82,7 @@ describe('structuredData', () => {
     const app = graph('')[1]!;
     expect(app.isAccessibleForFree).toBe(true);
     expect(app.offers).toEqual({ '@type': 'Offer', price: '0', priceCurrency: 'USD' });
-    expect(app.featureList).toHaveLength(6);
+    expect(app.featureList).toHaveLength(7);
   });
 
   it('cavernas → migas Inicio › Escenarios › Cavernas, túneles y minas', () => {
@@ -91,7 +92,7 @@ describe('structuredData', () => {
     expect(crumbs[2]!.item).toBe('https://hertzo.site/cavernas');
   });
 
-  it('escenarios lista los seis escenarios en orden', () => {
+  it('escenarios lista los siete escenarios en orden', () => {
     const page = graph('escenarios')[0]!;
     expect(page['@type']).toBe('CollectionPage');
     const items = (page.mainEntity as { itemListElement: Node[] }).itemListElement;
@@ -110,10 +111,10 @@ describe('robots.txt', () => {
 });
 
 describe('sitemap.xml', () => {
-  it('ocho direcciones, sin variantes con parámetros', () => {
+  it('nueve direcciones, sin variantes con parámetros', () => {
     const xml = sitemapXml();
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    expect(locs).toHaveLength(8);
+    expect(locs).toHaveLength(9);
     expect(locs[0]).toBe('https://hertzo.site/');
     expect(locs.some((l) => l!.includes('?'))).toBe(false);
   });

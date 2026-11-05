@@ -1,6 +1,7 @@
 // Íconos de Lucide (https://lucide.dev, licencia ISC). Van aparte del catálogo de escenarios
 // porque la configuración de Vite lee ese catálogo y no sabe importar archivos SVG.
 
+import antenna from 'lucide-static/icons/antenna.svg?raw';
 import boomBox from 'lucide-static/icons/boom-box.svg?raw';
 import download from 'lucide-static/icons/download.svg?raw';
 import houseWifi from 'lucide-static/icons/house-wifi.svg?raw';
@@ -27,6 +28,7 @@ export const SCENARIO_ICONS: Record<string, string> = {
   enlace: decorative(satelliteDish),
   interiores: decorative(houseWifi),
   cavernas: decorative(pickaxe),
+  lora: decorative(antenna),
 };
 
 const brand = (path: string) =>

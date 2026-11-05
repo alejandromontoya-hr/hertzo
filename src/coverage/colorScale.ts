@@ -25,10 +25,14 @@ export function levelBand(levelDbm: number, sensitivityDbm: number, thresholdsDb
   return sorted.length;
 }
 
+const edgeFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1, useGrouping: false });
+/** −139,03089 → "-139"; −131,5 → "-131,5": a lo sumo un decimal, con el guion corto de los campos. */
+const formatEdge = (dbm: number) => edgeFormat.format(dbm).replace('−', '-');
+
 /** Texto de cada franja para la leyenda: "≥ -80 dBm", "-95 a -80 dBm", …, "-116 a -105 dBm". */
 export function levelBandLabels(sensitivityDbm: number, thresholdsDbm: readonly number[]): string[] {
   const sorted = [...thresholdsDbm].sort((a, b) => b - a);
-  const edges = [...sorted, sensitivityDbm];
+  const edges = [...sorted, sensitivityDbm].map(formatEdge);
   return edges.map((low, i) => (i === 0 ? `≥ ${low} dBm` : `${low} a ${edges[i - 1]} dBm`));
 }
 

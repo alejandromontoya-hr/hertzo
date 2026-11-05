@@ -66,6 +66,22 @@ export const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    path: 'lora',
+    group: 'datos',
+    title: 'LoRaWAN',
+    pageTitle: 'Cobertura LoRaWAN de un gateway sobre terreno',
+    description:
+      'Bajada y subida de un gateway LoRaWAN AU915, US915 o EU868 sobre el terreno real con ITM, y el SF más rápido en cada punto. Gratis, en tu navegador.',
+    summary: 'Un gateway y sus sensores: bajada, subida y el SF que alcanza en cada punto.',
+    computes: 'Bajada, subida, desbalance, SF mínimo y tiempo en el aire de cada mensaje.',
+    model: 'ITM (Longley-Rice) de NTIA sobre terreno SRTM; sensibilidad LoRa por SF',
+    options: [
+      { label: 'AU915', href: '/lora?banda=au915' },
+      { label: 'US915', href: '/lora?banda=us915' },
+      { label: 'EU868', href: '/lora?banda=eu868' },
+    ],
+  },
+  {
     path: 'terreno',
     group: 'radio',
     title: 'Radiocomunicaciones en terreno',

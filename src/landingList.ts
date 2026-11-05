@@ -1,5 +1,5 @@
 // Lista de escenarios de la página principal. La compilación la escribe en index.html, así los
-// buscadores y los asistentes de IA que no ejecutan JavaScript ven los seis escenarios y sus
+// buscadores y los asistentes de IA que no ejecutan JavaScript ven los siete escenarios y sus
 // enlaces; al cargar, landing.ts la vuelve a escribir igual pero con los íconos.
 
 import { SCENARIOS } from './pages/scenarios';

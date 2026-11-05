@@ -14,9 +14,9 @@ export interface CoverageGrids {
 }
 
 /** Rayado de baja confianza: 2 de cada 6 diagonales de píxeles, en gris oscuro. */
-const HATCH_PERIOD = 6;
-const HATCH_WIDTH = 2;
-const HATCH_RGB: [number, number, number] = [55, 55, 55];
+export const HATCH_PERIOD = 6;
+export const HATCH_WIDTH = 2;
+export const HATCH_RGB: [number, number, number] = [55, 55, 55];
 
 const LEVEL_RGB = LEVEL_COLORS.map(hexToRgb);
 const BALANCE_RGB = new Map(BALANCE_LEGEND.map((entry) => [entry.cls, hexToRgb(entry.color)]));

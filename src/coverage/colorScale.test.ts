@@ -17,6 +17,14 @@ describe('levelBand (sensibilidad del portátil −116 dBm)', () => {
 });
 
 describe('levelBandLabels', () => {
+  it('sensibilidad LoRa −139,03089 dBm: la última franja dice "-139 a -105 dBm"', () => {
+    expect(levelBandLabels(-139.03089986991944, thresholds)[3]).toBe('-139 a -105 dBm');
+  });
+
+  it('a lo sumo un decimal: −131,46 dBm → "-131,5 a -105 dBm"', () => {
+    expect(levelBandLabels(-131.46, thresholds)[3]).toBe('-131,5 a -105 dBm');
+  });
+
   it('4 franjas para la leyenda de bajada', () => {
     expect(levelBandLabels(-116, thresholds)).toEqual([
       '≥ -80 dBm',
