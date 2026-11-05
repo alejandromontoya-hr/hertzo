@@ -18,31 +18,51 @@ export function createCoverageLayer(map: MapLibreMap, initialOpacity: number): C
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   let opacity = initialOpacity;
+  let waitingForStyle = false;
+  let latest: RasterGeometry | null = null;
 
-  return {
+  /** Pone en el mapa el lienzo ya pintado, sobre el rectángulo de la geometría. */
+  function show(geometry: RasterGeometry) {
+    const source = map.getSource<CanvasSource>(SOURCE_ID);
+    if (!source) {
+      try {
+        map.addSource(SOURCE_ID, { type: 'canvas', canvas, coordinates: geometry.coordinates, animate: false });
+      } catch {
+        // Si el cálculo termina antes de que el mapa cargue su estilo (terreno en caché y mapa
+        // base lento), MapLibre todavía no admite capas: se muestra apenas cargue, con el último lienzo.
+        if (!waitingForStyle) {
+          waitingForStyle = true;
+          map.once('style.load', () => {
+            waitingForStyle = false;
+            if (latest) show(latest);
+          });
+        }
+        return;
+      }
+      map.addLayer(
+        {
+          id: SOURCE_ID,
+          type: 'raster',
+          source: SOURCE_ID,
+          paint: { 'raster-opacity': opacity, 'raster-fade-duration': 0 },
+        },
+        LAYERS_ABOVE.find((id) => map.getLayer(id)),
+      );
+      return;
+    }
+    source.setCoordinates(geometry.coordinates);
+    // Un lienzo estático solo se vuelve a subir mientras "reproduce": se activa un cuadro.
+    source.play();
+    map.once('render', () => source.pause());
+  }
+
+  const layer: CoverageLayer = {
     draw(geometry, pixels) {
       canvas.width = geometry.width;
       canvas.height = geometry.height;
       ctx.putImageData(new ImageData(pixels, geometry.width, geometry.height), 0, 0);
-
-      const source = map.getSource<CanvasSource>(SOURCE_ID);
-      if (!source) {
-        map.addSource(SOURCE_ID, { type: 'canvas', canvas, coordinates: geometry.coordinates, animate: false });
-        map.addLayer(
-          {
-            id: SOURCE_ID,
-            type: 'raster',
-            source: SOURCE_ID,
-            paint: { 'raster-opacity': opacity, 'raster-fade-duration': 0 },
-          },
-          LAYERS_ABOVE.find((id) => map.getLayer(id)),
-        );
-        return;
-      }
-      source.setCoordinates(geometry.coordinates);
-      // Un lienzo estático solo se vuelve a subir mientras "reproduce": se activa un cuadro.
-      source.play();
-      map.once('render', () => source.pause());
+      latest = geometry;
+      show(geometry);
     },
     setOpacity(next) {
       opacity = next;
@@ -53,4 +73,5 @@ export function createCoverageLayer(map: MapLibreMap, initialOpacity: number): C
       if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
     },
   };
+  return layer;
 }
