@@ -14,6 +14,8 @@ import {
   RADIO_PROFILES,
   type LmrBandId,
 } from '../../data/defaults';
+import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/deviceLoss';
+import { evaluateDevice } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { createCoverageLayer } from '../../map/coverageLayer';
@@ -22,6 +24,7 @@ import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
+import { createDeviceList, type Device, type DeviceList } from '../../ui/deviceList';
 import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
@@ -37,6 +40,8 @@ const VIEWS: { id: CoverageView; label: string; title: string }[] = [
 ];
 
 const kmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
+const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0, signDisplay: 'auto' });
+const marginFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0, signDisplay: 'exceptZero' });
 const LEVEL_EMPTY_LABEL = 'no llega a la sensibilidad';
 const HATCH_LABEL = 'baja confianza (ladera empinada junto al sitio)';
 
@@ -66,6 +71,10 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     <details class="panel-section" open>
       <summary>Radio de usuario</summary>
       <div class="form" data-radio-form></div>
+    </details>
+    <details class="panel-section" open>
+      <summary>Equipos${infoButton('Radios concretos, por ejemplo los 20 portátiles de una cuadrilla: agrégalos con clic en el mapa o pega su lista. Cada uno se calcula con el ITM punto a punto desde el sitio, a su propia altura y con su perfil.')}</summary>
+      <div data-devices></div>
     </details>
     <details class="panel-section">
       <summary>Bajada (talk-out) · cadena de transmisión</summary>
@@ -144,6 +153,46 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     rx = next;
     onParametersChange();
   });
+  // Radios concretos: la pérdida de cada trayecto se guarda, así cambiar la potencia o la
+  // sensibilidad no vuelve a correr el ITM; solo se recalcula si cambia la geometría.
+  const lossCache = new Map<string, Promise<DeviceLoss>>();
+  const radioOf = (d: Device) => RADIO_PROFILES.find((p) => p.id === d.profileId) ?? radio;
+  let deviceList: DeviceList | undefined;
+  deviceList = createDeviceList(page, page.find('[data-devices]'), {
+    columns: ['Bajada', 'Subida', 'Margen'],
+    noun: { one: 'radio', many: 'radios' },
+    profileName: (id) => RADIO_PROFILES.find((p) => p.id === id)?.name ?? radio.name,
+    matchProfile(text) {
+      const t = text.trim().toLowerCase();
+      return RADIO_PROFILES.find((p) => p.id === t || p.name.toLowerCase() === t || p.name.toLowerCase().includes(t))?.id ?? null;
+    },
+    async evaluate(device) {
+      const location = site.getSite();
+      if (!location) return null;
+      const r = radioOf(device);
+      const path: DevicePath = {
+        site: location,
+        device: device.position,
+        deviceHeightM: r.heightM,
+        down: { siteHeightM: tx.antennaHeightM, frequencyMHz: tx.frequencyMHz },
+        up: { siteHeightM: rx.antennaHeightM, frequencyMHz: rx.frequencyMHz },
+      };
+      const key = JSON.stringify(path);
+      if (!lossCache.has(key)) lossCache.set(key, deviceLoss(path));
+      const loss = await lossCache.get(key)!;
+      const result = evaluateDevice(talkOutBudget(tx, r), talkInBudget(rx, r), loss.downDb, loss.upDb);
+      const dbm = (v: number) => (Number.isNaN(v) ? '—' : integerFormat.format(v).replace('−', '-'));
+      // El margen que manda es el de la dirección más débil.
+      const margin = Math.min(result.downMarginDb, result.upMarginDb);
+      return {
+        cells: [dbm(result.downDbm), dbm(result.upDbm), Number.isNaN(margin) ? '—' : `${marginFormat.format(margin).replace('−', '-')} dB`],
+        status: result.status,
+        detail: `A ${kmFormat.format(loss.distanceM / 1000)} km del sitio · bajada ${dbm(result.downDbm)} dBm · subida ${dbm(result.upDbm)} dBm`,
+      };
+    },
+    fileName: () => exportFileName('terreno-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
+  });
+
   bindChoice(page.panel, 'banda', band.id, (id) => {
     band = LMR_BANDS.find((b) => b.id === (id as LmrBandId))!;
     // Se conservan las alturas y la potencia que el usuario ya puso; cambia lo propio de la banda.
@@ -250,6 +299,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     redraw();
     const location = site.getSite();
     controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio));
+    deviceList?.refresh();
   }
 
   const readout = createHoverReadout(page.readoutRoot);
@@ -268,6 +318,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   onParametersChange();
 
   return () => {
+    deviceList?.destroy();
     controller.destroy();
     page.destroy();
   };
