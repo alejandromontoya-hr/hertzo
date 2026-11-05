@@ -21,6 +21,8 @@ import {
   type LoraGateway,
   type LoraSensor,
 } from '../../data/lora';
+import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/deviceLoss';
+import { evaluateDevice } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { createCoverageLayer } from '../../map/coverageLayer';
@@ -29,6 +31,7 @@ import { receivedPowerDbm, talkInBudget, talkOutBudget } from '../../rf/linkBudg
 import { SPREADING_FACTORS, loraSensitivityDbm, loraTimeOnAirMs, minimumSpreadingFactor } from '../../rf/lora';
 import { LORA_BUDGET_NAMES, balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createMapLegend } from '../../ui/coverageLegend';
+import { createDeviceList, type Device, type DeviceList } from '../../ui/deviceList';
 import { createFieldGroup, createNumberField, type NumberFieldSpec } from '../../ui/fields';
 import { formatDbm, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
@@ -54,6 +57,7 @@ const DEFAULT_RADIUS_KM = 20;
 const CUSTOM_SENSOR_ID = 'personalizado';
 
 const kmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
+const integerDbm = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 const msFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 const LEVEL_EMPTY_LABEL = 'no llega ni con SF12';
 const HATCH_LABEL = 'baja confianza (ladera empinada junto al gateway)';
@@ -116,6 +120,10 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     <details class="panel-section" open>
       <summary>Sensor</summary>
       <div class="form" data-sensor-form></div>
+    </details>
+    <details class="panel-section" open>
+      <summary>Equipos${infoButton('Medidores o sensores concretos: agrégalos con clic en el mapa o pega su lista. Cada uno se calcula con el ITM punto a punto desde el gateway, a su propia altura.')}</summary>
+      <div data-devices></div>
     </details>
     <details class="panel-section">
       <summary>Gateway · antena y cable</summary>
@@ -251,6 +259,46 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
       </table>`;
   }
 
+  // Equipos concretos: la pérdida de cada trayecto se guarda, así cambiar la potencia o la
+  // figura de ruido no vuelve a correr el ITM; solo se recalcula si cambia la geometría.
+  const lossCache = new Map<string, Promise<DeviceLoss>>();
+  const sensorOf = (d: Device) => LORA_SENSORS.find((s) => s.id === d.profileId) ?? sensor;
+  let deviceList: DeviceList | undefined;
+  deviceList = createDeviceList(page, page.find('[data-devices]'), {
+    columns: ['Bajada', 'Subida', 'SF'],
+    noun: { one: 'medidor', many: 'medidores' },
+    profileName: (id) => LORA_SENSORS.find((s) => s.id === id)?.name ?? sensor.name,
+    matchProfile(text) {
+      const t = text.trim().toLowerCase();
+      return LORA_SENSORS.find((s) => s.id === t || s.name.toLowerCase() === t || s.name.toLowerCase().includes(t))?.id ?? null;
+    },
+    async evaluate(device) {
+      const location = site.getSite();
+      if (!location) return null;
+      const s = sensorOf(device);
+      const path: DevicePath = {
+        site: location,
+        device: device.position,
+        deviceHeightM: s.heightM,
+        down: { siteHeightM: gateway.antennaHeightM, frequencyMHz: band.downlink.frequencyMHz },
+        up: { siteHeightM: gateway.antennaHeightM, frequencyMHz: band.uplink.frequencyMHz },
+      };
+      const key = JSON.stringify(path);
+      if (!lossCache.has(key)) lossCache.set(key, deviceLoss(path));
+      const loss = await lossCache.get(key)!;
+      const profile = sensorRadioProfile(band, s);
+      const r = evaluateDevice(talkOutBudget(tx(), profile), talkInBudget(rx(), profile), loss.downDb, loss.upDb);
+      const sf = Number.isNaN(r.upDbm) ? null : minimumSpreadingFactor(r.upDbm, band.uplink.bandwidthKHz, gateway.noiseFigureDb);
+      const dbm = (v: number) => (Number.isNaN(v) ? '—' : integerDbm.format(v));
+      return {
+        cells: [dbm(r.downDbm), dbm(r.upDbm), sf === null ? '—' : `SF${sf}`],
+        status: r.status,
+        detail: `A ${kmFormat.format(loss.distanceM / 1000)} km del gateway · bajada ${dbm(r.downDbm)} dBm · subida ${dbm(r.upDbm)} dBm`,
+      };
+    },
+    fileName: () => exportFileName('lora-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
+  });
+
   bindChoice(page.panel, 'banda', band.id, (id) => {
     band = LORA_BANDS.find((b) => b.id === (id as LoraBandId))!;
     showBandInfo();
@@ -363,6 +411,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     redraw();
     const location = site.getSite();
     controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio()));
+    deviceList?.refresh();
   }
 
   const readout = createHoverReadout(page.readoutRoot);
@@ -384,6 +433,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   onParametersChange();
 
   return () => {
+    deviceList?.destroy();
     controller.destroy();
     page.destroy();
   };

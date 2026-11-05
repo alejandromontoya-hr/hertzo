@@ -1949,3 +1949,70 @@ body {
 .panel-section > .end-title ~ .end-title {
   margin-top: 16px;
 }
+
+/* Equipos concretos sobre el mapa (medidores, sensores, radios). */
+.device-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.device-actions .button[aria-pressed='true'] {
+  color: var(--bg);
+  background: var(--ink);
+}
+
+.device-paste {
+  display: grid;
+  gap: 8px;
+}
+
+.device-paste label {
+  font-size: 0.85rem;
+}
+
+.device-paste textarea {
+  width: 100%;
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.device-paste .button {
+  justify-self: start;
+}
+
+.device-table tbody th {
+  white-space: normal;
+}
+
+.device-table tbody th small {
+  display: block;
+  margin-left: 16px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+
+/* Punto del equipo en el mapa: borde blanco para que se vea sobre cualquier color de cobertura. */
+.device-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--ink);
+  cursor: default;
+}
