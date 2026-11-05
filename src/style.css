@@ -283,9 +283,25 @@ body {
   color: var(--muted);
 }
 
+/* Grupos del selector ("Redes de datos", "Radio"): mismo rótulo en mayúsculas que la "Hoja" de cada tarjeta. */
+.scenario-group + .scenario-group {
+  margin-top: 32px;
+}
+
+.scenario-group-title {
+  margin: 0 0 12px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .scenario-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  /* 280 px: en 1280 px caben 4 por fila, así "Radio" (4 escenarios) queda en una sola fila. */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
   margin: 0;
   padding: 0;

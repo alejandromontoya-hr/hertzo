@@ -6,8 +6,17 @@ export interface ScenarioOption {
   href: string;
 }
 
+/** Grupo del selector: "datos" (celular, WiFi) va primero; "radio" (LMR, enlaces, emisoras, túneles) después. */
+export type ScenarioGroup = 'datos' | 'radio';
+
+export const SCENARIO_GROUPS: readonly { id: ScenarioGroup; title: string }[] = [
+  { id: 'datos', title: 'Redes de datos' },
+  { id: 'radio', title: 'Radio' },
+];
+
 export interface Scenario {
   path: string;
+  group: ScenarioGroup;
   title: string;
   /** Título de la pestaña y de Google, sin " | Hertzo"; con las palabras que la gente busca. */
   pageTitle: string;
@@ -22,37 +31,8 @@ export interface Scenario {
 
 export const SCENARIOS: Scenario[] = [
   {
-    path: 'terreno',
-    title: 'Radiocomunicaciones en terreno',
-    pageTitle: 'Cobertura de radio P25 y trunking sobre terreno',
-    description:
-      'Bajada y subida de un sitio VHF, UHF, 700 u 800 MHz sobre el terreno real con ITM (Longley-Rice) y su balance de enlace. Gratis, en tu navegador.',
-    summary: 'Trunking P25, SmartZone y convencional sobre el terreno real.',
-    computes: 'Bajada, subida y desbalance de un sitio, con su balance de enlace.',
-    model: 'ITM (Longley-Rice) de NTIA sobre terreno SRTM',
-    options: [
-      { label: 'VHF', href: '/terreno?banda=vhf' },
-      { label: 'UHF', href: '/terreno?banda=uhf' },
-      { label: '700 MHz', href: '/terreno?banda=700' },
-      { label: '800 MHz', href: '/terreno?banda=800' },
-    ],
-  },
-  {
-    path: 'radiodifusion',
-    title: 'Radiodifusión FM y AM',
-    pageTitle: 'Cobertura de emisoras FM y AM',
-    description:
-      'Intensidad de campo en dBµV/m y zonas de servicio de una emisora: FM con ITM sobre el terreno real y AM con onda de tierra. Gratis, en tu navegador.',
-    summary: 'Emisoras sobre el terreno: intensidad de campo y zonas de servicio.',
-    computes: 'Campo en dBµV/m y contornos de servicio urbano, suburbano y rural.',
-    model: 'FM con ITM sobre terreno; AM con onda de tierra (Sommerfeld-Norton)',
-    options: [
-      { label: 'FM', href: '/radiodifusion?servicio=fm' },
-      { label: 'AM', href: '/radiodifusion?servicio=am' },
-    ],
-  },
-  {
     path: 'celular',
+    group: 'datos',
     title: 'Celular (LTE / 5G)',
     pageTitle: 'Cobertura celular LTE y 5G por sectores',
     description:
@@ -70,21 +50,8 @@ export const SCENARIOS: Scenario[] = [
     ],
   },
   {
-    path: 'enlace',
-    title: 'Enlaces punto a punto',
-    pageTitle: 'Radioenlaces y microondas punto a punto',
-    description:
-      'Perfil del trayecto, despeje de la zona de Fresnel, nivel recibido, margen de desvanecimiento y disponibilidad de un enlace. Gratis, en tu navegador.',
-    summary: 'Microondas y radioenlaces: perfil, zona de Fresnel y margen.',
-    computes: 'Despeje de Fresnel, pérdidas, nivel recibido, margen de desvanecimiento y disponibilidad.',
-    model: 'Espacio libre + difracción por aristas (Deygout) e ITM; Vigants-Barnett',
-    options: [
-      { label: 'Microondas', href: '/enlace?tipo=microondas' },
-      { label: 'Radioenlace VHF/UHF', href: '/enlace?tipo=radio' },
-    ],
-  },
-  {
     path: 'interiores',
+    group: 'datos',
     title: 'Interiores (WiFi)',
     pageTitle: 'Cobertura WiFi en interiores con planos',
     description:
@@ -99,7 +66,55 @@ export const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    path: 'terreno',
+    group: 'radio',
+    title: 'Radiocomunicaciones en terreno',
+    pageTitle: 'Cobertura de radio P25 y trunking sobre terreno',
+    description:
+      'Bajada y subida de un sitio VHF, UHF, 700 u 800 MHz sobre el terreno real con ITM (Longley-Rice) y su balance de enlace. Gratis, en tu navegador.',
+    summary: 'Trunking P25, SmartZone y convencional sobre el terreno real.',
+    computes: 'Bajada, subida y desbalance de un sitio, con su balance de enlace.',
+    model: 'ITM (Longley-Rice) de NTIA sobre terreno SRTM',
+    options: [
+      { label: 'VHF', href: '/terreno?banda=vhf' },
+      { label: 'UHF', href: '/terreno?banda=uhf' },
+      { label: '700 MHz', href: '/terreno?banda=700' },
+      { label: '800 MHz', href: '/terreno?banda=800' },
+    ],
+  },
+  {
+    path: 'enlace',
+    group: 'radio',
+    title: 'Enlaces punto a punto',
+    pageTitle: 'Radioenlaces y microondas punto a punto',
+    description:
+      'Perfil del trayecto, despeje de la zona de Fresnel, nivel recibido, margen de desvanecimiento y disponibilidad de un enlace. Gratis, en tu navegador.',
+    summary: 'Microondas y radioenlaces: perfil, zona de Fresnel y margen.',
+    computes: 'Despeje de Fresnel, pérdidas, nivel recibido, margen de desvanecimiento y disponibilidad.',
+    model: 'Espacio libre + difracción por aristas (Deygout) e ITM; Vigants-Barnett',
+    options: [
+      { label: 'Microondas', href: '/enlace?tipo=microondas' },
+      { label: 'Radioenlace VHF/UHF', href: '/enlace?tipo=radio' },
+    ],
+  },
+  {
+    path: 'radiodifusion',
+    group: 'radio',
+    title: 'Radiodifusión FM y AM',
+    pageTitle: 'Cobertura de emisoras FM y AM',
+    description:
+      'Intensidad de campo en dBµV/m y zonas de servicio de una emisora: FM con ITM sobre el terreno real y AM con onda de tierra. Gratis, en tu navegador.',
+    summary: 'Emisoras sobre el terreno: intensidad de campo y zonas de servicio.',
+    computes: 'Campo en dBµV/m y contornos de servicio urbano, suburbano y rural.',
+    model: 'FM con ITM sobre terreno; AM con onda de tierra (Sommerfeld-Norton)',
+    options: [
+      { label: 'FM', href: '/radiodifusion?servicio=fm' },
+      { label: 'AM', href: '/radiodifusion?servicio=am' },
+    ],
+  },
+  {
     path: 'cavernas',
+    group: 'radio',
     title: 'Cavernas, túneles y minas',
     pageTitle: 'Radio en túneles, minas y cavernas',
     description:

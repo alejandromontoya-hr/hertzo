@@ -10,11 +10,11 @@ describe('páginas', () => {
     expect(PAGES.map((p) => p.path)).toEqual([
       '',
       'escenarios',
-      'terreno',
-      'radiodifusion',
       'celular',
-      'enlace',
       'interiores',
+      'terreno',
+      'enlace',
+      'radiodifusion',
       'cavernas',
     ]);
   });
