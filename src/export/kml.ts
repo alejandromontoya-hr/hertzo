@@ -44,6 +44,8 @@ export interface KmlPlacemark {
   name: string;
   position: LonLat;
   tables: KmlTable[];
+  /** Color del punto en "#rrggbb"; sin color, el alfiler de Google Earth. */
+  color?: string;
 }
 
 /** Línea sobre el terreno, por ejemplo un contorno de servicio. */
@@ -73,7 +75,12 @@ export interface CoverageKmlOptions {
   site?: KmlPlacemark;
   /** Carpeta de líneas, también fuera de la de cobertura: se prenden aparte de la imagen. */
   lines?: { folderName: string; lines: KmlLine[] };
+  /** Carpeta de equipos concretos (medidores, radios), cada uno con su color de estado. */
+  devices?: { folderName: string; placemarks: KmlPlacemark[] };
 }
+
+/** Punto redondo de Google Earth; se tiñe con el color del IconStyle. */
+const DOT_ICON = 'https://maps.google.com/mapfiles/kml/shapes/shaded_dot.png';
 
 const escapeXml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -164,10 +171,14 @@ export function linkKml(documentName: string, ends: readonly KmlPlacemark[], ray
 }
 
 function placemark(p: KmlPlacemark): string {
+  const style = p.color
+    ? `
+      <Style><IconStyle><color>${kmlLineColor(p.color)}</color><scale>0.8</scale><Icon><href>${DOT_ICON}</href></Icon></IconStyle></Style>`
+    : '';
   return `
     <Placemark>
       <name>${escapeXml(p.name)}</name>
-      <description><![CDATA[${placemarkHtml(p.tables)}]]></description>
+      <description><![CDATA[${placemarkHtml(p.tables)}]]></description>${style}
       <Point><coordinates>${degrees(p.position.lon)},${degrees(p.position.lat)},0</coordinates></Point>
     </Placemark>`;
 }
@@ -226,7 +237,14 @@ export function coverageKml(
       <name>Cobertura</name>
       <open>1</open>
       <Style><ListStyle><listItemType>radioFolder</listItemType></ListStyle></Style>${layers.map((l, i) => layerFolder(l, i === 0)).join('')}
-    </Folder>${options.lines ? linesFolder(options.lines.folderName, options.lines.lines) : ''}
+    </Folder>${options.lines ? linesFolder(options.lines.folderName, options.lines.lines) : ''}${
+      options.devices && options.devices.placemarks.length > 0
+        ? `
+    <Folder>
+      <name>${escapeXml(options.devices.folderName)}</name>${options.devices.placemarks.map(placemark).join('')}
+    </Folder>`
+        : ''
+    }
   </Document>
 </kml>
 `;

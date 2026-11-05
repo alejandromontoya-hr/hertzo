@@ -6,7 +6,9 @@ import { Marker } from 'maplibre-gl';
 import { BALANCE_LEGEND } from '../coverage/colorScale';
 import { parseDeviceList, type DeviceStatus } from '../devices/devices';
 import type { LonLat } from '../geo/geodesy';
+import type { KmlPlacemark } from '../export/kml';
 import type { MapPage } from '../pages/shared/mapPage';
+import { formatLonLat } from './format';
 import { infoButton } from './infoTip';
 
 export interface Device {
@@ -28,6 +30,8 @@ export interface DeviceRow {
 export interface DeviceListOptions {
   /** Encabezados de las columnas de resultados, por ejemplo ["Bajada", "Subida", "SF"]. */
   columns: string[];
+  /** Unidad de cada columna ("dBm", "dB" o ""), para el CSV y la ficha de Google Earth. */
+  units: string[];
   /** Cómo se llama el equipo en plural y en singular: "medidores" / "medidor". */
   noun: { one: string; many: string };
   /** Nombre del perfil para mostrarlo en la fila. */
@@ -43,6 +47,8 @@ export interface DeviceListOptions {
 export interface DeviceList {
   /** Vuelve a evaluar todos los equipos (cambió el sitio, la banda, la potencia...). */
   refresh(): void;
+  /** Un punto por equipo, con el color de su estado y su ficha, para el KMZ. */
+  placemarks(): KmlPlacemark[];
   destroy(): void;
 }
 
@@ -238,7 +244,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
 
   function downloadCsv() {
     const quote = (text: string) => `"${text.replace(/"/g, '""').replace(/−/g, '-')}"`;
-    const header = ['Nombre', 'Tipo', 'Latitud', 'Longitud', ...options.columns, 'Estado'];
+    const header = ['Nombre', 'Tipo', 'Latitud', 'Longitud', ...options.columns.map(withUnit), 'Estado'];
     const lines = devices.map((d) => {
       const row = rows.get(d.id);
       return [
@@ -261,10 +267,36 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   }
 
+  function placemarks(): KmlPlacemark[] {
+    return devices.map((d) => {
+      const row = rows.get(d.id);
+      const status = row ? STATUS[row.status] : STATUS.unknown;
+      return {
+        name: d.name,
+        position: d.position,
+        color: status.color,
+        tables: [
+          {
+            rows: [
+              ['Estado', status.label],
+              ['Tipo', options.profileName(d.profileId)],
+              ...options.columns.map((c, i) => [c, row ? cellWithUnit(row.cells[i]!, options.units[i]!) : '—']),
+              ['Ubicación (lat, lon)', formatLonLat(d.position.lon, d.position.lat)],
+            ],
+            note: row?.detail,
+          },
+        ],
+      };
+    });
+  }
+
+  const withUnit = (column: string, i: number) => (options.units[i] ? `${column} (${options.units[i]})` : column);
+
   render();
 
   return {
     refresh,
+    placemarks,
     destroy() {
       clearTimeout(timer);
       generation++;
@@ -275,3 +307,6 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
 }
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** "-106" con "dBm" → "-106 dBm"; "SF7" o "—" quedan igual. */
+const cellWithUnit = (cell: string, unit: string) => (unit && /\d$/.test(cell) ? `${cell} ${unit}` : cell);

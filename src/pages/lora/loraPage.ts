@@ -168,7 +168,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   showBandInfo();
 
   const exporter = addExportControl(page.map, [
-    { label: 'KMZ para Google Earth', description: 'Bajada, subida y SF con sus leyendas, y el gateway con su ficha.', run: exportKmz },
+    { label: 'KMZ para Google Earth', description: 'Bajada, subida y SF con sus leyendas, el gateway y los medidores con su ficha.', run: exportKmz },
   ]);
 
   const showBudget = createBudgetPanel(page.find('[data-budget]'), LORA_BUDGET_NAMES);
@@ -266,6 +266,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   let deviceList: DeviceList | undefined;
   deviceList = createDeviceList(page, page.find('[data-devices]'), {
     columns: ['Bajada', 'Subida', 'SF'],
+    units: ['dBm', 'dBm', ''],
     noun: { one: 'medidor', many: 'medidores' },
     profileName: (id) => LORA_SENSORS.find((s) => s.id === id)?.name ?? sensor.name,
     matchProfile(text) {
@@ -401,6 +402,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
       layers,
       opacity,
       site: placemark,
+      devices: deviceList && { folderName: `Medidores (${deviceList.placemarks().length})`, placemarks: deviceList.placemarks() },
     });
   }
 

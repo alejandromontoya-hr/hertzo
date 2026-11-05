@@ -30,6 +30,7 @@ export interface KmzSpec {
   opacity: number;
   site?: KmlPlacemark;
   lines?: CoverageKmlOptions['lines'];
+  devices?: CoverageKmlOptions['devices'];
 }
 
 /** Cuadrícula en grados parejos de cada cálculo: se arma en la primera exportación y se reusa. */
@@ -67,6 +68,6 @@ export async function downloadCoverageKmz(spec: KmzSpec): Promise<void> {
     });
   }
 
-  const kml = coverageKml(spec.documentName, layers, { site: spec.site, lines: spec.lines });
+  const kml = coverageKml(spec.documentName, layers, { site: spec.site, lines: spec.lines, devices: spec.devices });
   saveFile(zipStore([{ name: 'doc.kml', data: new TextEncoder().encode(kml) }, ...files]), spec.fileName, KMZ_MIME);
 }

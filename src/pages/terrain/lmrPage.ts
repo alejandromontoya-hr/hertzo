@@ -107,7 +107,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   showBandRange();
 
   const exporter = addExportControl(page.map, [
-    { label: 'KMZ para Google Earth', description: 'Bajada y subida con sus leyendas, y el sitio con su ficha.', run: exportKmz },
+    { label: 'KMZ para Google Earth', description: 'Bajada y subida con sus leyendas, el sitio y los radios con su ficha.', run: exportKmz },
   ]);
 
   const showBudget = createBudgetPanel(page.find('[data-budget]'));
@@ -160,6 +160,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   let deviceList: DeviceList | undefined;
   deviceList = createDeviceList(page, page.find('[data-devices]'), {
     columns: ['Bajada', 'Subida', 'Margen'],
+    units: ['dBm', 'dBm', ''],
     noun: { one: 'radio', many: 'radios' },
     profileName: (id) => RADIO_PROFILES.find((p) => p.id === id)?.name ?? radio.name,
     matchProfile(text) {
@@ -291,6 +292,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       layers,
       opacity,
       site: placemark,
+      devices: deviceList && { folderName: `Radios (${deviceList.placemarks().length})`, placemarks: deviceList.placemarks() },
     });
   }
 

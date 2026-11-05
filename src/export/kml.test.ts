@@ -102,6 +102,39 @@ describe('contornos en coverageKml', () => {
   });
 });
 
+describe('equipos en coverageKml', () => {
+  const bounds = { north: 6.5, south: 6, east: -75.3, west: -75.8 };
+  const kml = coverageKml('Hertzo · LoRaWAN AU915', [{ name: 'Subida · 916,8 MHz', href: 'subida.png', bounds }], {
+    devices: {
+      folderName: 'Equipos (2)',
+      placemarks: [
+        { name: 'Medidor 1', position: { lon: -75.5736, lat: 6.2442 }, color: '#1f5c8c', tables: [{ rows: [['Subida', '-106 dBm']] }] },
+        { name: 'Medidor 2', position: { lon: -75.587, lat: 6.17 }, color: '#d73027', tables: [{ rows: [['Subida', '-154 dBm']] }] },
+      ],
+    },
+  });
+
+  it('van en su carpeta "Equipos (2)", después y fuera de la carpeta "Cobertura"', () => {
+    const cobertura = kml.indexOf('<name>Cobertura</name>');
+    const equipos = kml.indexOf('<name>Equipos (2)</name>');
+    expect(equipos).toBeGreaterThan(kml.indexOf('</Folder>', cobertura));
+  });
+
+  it('cada equipo es un punto en lon,lat con su ficha', () => {
+    expect(kml).toContain('<coordinates>-75.573600,6.244200,0</coordinates>');
+    expect(kml).toContain('<th>Subida</th><td>-154 dBm</td>');
+  });
+
+  it('el punto lleva el color de su estado: azul "#1f5c8c" → ff8c5c1f, rojo "#d73027" → ff2730d7', () => {
+    expect(kml).toContain('<IconStyle><color>ff8c5c1f</color>');
+    expect(kml).toContain('<IconStyle><color>ff2730d7</color>');
+  });
+
+  it('sin equipos no hay carpeta', () => {
+    expect(coverageKml('x', [])).not.toContain('Equipos');
+  });
+});
+
 describe('linkKml', () => {
   // Del Padre Amaya (cota 2.700 m, antena de 30 m) a El Volador (cota 1.630 m, antena de 30 m).
   const kml = linkKml(
