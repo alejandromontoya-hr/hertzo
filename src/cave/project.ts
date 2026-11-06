@@ -2,7 +2,7 @@
 // los ajustes de radio, roca y cable. Módulo puro.
 
 import { isFiniteNumber, isRecord, readList, readNumbers } from '../export/projectFile';
-import type { LeakyCable, Polarization } from '../rf/tunnel';
+import { DEFAULT_TILT_DEG, type LeakyCable, type Polarization } from '../rf/tunnel';
 import type { Cable, CaveModel, CaveTransmitter, Gallery, Point } from './network';
 import { CAVE_BANDS, ROCKS } from './presets';
 
@@ -12,11 +12,23 @@ export interface CaveProject {
   rockId: string;
   /** Rugosidad de las paredes (m); puede diferir de la de la roca elegida. */
   roughnessM: number;
+  /** Inclinación de las paredes (grados). Los archivos anteriores no la traen: se abren con 1°. */
+  tiltDeg: number;
   polarization: Polarization;
   /** Pérdida en una curva de 90° (dB). */
   corner90Db: number;
-  /** Sensibilidad del radio (dBm). */
+  /** Sensibilidad del radio portátil (dBm), para la bajada. */
   sensitivityDbm: number;
+  /**
+   * Potencia del portátil (dBm), para la subida; null en AM y FM. Los archivos anteriores no la
+   * traen: se abren con la típica de la banda.
+   */
+  portablePowerDbm: number | null;
+  /**
+   * Sensibilidad del repetidor o del punto de acceso (dBm), para la subida. Los archivos
+   * anteriores no la traen: se abren con la del portátil.
+   */
+  siteSensitivityDbm: number;
   cable: LeakyCable;
   /** Umbrales de la leyenda (dBm), de mayor a menor. */
   thresholds: number[];
@@ -70,14 +82,28 @@ export function readCaveProject(data: unknown): CaveProject | null {
   if (!galleries || !transmitters || !cables || !band || !rock || !thresholds) return null;
   if (polarization !== 'vertical' && polarization !== 'horizontal') return null;
   if (![roughnessM, corner90Db, sensitivityDbm, longitudinalDbPer100m, couplingLossDb].every(isFiniteNumber)) return null;
+  // Campos que llegaron después: si faltan, el valor por defecto; si vienen, tienen que ser válidos.
+  const tiltDeg = data.tiltDeg === undefined ? DEFAULT_TILT_DEG : data.tiltDeg;
+  if (!isFiniteNumber(tiltDeg) || tiltDeg < 0) return null;
+  let portablePowerDbm: number | null = null;
+  if (band.portablePowerDbm !== null) {
+    const stored = data.portablePowerDbm ?? band.portablePowerDbm;
+    if (!isFiniteNumber(stored)) return null;
+    portablePowerDbm = stored;
+  }
+  const siteSensitivityDbm = data.siteSensitivityDbm === undefined ? sensitivityDbm : data.siteSensitivityDbm;
+  if (!isFiniteNumber(siteSensitivityDbm)) return null;
   return {
     model: { galleries, transmitters, cables },
     bandId: band.id,
     rockId: rock.id,
     roughnessM: roughnessM as number,
+    tiltDeg,
     polarization,
     corner90Db: corner90Db as number,
     sensitivityDbm: sensitivityDbm as number,
+    portablePowerDbm,
+    siteSensitivityDbm,
     cable: { longitudinalDbPer100m: longitudinalDbPer100m as number, couplingLossDb: couplingLossDb as number },
     thresholds,
   };

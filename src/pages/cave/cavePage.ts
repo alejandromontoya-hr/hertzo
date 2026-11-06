@@ -1,5 +1,6 @@
 // Cavernas, túneles y minas: editor de galerías, antenas y cable radiante, y propagación de la
-// señal por la red de galerías (guía de onda de Emslie, curvas y acople del cable).
+// señal por la red de galerías (guía de onda de Emslie, curvas y acople del cable), con la
+// bajada (repetidor → portátil) y la subida (portátil → repetidor) por separado.
 
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import { bandLabels } from '../../coverage/paint';
@@ -12,6 +13,7 @@ import {
   type CaveModel,
   type CaveTransmitter,
   type Gallery,
+  type LinkLevels,
   type Point,
   type RadioSettings,
   type SimulationResult,
@@ -26,6 +28,8 @@ import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectBu
 import { addPlanExport } from '../../map/exportControl';
 import { distanceToSegment, newId, snap } from '../../indoor/plan';
 import {
+  DEFAULT_TILT_DEG,
+  LEAKY_CABLE_MAX_MHZ,
   breakpointDistanceM,
   cornerLoss90Db,
   cutoffFrequencyMHz,
@@ -47,6 +51,16 @@ type Tool = 'select' | 'gallery' | 'antenna' | 'cable' | 'erase';
 type Selection = { kind: 'gallery' | 'tx' | 'cable'; id: string } | null;
 type VertexRef = { kind: 'gallery' | 'cable'; id: string; index: number };
 type Drag = { kind: 'tx'; id: string } | { kind: 'vertex'; refs: VertexRef[] } | null;
+type View = 'bajada' | 'subida' | 'peor';
+
+const VIEWS: { id: View; label: string; title: string }[] = [
+  { id: 'bajada', label: 'Bajada', title: 'Bajada: nivel recibido en el portátil (dBm)' },
+  { id: 'subida', label: 'Subida', title: 'Subida: nivel recibido en el repetidor (dBm)' },
+  { id: 'peor', label: 'Peor de las dos', title: 'Peor de las dos: margen sobre la sensibilidad (dB)' },
+];
+
+/** Atenuación de la galería a partir de la cual hace falta cable radiante (dB/100 m). */
+const HIGH_ATTENUATION_DB_PER_100M = 20;
 
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: 'select', label: 'Seleccionar', hint: 'Arrastra una antena o un vértice para moverlo. Clic en una galería, antena o cable para editarlo.' },
@@ -107,11 +121,15 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   let band: CaveBand = CAVE_BANDS.find((b) => b.id === (saved?.bandId ?? preset.band)) ?? CAVE_BANDS[3]!;
   let rock = ROCKS.find((r) => r.id === (saved?.rockId ?? preset.rockId)) ?? ROCKS[0]!;
   let roughnessM = rock.roughnessM;
+  let tiltDeg = DEFAULT_TILT_DEG;
   let polarization: Polarization = 'vertical';
   /** Pérdida por curva típica de la banda, con un decimal como el resto del panel. */
   const typicalCornerDb = (f: number) => Math.round(cornerLoss90Db(f) * 10) / 10;
   let corner90Db = typicalCornerDb(band.frequencyMHz);
   let sensitivityDbm = band.sensitivityDbm;
+  let portablePowerDbm = band.portablePowerDbm;
+  let siteSensitivityDbm = band.sensitivityDbm;
+  let view: View = 'bajada';
   let cable: LeakyCable = typicalLeakyCable(band.frequencyMHz);
   let newGallery = { widthM: 4.5, heightM: 3.5 };
   let thresholds = [30, 20, 10, 0].map((m) => sensitivityDbm + m);
@@ -186,9 +204,14 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   let opacity = 1;
 
   const legend = createMapLegend(find('.legend'), {
-    onView() {},
+    onView(id) {
+      view = id as View;
+      updateLegend();
+      planView.redraw();
+    },
     onThresholds(values) {
-      thresholds = values;
+      const offset = viewOffset();
+      thresholds = values.map((v) => v - offset);
       updateLegend();
       planView.redraw();
     },
@@ -200,13 +223,16 @@ export function mountCavePage({ root, params }: PageContext): () => void {
 
   // --- Simulación ---
 
+  const rockProperties = () => ({ epsilonR: rock.epsilonR, roughnessM, tiltDeg });
+
   function settings(): RadioSettings {
     return {
       frequencyMHz: band.frequencyMHz,
       polarization,
-      rock: { epsilonR: rock.epsilonR, roughnessM },
+      rock: rockProperties(),
       corner90Db,
       rxGainDbi: 0,
+      portablePowerDbm,
       cable,
     };
   }
@@ -234,28 +260,62 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     planView.redraw();
   }
 
-  function levelColor(level: number): string {
-    const sorted = [...thresholds].sort((a, b) => b - a);
-    for (let i = 0; i < sorted.length; i++) if (level >= sorted[i]!) return LEVEL_COLORS[i]!;
+  /** Vistas de la banda: AM y FM son solo de recepción y no tienen subida. */
+  const availableViews = () => (result?.uplink ? VIEWS : VIEWS.slice(0, 1));
+  const activeView = (): View => (result?.uplink ? view : 'bajada');
+
+  /**
+   * Los umbrales se guardan sobre la sensibilidad del portátil (bajada). En la subida se corren
+   * a la del repetidor y en "Peor de las dos" pasan a margen en dB.
+   */
+  function viewOffset(): number {
+    const v = activeView();
+    if (v === 'subida') return siteSensitivityDbm - sensitivityDbm;
+    if (v === 'peor') return -sensitivityDbm;
+    return 0;
+  }
+  const viewUnit = () => (activeView() === 'peor' ? 'dB' : 'dBm');
+  const viewThresholds = () => thresholds.map((t) => t + viewOffset()).sort((a, b) => b - a);
+
+  /** Margen de la peor dirección en cada nodo (dB): mín(bajada − sens. portátil, subida − sens. repetidor). */
+  function worstMargin(down: LinkLevels, up: LinkLevels): Float64Array {
+    return down.levelDbm.map((d, i) => Math.min(d - sensitivityDbm, up.levelDbm[i]! - siteSensitivityDbm));
+  }
+
+  /** Valor de la vista activa en cada nodo: dBm en bajada y subida, margen en dB en la peor. */
+  function viewValues(): Float64Array | null {
+    if (!result) return null;
+    const v = activeView();
+    if (v === 'subida' && result.uplink) return result.uplink.levelDbm;
+    if (v === 'peor' && result.uplink) return worstMargin(result.downlink, result.uplink);
+    return result.downlink.levelDbm;
+  }
+
+  function levelColor(value: number, sorted: readonly number[]): string {
+    for (let i = 0; i < sorted.length; i++) if (value >= sorted[i]!) return LEVEL_COLORS[i]!;
     return UNCOVERED;
   }
 
   /** Franjas de nivel de la leyenda, iguales en pantalla y en la imagen. */
   function legendEntries() {
-    const sorted = [...thresholds].sort((a, b) => b - a);
+    const sorted = viewThresholds();
+    const unit = viewUnit();
     return [
-      ...bandLabels(sorted, 'dBm').map((label, i) => ({ color: LEVEL_COLORS[i]!, label })),
-      { color: UNCOVERED, label: `< ${sorted[sorted.length - 1]} dBm · sin cobertura` },
+      ...bandLabels(sorted, unit).map((label, i) => ({ color: LEVEL_COLORS[i]!, label })),
+      { color: UNCOVERED, label: `< ${sorted[sorted.length - 1]} ${unit} · sin cobertura` },
     ];
   }
 
+  const viewTitle = () => `${VIEWS.find((v) => v.id === activeView())!.title}, ${band.label}`;
+
   function updateLegend() {
+    const isMargin = activeView() === 'peor';
     legend.update({
-      views: [{ id: 'nivel', label: 'Nivel' }],
-      activeView: 'nivel',
-      title: `Nivel recibido en la galería (dBm), ${band.label}`,
+      views: availableViews(),
+      activeView: activeView(),
+      title: viewTitle(),
       entries: legendEntries(),
-      thresholds: { values: thresholds, unit: 'dBm', min: -160, max: 0 },
+      thresholds: { values: viewThresholds(), unit: viewUnit(), min: isMargin ? -60 : -160, max: isMargin ? 160 : 0 },
       opacity,
     });
   }
@@ -296,17 +356,19 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     }
 
     // Nivel de señal en cada tramo del grafo.
-    if (result) {
+    const values = viewValues();
+    if (values) {
+      const sorted = viewThresholds();
       ctx.save();
       ctx.globalAlpha = opacity;
       for (let u = 0; u < graph.x.length; u++) {
         for (const edge of graph.edges[u]!) {
           if (edge.to < u) continue;
-          const level = Math.min(result.levelDbm[u]!, result.levelDbm[edge.to]!);
+          const level = Math.min(values[u]!, values[edge.to]!);
           const gallery = model.galleries[edge.gallery]!;
           const [x1, y1] = v.toScreen(graph.x[u]!, graph.y[u]!);
           const [x2, y2] = v.toScreen(graph.x[edge.to]!, graph.y[edge.to]!);
-          ctx.strokeStyle = levelColor(level);
+          ctx.strokeStyle = levelColor(level, sorted);
           ctx.lineWidth = Math.max(3, gallery.widthM * px * 0.75);
           ctx.beginPath();
           ctx.moveTo(x1, y1);
@@ -666,21 +728,26 @@ export function mountCavePage({ root, params }: PageContext): () => void {
       readout.hide();
       return;
     }
-    const level = result.levelDbm[best]!;
-    const source = result.source[best]!;
+    const signed = (db: number) => `${db >= 0 ? '+' : ''}${oneDecimal.format(db)}`;
+    /** "Bajada (en el portátil): −85,0 dBm (margen +31,0 dB)" o por qué no llega. */
+    const linkLine = (label: string, level: number, sensitivity: number) => {
+      if (!Number.isFinite(level)) return `${label}: no llega señal`;
+      if (level < -200) return `${label}: menos de −200 dBm, la señal no llega`;
+      return `${label}: ${oneDecimal.format(level)} dBm (margen ${signed(level - sensitivity)} dB)`;
+    };
+    const down = result.downlink;
+    const source = down.source[best]!;
     const sourceName =
       source >= 0 ? model.transmitters[source]?.name : source > -1000 ? 'el cable radiante' : null;
     const lines = [`${gallery.name} · ${oneDecimal.format(gallery.widthM)} × ${oneDecimal.format(gallery.heightM)} m`];
-    if (!Number.isFinite(level) || !sourceName) {
+    if (!sourceName) {
       lines.push('No llega señal de ninguna fuente');
-    } else if (level < -200) {
-      lines.push('Menos de −200 dBm: la señal no llega');
-      lines.push(`Desde ${sourceName}: ${meters(result.pathM[best]!)} por las galerías`);
     } else {
-      const margin = level - sensitivityDbm;
-      lines.push(`${oneDecimal.format(level)} dBm (margen ${margin >= 0 ? '+' : ''}${oneDecimal.format(margin)} dB)`);
+      lines.push(linkLine('Bajada (en el portátil)', down.levelDbm[best]!, sensitivityDbm));
+      if (result.uplink) lines.push(linkLine('Subida (en el repetidor)', result.uplink.levelDbm[best]!, siteSensitivityDbm));
+      const bends = down.bends[best]!;
       lines.push(
-        `Desde ${sourceName}: ${meters(result.pathM[best]!)} por las galerías, ${result.bends[best]} curva${result.bends[best] === 1 ? '' : 's'}`,
+        `Desde ${sourceName}: ${meters(down.pathM[best]!)} por las galerías, ${bends} curva${bends === 1 ? '' : 's'} (${oneDecimal.format(down.bendLossDb[best]!)} dB)`,
       );
     }
     readout.show(lines, e.sx, e.sy);
@@ -695,7 +762,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     if (sel.kind === 'gallery') {
       const g = model.galleries.find((x) => x.id === sel.id);
       if (!g) return void (selectionBox.hidden = true);
-      const alpha = galleryAttenuationDbPerM(band.frequencyMHz, g, { epsilonR: rock.epsilonR, roughnessM }, polarization);
+      const alpha = galleryAttenuationDbPerM(band.frequencyMHz, g, rockProperties(), polarization);
       selectionBox.innerHTML = `<h2>${g.name}</h2>
         <p class="hint">Atenuación a ${band.label}: ${oneDecimal.format(alpha * 100)} dB/100 m; quiebre a ${meters(breakpointDistanceM(band.frequencyMHz, g))}.</p>
         <div class="form" data-form></div>
@@ -725,7 +792,9 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     } else if (sel.kind === 'tx') {
       const tx = model.transmitters.find((x) => x.id === sel.id);
       if (!tx) return void (selectionBox.hidden = true);
-      selectionBox.innerHTML = `<h2>${tx.name}</h2><div class="form" data-form></div>
+      selectionBox.innerHTML = `<h2>${tx.name}</h2>
+        <p class="hint">Al cambiar de banda, la potencia vuelve a la típica de la banda (${integerFormat.format(band.txPowerDbm)} dBm en ${band.label}).</p>
+        <div class="form" data-form></div>
         <button type="button" class="button" data-delete>Borrar esta antena</button>`;
       const fields: readonly NumberFieldSpec<'powerDbm' | 'gainDbi'>[] = [
         { key: 'powerDbm', label: 'Potencia', unit: 'dBm', min: -10, max: 60 },
@@ -777,40 +846,68 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     }
   }
 
-  /** Resumen del panel: aviso de corte, filas (etiqueta, valor, resaltada) y nota. La misma tabla va a la imagen. */
-  function summaryTable(): { warning: string | null; rows: [string, string, boolean][]; note: string } | null {
+  /** Resumen del panel: avisos, filas (etiqueta, valor, resaltada) y nota. La misma tabla va a la imagen. */
+  function summaryTable(): { warnings: string[]; rows: [string, string, boolean][]; note: string } | null {
     if (!result || model.galleries.length === 0) return null;
-    const { totalM, coveredM } = coveredLength(graph, result.levelDbm, sensitivityDbm);
+    const { downlink, uplink } = result;
+    const down = coveredLength(graph, downlink.levelDbm, sensitivityDbm);
+    const up = uplink ? coveredLength(graph, uplink.levelDbm, siteSensitivityDbm) : null;
+    const both = uplink ? coveredLength(graph, worstMargin(downlink, uplink), 0) : down;
+    const totalM = down.totalM;
+    const share = (c: { coveredM: number }) => (totalM > 0 ? c.coveredM / totalM : 0);
+    const percent = (c: { coveredM: number }) => `${integerFormat.format(share(c) * 100)} %`;
     const reference = model.galleries[0]!;
-    const alpha = galleryAttenuationDbPerM(band.frequencyMHz, reference, { epsilonR: rock.epsilonR, roughnessM }, polarization);
+    const alphaOf = (g: Gallery) => galleryAttenuationDbPerM(band.frequencyMHz, g, rockProperties(), polarization);
     const smallest = model.galleries.reduce((a, g) => (Math.max(g.widthM, g.heightM) < Math.max(a.widthM, a.heightM) ? g : a));
     const cutoff = cutoffFrequencyMHz(smallest);
-    const covered = totalM > 0 ? coveredM / totalM : 0;
+    const worst = model.galleries.reduce((a, g) => (alphaOf(g) > alphaOf(a) ? g : a));
+    const worstPer100m = alphaOf(worst) * 100;
     const sources = model.transmitters.length + model.cables.length;
-    return {
-      warning:
-        band.frequencyMHz < cutoff
-          ? `A ${band.frequencyMHz} MHz la señal está por debajo del corte práctico de la galería más pequeña (${integerFormat.format(cutoff)} MHz): casi no avanza sin cable radiante.`
-          : null,
-      rows: [
-        ['Galerías con cobertura', `${integerFormat.format(covered * 100)} %`, true],
-        ['Largo cubierto / total', `${meters(coveredM)} / ${meters(totalM)}`, false],
-        ['Sin cobertura', meters(totalM - coveredM), false],
-        [`Atenuación en "${reference.name}"`, `${oneDecimal.format(alpha * 100)} dB/100 m`, false],
-        ['Pérdida en una curva de 90°', `${oneDecimal.format(corner90Db)} dB`, false],
-        [
-          'Fuentes',
-          `${model.transmitters.length} antena${model.transmitters.length === 1 ? '' : 's'}, ${model.cables.length} cable${model.cables.length === 1 ? '' : 's'}`,
-          false,
-        ],
+
+    const warnings: string[] = [];
+    if (band.frequencyMHz < cutoff) {
+      warnings.push(
+        `A ${band.frequencyMHz} MHz la señal está por debajo del corte práctico de la galería más pequeña (${integerFormat.format(cutoff)} MHz): casi no avanza sin cable radiante.`,
+      );
+    } else if (worstPer100m > HIGH_ATTENUATION_DB_PER_100M) {
+      warnings.push(
+        `A ${band.label} la galería "${worst.name}" atenúa ${oneDecimal.format(worstPer100m)} dB/100 m: la señal se apaga en pocos cientos de metros. Para cubrirla hace falta cable radiante a lo largo de la galería.`,
+      );
+    }
+    if (model.cables.length > 0 && band.frequencyMHz > LEAKY_CABLE_MAX_MHZ) {
+      warnings.push(
+        `El cable radiante de 1/2" de referencia (RFS RLKW12-50) llega hasta ${integerFormat.format(LEAKY_CABLE_MAX_MHZ)} MHz: a ${band.label} su pérdida de ${oneDecimal.format(cable.longitudinalDbPer100m)} dB/100 m es una estimación. Pon los datos del cable que vayas a instalar.`,
+      );
+    }
+
+    const rows: [string, string, boolean][] = up
+      ? [
+          ['Cobertura en las dos direcciones', percent(both), true],
+          ['Cobertura de bajada (en el portátil)', percent(down), false],
+          ['Cobertura de subida (en el repetidor)', percent(up), false],
+          ['Largo cubierto en las dos / total', `${meters(both.coveredM)} / ${meters(totalM)}`, false],
+        ]
+      : [
+          ['Cobertura de bajada (solo recepción)', percent(down), true],
+          ['Largo cubierto / total', `${meters(down.coveredM)} / ${meters(totalM)}`, false],
+        ];
+    rows.push(
+      ['Sin cobertura', meters(totalM - both.coveredM), false],
+      [`Atenuación en "${reference.name}"`, `${oneDecimal.format(alphaOf(reference) * 100)} dB/100 m`, false],
+      ['Pérdida en una curva de 90°', `${oneDecimal.format(corner90Db)} dB`, false],
+      [
+        'Fuentes',
+        `${model.transmitters.length} antena${model.transmitters.length === 1 ? '' : 's'}, ${model.cables.length} cable${model.cables.length === 1 ? '' : 's'}`,
+        false,
       ],
-      note:
-        sources === 0
-          ? 'Ubica una antena o un cable radiante para ver la señal.'
-          : covered < 1
-            ? 'Los tramos en rojo no tienen cobertura: ahí van otro repetidor o el cable radiante.'
-            : 'Toda la red queda cubierta.',
-    };
+    );
+    let note: string;
+    if (sources === 0) note = 'Ubica una antena o un cable radiante para ver la señal.';
+    else if (share(both) >= 1) note = up ? 'Toda la red queda cubierta en bajada y en subida.' : 'Toda la red queda cubierta.';
+    else if (up && share(down) - share(up) >= 0.01)
+      note = `La subida cubre menos que la bajada: el portátil transmite con ${oneDecimal.format(portablePowerDbm ?? 0)} dBm. Los tramos en azul de la vista "Subida" necesitan otro repetidor o cable radiante.`;
+    else note = 'Los tramos en azul no tienen cobertura: ahí van otro repetidor o el cable radiante.';
+    return { warnings, rows, note };
   }
 
   function renderSummary() {
@@ -828,7 +925,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
           .map(([label, value, strong]) => `<tr${strong ? ' class="strong"' : ''}><th scope="row">${escape(label)}</th><td>${value}</td></tr>`)
           .join('')}
       </tbody></table>
-      ${table.warning ? `<p class="notice">${table.warning}</p>` : ''}
+      ${table.warnings.map((w) => `<p class="notice">${escape(w)}</p>`).join('')}
       <p class="hint">${table.note}</p>`;
   }
 
@@ -878,16 +975,16 @@ export function mountCavePage({ root, params }: PageContext): () => void {
       title: `Radio en túneles, minas y cavernas · ${band.label} (${integerFormat.format(band.frequencyMHz)} MHz)`,
       subtitle: [
         `${count(model.galleries.length, 'galería')} · ${count(model.transmitters.length, 'antena')} · ${count(model.cables.length, 'cable')} · ${rock.label}`,
-        `Nivel recibido en la galería (dBm) · polarización ${polarization} · ${reportDate()}`,
+        `${viewTitle()} · polarización ${polarization} · ${reportDate()}`,
       ],
       figure,
       figureHeight: height,
       key: [...legendEntries().map((e) => swatchKey(e.label, e.color)), cableKey],
-      notice: summary.warning ?? undefined,
+      notice: summary.warnings.length ? summary.warnings.join(' ') : undefined,
       rows: summary.rows,
       note: summary.note,
     });
-    saveFile(png, `hertzo-cavernas-${band.id}-${isoDate(new Date())}.png`, 'image/png');
+    saveFile(png, `hertzo-cavernas-${band.id}-${activeView()}-${isoDate(new Date())}.png`, 'image/png');
   }
 
   function renderSettings() {
@@ -915,21 +1012,43 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     );
     const values = {
       roughnessCm: roughnessM * 100,
+      tiltDeg,
       corner90Db,
       sensitivityDbm,
+      portablePowerDbm: portablePowerDbm ?? 0,
+      siteSensitivityDbm,
       longitudinalDbPer100m: cable.longitudinalDbPer100m,
       couplingLossDb: cable.couplingLossDb,
     };
+    const hasUplink = portablePowerDbm !== null;
+    const uplinkFields: NumberFieldSpec<keyof typeof values>[] = [
+      { key: 'portablePowerDbm', label: 'Potencia del portátil (subida)', unit: 'dBm', min: -10, max: 50 },
+      { key: 'siteSensitivityDbm', label: 'Sensibilidad del repetidor (subida)', unit: 'dBm', min: -140, max: -40 },
+    ];
     const fields: readonly NumberFieldSpec<keyof typeof values>[] = [
       { key: 'roughnessCm', label: 'Rugosidad de las paredes', unit: 'cm', min: 0, max: 100 },
-      { key: 'corner90Db', label: 'Pérdida en una curva de 90°', unit: 'dB', min: 0, max: 80, hint: 'Valor empírico; cambia con la forma del cruce. Ajústalo con mediciones si las tienes.' },
-      { key: 'sensitivityDbm', label: 'Sensibilidad del radio', unit: 'dBm', min: -140, max: -40 },
-      { key: 'longitudinalDbPer100m', label: 'Cable: pérdida longitudinal', unit: 'dB/100 m', min: 0, max: 30 },
-      { key: 'couplingLossDb', label: 'Cable: pérdida de acople a 2 m', unit: 'dB', min: 30, max: 110 },
+      {
+        key: 'tiltDeg',
+        label: 'Inclinación de las paredes',
+        unit: '°',
+        min: 0,
+        max: 10,
+        hint: 'Cuánto se desvían las paredes del eje de la galería. Suma 4,343·π²·θ²/λ dB/m (Emslie): con 1°, 3,9 dB/100 m a 900 MHz, el valor que usa NIOSH.',
+      },
+      { key: 'corner90Db', label: 'Pérdida en una curva de 90°', unit: 'dB', min: 0, max: 80, hint: 'Valor empírico, sin fuente medida; cambia con la forma del cruce. Ajústalo con mediciones si las tienes.' },
+      { key: 'sensitivityDbm', label: 'Sensibilidad del portátil (bajada)', unit: 'dBm', min: -140, max: -40 },
+      ...(hasUplink ? uplinkFields : []),
+      { key: 'longitudinalDbPer100m', label: 'Cable: pérdida longitudinal', unit: 'dB/100 m', min: 0, max: 40, hint: 'Por defecto, la de la hoja del RFS RLKW12-50 de 1/2" a la frecuencia de la banda.' },
+      { key: 'couplingLossDb', label: 'Cable: pérdida de acople a 2 m', unit: 'dB', min: 30, max: 110, hint: 'Por defecto, la del RFS RLKW12-50 al 95 % a 2 m.' },
     ];
     createFieldGroup(box, fields, values, (next) => {
       roughnessM = next.roughnessCm / 100;
+      tiltDeg = next.tiltDeg;
       corner90Db = next.corner90Db;
+      if (hasUplink) {
+        portablePowerDbm = next.portablePowerDbm;
+        siteSensitivityDbm = next.siteSensitivityDbm;
+      }
       if (next.sensitivityDbm !== sensitivityDbm) {
         const delta = next.sensitivityDbm - sensitivityDbm;
         thresholds = thresholds.map((t) => t + delta);
@@ -989,11 +1108,23 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   };
   bindSegmented(panel, 'herramienta', tool, (id) => setTool(id as Tool));
 
-  const bandControl = bindChoice(panel, 'banda', band.id, (id) => selectBand(id));
-  function selectBand(id: string) {
+  const bandControl = bindChoice(panel, 'banda', band.id, (id) => selectBand(id, true));
+  /**
+   * Cambia de banda y pone los valores típicos de ella. Si lo pide el usuario (`setPower`), las
+   * antenas también pasan a la potencia típica de la banda: un repetidor UHF de 40 dBm no
+   * puede quedar como punto de acceso WiFi de 43 dBm PIRE. Los escenarios de ejemplo traen su
+   * propia potencia y no la tocan.
+   */
+  function selectBand(id: string, setPower: boolean) {
     band = CAVE_BANDS.find((b) => b.id === id)!;
+    if (setPower && model.transmitters.some((t) => t.powerDbm !== band.txPowerDbm)) {
+      snapshot();
+      for (const tx of model.transmitters) tx.powerDbm = band.txPowerDbm;
+    }
     corner90Db = typicalCornerDb(band.frequencyMHz);
     sensitivityDbm = band.sensitivityDbm;
+    portablePowerDbm = band.portablePowerDbm;
+    siteSensitivityDbm = band.sensitivityDbm;
     cable = typicalLeakyCable(band.frequencyMHz);
     thresholds = [30, 20, 10, 0].map((m) => sensitivityDbm + m);
     bandControl.set(band.id);
@@ -1012,7 +1143,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
       drawing = [];
       readout.hide();
       replaceQuery('escenario', p.id);
-      selectBand(p.band);
+      selectBand(p.band, false);
       planView.fit();
     });
   }
@@ -1022,9 +1153,12 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     bandId: band.id,
     rockId: rock.id,
     roughnessM,
+    tiltDeg,
     polarization,
     corner90Db,
     sensitivityDbm,
+    portablePowerDbm,
+    siteSensitivityDbm,
     cable,
     thresholds,
   });
@@ -1045,9 +1179,12 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     band = CAVE_BANDS.find((b) => b.id === data.bandId)!;
     rock = ROCKS.find((r) => r.id === data.rockId)!;
     roughnessM = data.roughnessM;
+    tiltDeg = data.tiltDeg;
     polarization = data.polarization;
     corner90Db = data.corner90Db;
     sensitivityDbm = data.sensitivityDbm;
+    portablePowerDbm = data.portablePowerDbm;
+    siteSensitivityDbm = data.siteSensitivityDbm;
     cable = data.cable;
     thresholds = data.thresholds;
     selection = null;

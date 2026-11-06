@@ -84,6 +84,8 @@ export const CAVE_PRESETS: readonly CavePreset[] = [
   { id: 'blanco', label: 'En blanco', band: 'uhf', rockId: 'roca', build: () => ({ galleries: [], transmitters: [], cables: [] }) },
 ];
 
+// La inclinación de las paredes no depende de la roca: arranca en DEFAULT_TILT_DEG (1°) y se
+// cambia en "Roca, radio y cable".
 export const ROCKS: readonly { id: string; label: string; epsilonR: number; roughnessM: number }[] = [
   { id: 'roca', label: 'Roca dura típica (εr 5, rugosidad 10 cm)', epsilonR: 5, roughnessM: 0.1 },
   { id: 'caliza', label: 'Caliza de cueva natural (εr 8, rugosidad 30 cm)', epsilonR: 8, roughnessM: 0.3 },
@@ -97,16 +99,21 @@ export interface CaveBand {
   frequencyMHz: number;
   /** Potencia típica del equipo que transmite (dBm). */
   txPowerDbm: number;
-  /** Sensibilidad típica del receptor (dBm). */
+  /** Sensibilidad típica del receptor (dBm); por defecto la misma en el portátil y en el repetidor. */
   sensitivityDbm: number;
+  /**
+   * Potencia típica del portátil en la subida (dBm): 5 W en VHF, 4 W en UHF, 3 W en 800 MHz y
+   * 15 dBm en un cliente WiFi. null en AM y FM, que son solo de recepción.
+   */
+  portablePowerDbm: number | null;
   description: string;
 }
 
 export const CAVE_BANDS: readonly CaveBand[] = [
-  { id: 'am', label: 'AM', frequencyMHz: 1, txPowerDbm: 40, sensitivityDbm: -90, description: 'Radio AM (1 MHz): muy por debajo del corte de cualquier galería.' },
-  { id: 'fm', label: 'FM', frequencyMHz: 100, txPowerDbm: 30, sensitivityDbm: -95, description: 'Radio FM (100 MHz): por eso los túneles viales la retransmiten por cable radiante.' },
-  { id: 'vhf', label: 'VHF', frequencyMHz: 155, txPowerDbm: 37, sensitivityDbm: -116, description: 'Radio portátil VHF (155 MHz), convencional o trunking.' },
-  { id: 'uhf', label: 'UHF', frequencyMHz: 460, txPowerDbm: 37, sensitivityDbm: -116, description: 'Radio portátil UHF (460 MHz), la más usada en minería.' },
-  { id: '800', label: '800', frequencyMHz: 860, txPowerDbm: 35, sensitivityDbm: -116, description: 'Trunking P25 o SmartZone en 800 MHz.' },
-  { id: 'wifi', label: '2,4 GHz', frequencyMHz: 2437, txPowerDbm: 20, sensitivityDbm: -80, description: 'WiFi de 2,4 GHz para datos y telemetría.' },
+  { id: 'am', label: 'AM', frequencyMHz: 1, txPowerDbm: 40, sensitivityDbm: -90, portablePowerDbm: null, description: 'Radio AM (1 MHz): muy por debajo del corte de cualquier galería.' },
+  { id: 'fm', label: 'FM', frequencyMHz: 100, txPowerDbm: 30, sensitivityDbm: -95, portablePowerDbm: null, description: 'Radio FM (100 MHz): por eso los túneles viales la retransmiten por cable radiante.' },
+  { id: 'vhf', label: 'VHF', frequencyMHz: 155, txPowerDbm: 37, sensitivityDbm: -116, portablePowerDbm: 37, description: 'Radio portátil VHF (155 MHz), convencional o trunking.' },
+  { id: 'uhf', label: 'UHF', frequencyMHz: 460, txPowerDbm: 37, sensitivityDbm: -116, portablePowerDbm: 36, description: 'Radio portátil UHF (460 MHz), la más usada en minería.' },
+  { id: '800', label: '800', frequencyMHz: 860, txPowerDbm: 35, sensitivityDbm: -116, portablePowerDbm: 34.8, description: 'Trunking P25 o SmartZone en 800 MHz.' },
+  { id: 'wifi', label: '2,4 GHz', frequencyMHz: 2437, txPowerDbm: 20, sensitivityDbm: -80, portablePowerDbm: 15, description: 'WiFi de 2,4 GHz para datos y telemetría.' },
 ];

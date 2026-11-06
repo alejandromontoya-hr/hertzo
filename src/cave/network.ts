@@ -3,6 +3,9 @@
 // señal avanza por el camino de menor pérdida: espacio libre hasta la distancia de quiebre,
 // atenuación modal de cada galería después, y una pérdida extra en cada curva o cruce.
 // El cable radiante alimenta a todos los nodos cercanos con su nivel de acople. Módulo puro.
+// Bajada y subida van por separado: la pérdida del camino es la misma en las dos direcciones,
+// pero en la bajada transmite el repetidor (o la cabecera del cable) y recibe el portátil, y en
+// la subida transmite el portátil y recibe el repetidor.
 
 import {
   bendLossDb,
@@ -56,8 +59,10 @@ export interface RadioSettings {
   rock: RockProperties;
   /** Pérdida en una curva de 90° (dB). */
   corner90Db: number;
-  /** Ganancia de la antena del radio que recibe (dBi). */
+  /** Ganancia de la antena del radio portátil (dBi), igual al recibir y al transmitir. */
   rxGainDbi: number;
+  /** Potencia del portátil en la subida (dBm); null si la banda es solo de recepción (AM, FM). */
+  portablePowerDbm: number | null;
   cable: LeakyCable;
 }
 
@@ -71,8 +76,12 @@ export interface CaveGraph {
 /** Separación máxima entre nodos (m). */
 export const NODE_STEP_M = 2;
 
-/** Por debajo de este ángulo un cambio de dirección no cuenta como curva (galerías dibujadas a mano). */
-const MIN_BEND_DEG = 25;
+/**
+ * Desde este giro acumulado (grados) se cuenta una curva en el resumen. Solo sirve para
+ * contar: la pérdida se suma en proporción a cada giro, sin umbral, así una curva suave
+ * hecha de muchos tramos de 20° pierde lo mismo que un codo del mismo ángulo total.
+ */
+const BEND_COUNT_DEG = 25;
 
 const key = (x: number, y: number) => `${Math.round(x * 20)},${Math.round(y * 20)}`;
 
@@ -122,15 +131,46 @@ export function buildGraph(galleries: readonly Gallery[], stepM = NODE_STEP_M): 
   return { x: Float64Array.from(xs), y: Float64Array.from(ys), edges };
 }
 
-export interface SimulationResult {
-  /** Nivel recibido en cada nodo (dBm); −Infinity si no llega nada. */
+/** Nivel en cada nodo para una dirección (bajada o subida). */
+export interface LinkLevels {
+  /**
+   * Bajada: nivel que recibe el portátil en el nodo (dBm). Subida: nivel que recibe la fuente
+   * (repetidor o cabecera del cable) cuando el portátil transmite desde el nodo (dBm).
+   * −Infinity si no llega nada.
+   */
   levelDbm: Float64Array;
-  /** Fuente que da el mejor nivel: índice de antena (≥ 0), −(cable + 1) para cables, o −1000 si ninguna. */
+  /** Fuente del mejor nivel: índice de antena (≥ 0), −(cable + 1) para cables, o −1000 si ninguna. */
   source: Int32Array;
   /** Distancia por las galerías hasta la fuente (m). */
   pathM: Float64Array;
-  /** Curvas y cruces en el camino. */
+  /** Curvas en el camino (cada vez que el giro acumulado pasa de 25°). */
   bends: Int32Array;
+  /** Pérdida sumada por curvas y cruces en el camino (dB). */
+  bendLossDb: Float64Array;
+}
+
+export interface SimulationResult {
+  downlink: LinkLevels;
+  /** null si la banda no tiene subida (radiodifusión). */
+  uplink: LinkLevels | null;
+}
+
+function emptyLevels(n: number): LinkLevels {
+  return {
+    levelDbm: new Float64Array(n).fill(-Infinity),
+    source: new Int32Array(n).fill(-1000),
+    pathM: new Float64Array(n),
+    bends: new Int32Array(n),
+    bendLossDb: new Float64Array(n),
+  };
+}
+
+/** Camino de una fuente: ganancia del trayecto sin la potencia de quien transmite (dB). */
+interface SourcePaths {
+  gainDb: Float64Array;
+  dist: Float64Array;
+  bends: Int32Array;
+  bendLossDb: Float64Array;
 }
 
 /** Montículo binario mínimo para Dijkstra. */
@@ -197,18 +237,59 @@ function angleBetweenDeg(ax: number, ay: number, bx: number, by: number): number
   return (Math.acos(Math.max(-1, Math.min(1, dot))) * 180) / Math.PI;
 }
 
+/**
+ * Paso de un nodo al siguiente: pérdida por el giro (proporcional al ángulo, sin umbral) y
+ * si con él el giro acumulado desde la última curva contada pasa de 25°.
+ */
+function turnStep(
+  graph: CaveGraph,
+  u: number,
+  v: number,
+  length: number,
+  dirX: Float64Array,
+  dirY: Float64Array,
+  turnSince: Float64Array,
+  corner90Db: number,
+): { dx: number; dy: number; lossDb: number; turn: number; counted: boolean } {
+  const dx = (graph.x[v]! - graph.x[u]!) / length;
+  const dy = (graph.y[v]! - graph.y[u]!) / length;
+  let angle = 0;
+  if (dirX[u] !== 0 || dirY[u] !== 0) angle = angleBetweenDeg(dirX[u]!, dirY[u]!, dx, dy);
+  const accumulated = turnSince[u]! + angle;
+  const counted = accumulated > BEND_COUNT_DEG;
+  return { dx, dy, lossDb: bendLossDb(angle, corner90Db), turn: counted ? 0 : accumulated, counted };
+}
+
 export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSettings): SimulationResult {
   const n = graph.x.length;
-  const levelDbm = new Float64Array(n).fill(-Infinity);
-  const source = new Int32Array(n).fill(-1000);
-  const pathM = new Float64Array(n);
-  const bends = new Int32Array(n);
-  if (n === 0) return { levelDbm, source, pathM, bends };
+  const downlink = emptyLevels(n);
+  const portablePowerDbm = settings.portablePowerDbm;
+  const uplink = portablePowerDbm === null ? null : emptyLevels(n);
+  if (n === 0) return { downlink, uplink };
 
   const alpha = model.galleries.map((g) =>
     galleryAttenuationDbPerM(settings.frequencyMHz, g, settings.rock, settings.polarization),
   );
   const breakpoint = model.galleries.map((g) => breakpointDistanceM(settings.frequencyMHz, g));
+
+  /** Guarda en `levels` el nivel de esta fuente donde sea el mejor. */
+  const merge = (levels: LinkLevels, paths: SourcePaths, txPowerDbm: number, sourceId: number) => {
+    for (let i = 0; i < n; i++) {
+      const level = txPowerDbm + paths.gainDb[i]!;
+      if (level > levels.levelDbm[i]!) {
+        levels.levelDbm[i] = level;
+        levels.source[i] = sourceId;
+        levels.pathM[i] = paths.dist[i]!;
+        levels.bends[i] = paths.bends[i]!;
+        levels.bendLossDb[i] = paths.bendLossDb[i]!;
+      }
+    }
+  };
+  /** Bajada con la potencia de la fuente; subida con la del portátil, por el mismo camino. */
+  const mergeBoth = (paths: SourcePaths, sourcePowerDbm: number, sourceId: number) => {
+    merge(downlink, paths, sourcePowerDbm, sourceId);
+    if (uplink && portablePowerDbm !== null) merge(uplink, paths, portablePowerDbm, sourceId);
+  };
 
   // --- Antenas: camino de menor pérdida con espacio libre hasta el quiebre ---
   model.transmitters.forEach((tx, t) => {
@@ -217,11 +298,11 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
     const firstGallery = graph.edges[start.node]![0]?.gallery ?? 0;
     const alpha0 = alpha[firstGallery]!;
     const bp0 = breakpoint[firstGallery]!;
-    const eirp = tx.powerDbm + tx.gainDbi + settings.rxGainDbi;
     const dist = new Float64Array(n).fill(Infinity);
     const modal = new Float64Array(n);
     const bendLoss = new Float64Array(n);
     const bendCount = new Int32Array(n);
+    const turnSince = new Float64Array(n);
     const dirX = new Float64Array(n);
     const dirY = new Float64Array(n);
     const best = new Float64Array(n).fill(Infinity);
@@ -238,46 +319,33 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
       if (loss > best[u]!) continue;
       for (const edge of graph.edges[u]!) {
         const v = edge.to;
-        const dx = (graph.x[v]! - graph.x[u]!) / edge.length;
-        const dy = (graph.y[v]! - graph.y[u]!) / edge.length;
-        let extraBend = 0;
-        let isBend = 0;
-        if (dirX[u] !== 0 || dirY[u] !== 0) {
-          const angle = angleBetweenDeg(dirX[u]!, dirY[u]!, dx, dy);
-          if (angle > MIN_BEND_DEG) {
-            extraBend = bendLossDb(angle, settings.corner90Db);
-            isBend = 1;
-          }
-        }
+        const step = turnStep(graph, u, v, edge.length, dirX, dirY, turnSince, settings.corner90Db);
         const d = dist[u]! + edge.length;
         const a = modal[u]! + alpha[edge.gallery]! * edge.length;
-        const b = bendLoss[u]! + extraBend;
+        const b = bendLoss[u]! + step.lossDb;
         const candidate = lossOf(d, a, b);
         if (candidate < best[v]!) {
           best[v] = candidate;
           dist[v] = d;
           modal[v] = a;
           bendLoss[v] = b;
-          bendCount[v] = bendCount[u]! + isBend;
-          dirX[v] = dx;
-          dirY[v] = dy;
+          bendCount[v] = bendCount[u]! + (step.counted ? 1 : 0);
+          turnSince[v] = step.turn;
+          dirX[v] = step.dx;
+          dirY[v] = step.dy;
           heap.push(candidate, v);
         }
       }
     }
-    for (let i = 0; i < n; i++) {
-      const level = eirp - best[i]!;
-      if (level > levelDbm[i]!) {
-        levelDbm[i] = level;
-        source[i] = t;
-        pathM[i] = dist[i]!;
-        bends[i] = bendCount[i]!;
-      }
-    }
+    // Ganancia del trayecto: antena del repetidor + antena del portátil − pérdida.
+    const gainDb = best.map((loss) => tx.gainDbi + settings.rxGainDbi - loss);
+    mergeBoth({ gainDb, dist, bends: bendCount, bendLossDb: bendLoss }, tx.powerDbm, t);
   });
 
   // --- Cables radiantes: alimentan los nodos cercanos y de ahí se propaga por las galerías ---
   model.cables.forEach((cable, c) => {
+    // Ganancia desde la cabecera hasta cada nodo junto al cable, sin la potencia de la cabecera:
+    // pérdida longitudinal + acople + distancia al cable. En la subida es el mismo camino al revés.
     const seed = new Float64Array(n).fill(-Infinity);
     let along = 0;
     for (let i = 0; i < cable.points.length - 1; i++) {
@@ -292,16 +360,18 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
         for (let k = 0; k < n; k++) {
           const r = Math.hypot(graph.x[k]! - cx, graph.y[k]! - cy);
           if (r > 8) continue; // solo los nodos de la galería por donde va el cable
-          const level = leakyCableLevelDbm(cable.headPowerDbm, settings.cable, along + length * t, r) + settings.rxGainDbi;
-          if (level > seed[k]!) seed[k] = level;
+          const gain = leakyCableLevelDbm(0, settings.cable, along + length * t, r) + settings.rxGainDbi;
+          if (gain > seed[k]!) seed[k] = gain;
         }
       }
       along += length;
     }
-    // Dijkstra sobre la pérdida desde el nivel de acople de cada nodo sembrado.
+    // Dijkstra sobre la pérdida desde el acople de cada nodo sembrado.
     const best = new Float64Array(n).fill(Infinity);
     const dist = new Float64Array(n);
     const bendCount = new Int32Array(n);
+    const bendLoss = new Float64Array(n);
+    const turnSince = new Float64Array(n);
     const dirX = new Float64Array(n);
     const dirY = new Float64Array(n);
     const heap = new MinHeap();
@@ -315,40 +385,25 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
       if (cost > best[u]!) continue;
       for (const edge of graph.edges[u]!) {
         const v = edge.to;
-        const dx = (graph.x[v]! - graph.x[u]!) / edge.length;
-        const dy = (graph.y[v]! - graph.y[u]!) / edge.length;
-        let extra = 0;
-        let isBend = 0;
-        if (dirX[u] !== 0 || dirY[u] !== 0) {
-          const angle = angleBetweenDeg(dirX[u]!, dirY[u]!, dx, dy);
-          if (angle > MIN_BEND_DEG) {
-            extra = bendLossDb(angle, settings.corner90Db);
-            isBend = 1;
-          }
-        }
-        const candidate = cost + alpha[edge.gallery]! * edge.length + extra;
+        const step = turnStep(graph, u, v, edge.length, dirX, dirY, turnSince, settings.corner90Db);
+        const candidate = cost + alpha[edge.gallery]! * edge.length + step.lossDb;
         if (candidate < best[v]!) {
           best[v] = candidate;
           dist[v] = dist[u]! + edge.length;
-          bendCount[v] = bendCount[u]! + isBend;
-          dirX[v] = dx;
-          dirY[v] = dy;
+          bendCount[v] = bendCount[u]! + (step.counted ? 1 : 0);
+          bendLoss[v] = bendLoss[u]! + step.lossDb;
+          turnSince[v] = step.turn;
+          dirX[v] = step.dx;
+          dirY[v] = step.dy;
           heap.push(candidate, v);
         }
       }
     }
-    for (let i = 0; i < n; i++) {
-      const level = -best[i]!;
-      if (level > levelDbm[i]!) {
-        levelDbm[i] = level;
-        source[i] = -(c + 1);
-        pathM[i] = dist[i]!;
-        bends[i] = bendCount[i]!;
-      }
-    }
+    const gainDb = best.map((loss) => -loss);
+    mergeBoth({ gainDb, dist, bends: bendCount, bendLossDb: bendLoss }, cable.headPowerDbm, -(c + 1));
   });
 
-  return { levelDbm, source, pathM, bends };
+  return { downlink, uplink };
 }
 
 /** Largo total de galerías (m) y largo con nivel ≥ `thresholdDbm` en ambos extremos de cada tramo. */
