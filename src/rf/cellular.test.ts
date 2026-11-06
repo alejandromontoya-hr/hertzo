@@ -8,6 +8,10 @@ import {
   sectorGainDbi,
   sinrDb,
   umaNlosLossDb,
+  buildingEntryLossDb,
+  locationMarginDb,
+  lossCurve,
+  neighborOffsetsM,
 } from './cellular';
 
 describe('Okumura-Hata: 900 MHz, base 30 m, móvil 1,5 m', () => {
@@ -112,5 +116,49 @@ describe('LTE / NR', () => {
 
   it('sin interferentes, la SINR es la relación señal a ruido', () => {
     expect(sinrDb(-100, [], -125.24)).toBeCloseTo(25.24, 6);
+  });
+});
+
+describe('teléfono dentro de un edificio (38.901 O2I)', () => {
+  it('880 MHz, bajas pérdidas: muro 5 − 10·log(0,3·10^(−2,176/10) + 0,7·10^(−8,52/10)) = 10,53 dB + 4,17 adentro = 14,69 dB', () => {
+    expect(buildingEntryLossDb(880, 'interior-bajas')).toBeCloseTo(14.692, 2);
+  });
+
+  it('3500 MHz, bajas pérdidas: 12,70 + 4,17 = 16,86 dB', () => {
+    expect(buildingEntryLossDb(3500, 'interior-bajas')).toBeCloseTo(16.864, 2);
+  });
+
+  it('3500 MHz, vidrio reflectivo: 26,85 + 4,17 = 31,02 dB', () => {
+    expect(buildingEntryLossDb(3500, 'interior-altas')).toBeCloseTo(31.016, 2);
+  });
+
+  it('en la calle no suma', () => {
+    expect(buildingEntryLossDb(880, 'exterior')).toBe(0);
+  });
+});
+
+describe('sitios vecinos', () => {
+  it('seis vecinos a 1 km: el primero al norte y el segundo a 60°', () => {
+    const n = neighborOffsetsM(1000);
+    expect(n).toHaveLength(6);
+    expect(n[0]!.y).toBeCloseTo(1000, 6);
+    expect(n[1]!.x).toBeCloseTo(866.03, 2);
+  });
+
+  it('la curva de pérdida interpola entre anillos y sigue la pendiente afuera', () => {
+    const curve = lossCurve([50, 150, 250, 350], [100, 110, 120, 130], 100);
+    expect(curve(200)).toBeCloseTo(115, 6);
+    // Afuera: pendiente entre 250 m (120 dB) y 350 m (130 dB) = 10 / log10(1,4) = 68,43 dB/década.
+    expect(curve(700)).toBeCloseTo(130 + (10 / Math.log10(350 / 250)) * Math.log10(2), 6);
+  });
+});
+
+describe('margen por confiabilidad', () => {
+  it('90 % con σ = 8 dB: 1,2816 × 8 = 10,25 dB', () => {
+    expect(locationMarginDb(90, 8)).toBeCloseTo(10.253, 3);
+  });
+
+  it('50 % es la mediana: 0 dB', () => {
+    expect(locationMarginDb(50, 8)).toBe(0);
   });
 });

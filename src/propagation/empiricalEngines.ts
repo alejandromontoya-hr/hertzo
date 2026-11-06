@@ -1,6 +1,7 @@
 // Motores empíricos para celular: Okumura-Hata / COST-231 y 3GPP 38.901 UMa.
 
 import { hataInRange, hataLossDb, umaNlosLossDb, type HataEnvironment } from '../rf/cellular';
+import { freeSpaceLossDb } from '../rf/fieldStrength';
 import type { PropagationEngine, RadialRequest } from './engine';
 
 /** Bandera: el punto está fuera del rango de validez del modelo empírico. */
@@ -48,7 +49,9 @@ export function createHataEngine(environment: HataEnvironment): PropagationEngin
       const hb = effectiveHeightM(r);
       for (let k = 0; k < count; k++) {
         const dKm = ((k + 1) * r.stride * r.stepM) / 1000;
-        lossDb[k] = hataLossDb(r.frequencyMHz, hb, r.rxHeightM, dKm, environment);
+        // Cerca de la torre Hata da menos pérdida que el espacio libre, que es imposible: se usa el mayor.
+        const freeSpace = freeSpaceLossDb(Math.hypot(dKm * 1000, r.txHeightM - r.rxHeightM) / 1000, r.frequencyMHz);
+        lossDb[k] = Math.max(hataLossDb(r.frequencyMHz, hb, r.rxHeightM, dKm, environment), freeSpace);
         if (!hataInRange(r.frequencyMHz, hb, Math.max(1, dKm)) || dKm < HATA_MIN_DRAWN_KM) {
           warnings[k] = EMPIRICAL_WARN_OUT_OF_RANGE;
         }

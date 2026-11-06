@@ -17,14 +17,23 @@ import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
 import {
   CARRIERS,
   HATA_ENVIRONMENTS,
+  PHONE_LOCATIONS,
   angleDiffDeg,
+  buildingEntryLossDb,
+  locationMarginDb,
+  lossCurve,
+  neighborOffsetsM,
   noisePerResourceElementDbm,
   powerPerResourceElementDbm,
   sectorGainDbi,
   sinrDb,
   type HataEnvironment,
+  type PhoneLocation,
   type SectorAntenna,
 } from '../../rf/cellular';
+import { itmSpec } from '../../coverage/inputs';
+import { clutterQuery, clutterSummary, createClutterControl, parseClutter } from '../../ui/clutterControl';
+import { createReliabilityControl, parseReliability } from '../../ui/reliabilityControl';
 import { wattsToDbm } from '../../rf/units';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
@@ -43,6 +52,9 @@ interface Band {
   frequencyMHz: number;
   carrier: string;
   description: string;
+  /** Valores típicos del sitio y la antena en esta banda, si son distintos de los de LTE macro. */
+  site?: Partial<SiteParams>;
+  antenna?: Partial<SectorAntenna>;
 }
 
 const BANDS: readonly Band[] = [
@@ -51,7 +63,15 @@ const BANDS: readonly Band[] = [
   { id: '1900', label: '1900', frequencyMHz: 1960, carrier: 'lte15', description: 'Banda 2 (PCS): bajada 1930–1990 MHz.' },
   { id: 'aws', label: 'AWS', frequencyMHz: 2130, carrier: 'lte20', description: 'Bandas 4 y 66 (AWS): bajada 2110–2200 MHz.' },
   { id: '2600', label: '2600', frequencyMHz: 2650, carrier: 'lte20', description: 'Banda 7: bajada 2620–2690 MHz.' },
-  { id: '3500', label: '3500', frequencyMHz: 3500, carrier: 'nr100', description: 'Banda n78 (5G NR): 3300–3800 MHz.' },
+  {
+    id: '3500',
+    label: '3500',
+    frequencyMHz: 3500,
+    carrier: 'nr80',
+    description: 'Banda n78 (5G NR): 3300–3800 MHz. Antena activa (AAU 64T64R): unos 200 W, 24 dBi y sin cable, como la Ericsson AIR 6449.',
+    site: { powerW: 200, cableLossDb: 0 },
+    antenna: { gainDbi: 24, verticalBeamwidthDeg: 10 },
+  },
 ];
 
 type ModelId = `hata-${HataEnvironment}` | 'uma' | 'itm';
@@ -91,7 +111,7 @@ type View = 'rsrp' | 'best' | 'sinr';
 const VIEWS: { id: View; label: string; title: string }[] = [
   { id: 'rsrp', label: 'RSRP', title: 'Señal de referencia del mejor sector (dBm)' },
   { id: 'best', label: 'Mejor sector', title: 'Sector que atiende cada punto' },
-  { id: 'sinr', label: 'SINR', title: 'Señal a interferencia más ruido, carga 100 % (dB)' },
+  { id: 'sinr', label: 'SINR', title: 'Señal a interferencia más ruido, carga 100 % con los vecinos (dB)' },
 ];
 
 const RSRP_DESCRIPTIONS = ['excelente', 'buena', 'regular', 'débil'];
@@ -115,12 +135,24 @@ const sectorPixelsFor = (size: number): SectorPixels => ({
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 
+/** Sitio LTE macro típico: 40 W por sector, 2 dB de cable, teléfono a 1,5 m. */
+const BASE_SITE: SiteParams = { antennaHeightM: 30, powerW: 40, cableLossDb: 2, ueHeightM: 1.5, noiseFigureDb: 7 };
+const BASE_ANTENNA: SectorAntenna = { gainDbi: 17, horizontalBeamwidthDeg: 65, verticalBeamwidthDeg: 7, downtiltDeg: 4 };
+
+/** Desviación del desvanecimiento lognormal (dB): 8 dB para Hata y 6 dB para 38.901 UMa NLOS. */
+const shadowSigmaDb = (model: string) => (model === 'uma' ? 6 : 8);
+
 export function mountCellularPage({ root, params }: PageContext): () => void {
   let band = BANDS.find((b) => b.id === params.get('banda')) ?? BANDS[0]!;
   let carrier = CARRIERS.find((c) => c.id === band.carrier)!;
   let model: ModelId = band.frequencyMHz > 2000 ? 'uma' : 'hata-urbano';
-  let siteParams: SiteParams = { antennaHeightM: 30, powerW: 40, cableLossDb: 2, ueHeightM: 1.5, noiseFigureDb: 7 };
-  let antenna: SectorAntenna = { gainDbi: 17, horizontalBeamwidthDeg: 65, verticalBeamwidthDeg: 7, downtiltDeg: 4 };
+  let siteParams: SiteParams = { ...BASE_SITE, ...band.site };
+  let antenna: SectorAntenna = { ...BASE_ANTENNA, ...band.antenna };
+  let phone: PhoneLocation = 'exterior';
+  let reliability = parseReliability(params, 50);
+  let clutter = parseClutter(params);
+  /** Distancia a los seis sitios vecinos (km); 0 = sin vecinos. */
+  let neighborKm = 1;
   let azimuths = [0, 120, 240];
   let view: View = 'rsrp';
   let thresholds: Record<'rsrp' | 'sinr', number[]> = { rsrp: [-80, -90, -100, -110], sinr: [20, 13, 5, 0] };
@@ -199,19 +231,62 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   });
   page.find('[data-model]').append(modelSelect.element);
 
-  createFieldGroup(page.find('[data-site-params]'), SITE_FIELDS, siteParams, (next) => {
+  const siteFields = createFieldGroup(page.find('[data-site-params]'), SITE_FIELDS, siteParams, (next) => {
     siteParams = next;
     onGeometryChange();
   });
   page.find('[data-site-params]').append(
-    createSelectField('Portadora', CARRIERS, carrier.id, (id) => {
-      carrier = CARRIERS.find((c) => c.id === id)!;
-      redraw();
-    }).element,
+    createSelectField(
+      `Dónde está el teléfono${infoButton('Dentro de un edificio la señal pierde lo que cuesta atravesar el muro exterior y avanzar adentro (3GPP 38.901, modelo O2I): unos 15 dB a 850 MHz y 17 dB a 3500 MHz con vidrio común, y 31 dB a 3500 MHz con vidrio reflectivo.')}`,
+      PHONE_LOCATIONS,
+      phone,
+      (id) => {
+        phone = id as PhoneLocation;
+        redraw();
+      },
+    ).element,
   );
-  createFieldGroup(page.find('[data-antenna]'), ANTENNA_FIELDS, antenna, (next) => {
+  createFieldGroup(
+    page.find('[data-site-params]'),
+    [
+      {
+        key: 'neighborKm',
+        label: 'Distancia a los sitios vecinos',
+        unit: 'km',
+        min: 0,
+        max: 20,
+        hint: 'Para la SINR: seis sitios iguales a esta distancia, transmitiendo a plena carga. En ciudad suelen estar a 0,5–1,5 km; escribe 0 para ver solo los sectores de este sitio.',
+      },
+    ],
+    { neighborKm },
+    (next) => {
+      neighborKm = next.neighborKm;
+      redraw();
+    },
+  );
+  const carrierSelect = createSelectField('Portadora', CARRIERS, carrier.id, (id) => {
+    carrier = CARRIERS.find((c) => c.id === id)!;
+    redraw();
+  });
+  page.find('[data-site-params]').append(carrierSelect.element);
+  const antennaFields = createFieldGroup(page.find('[data-antenna]'), ANTENNA_FIELDS, antenna, (next) => {
     antenna = next;
     redraw();
+  });
+  createReliabilityControl(page.find('[data-model]'), reliability, (next) => {
+    reliability = next;
+    replaceQuery('confiabilidad', next === 50 ? null : String(next));
+    onGeometryChange();
+  });
+  const clutterBox = document.createElement('div');
+  clutterBox.className = 'form';
+  page.find('[data-model]').append(clutterBox);
+  createClutterControl(clutterBox, clutter, (next) => {
+    clutter = next;
+    const query = clutterQuery(clutter);
+    replaceQuery('entorno', query.entorno);
+    replaceQuery('altura-entorno', query.altura);
+    onGeometryChange();
   });
 
   const sectorsBox = page.find('[data-sectors]');
@@ -253,7 +328,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
 
   function engineSpec(): EngineSpec {
     if (model === 'uma') return { id: 'uma' };
-    if (model === 'itm') return { id: 'itm' };
+    if (model === 'itm') return itmSpec(clutter, reliability);
     return { id: 'hata', environment: model.slice('hata-'.length) as HataEnvironment };
   }
 
@@ -271,6 +346,8 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   function showModelHint() {
     const f = band.frequencyMHz;
     const modelInfo = page.find('[data-model-info]');
+    // Hata y UMa ya traen la ciudad; el entorno de la P.2108 solo aplica con ITM.
+    clutterBox.hidden = model !== 'itm';
     // El aviso se ve siempre que el modelo no sirve para la banda; la explicación va en "i".
     modelWarning.hidden = !(model.startsWith('hata') && f > 2000);
     modelWarning.textContent = `Hata solo vale hasta 2000 MHz; a ${f} MHz todo el mapa queda rayado. Para esta banda usa 3GPP 38.901 o ITM.`;
@@ -292,9 +369,16 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     const grid = result.grids[0]!;
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const noise = noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb);
-    const base = pRe - siteParams.cableLossDb;
+    // Señal mediana en el teléfono: pierde lo del edificio si está adentro (también la de los vecinos).
+    const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(band.frequencyMHz, phone);
+    // Con Hata o UMa la confiabilidad es un margen z·σ sobre la mediana; con ITM ya viene en la pérdida.
+    const margin = result.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(model));
     const dh = siteParams.antennaHeightM - siteParams.ueHeightM;
     const levels = new Array<number>(azimuths.length);
+    const neighbors = neighborKm > 0 ? neighborOffsetsM(neighborKm * 1000) : [];
+    const curve = neighbors.length ? lossCurve(geometry.distanceM, Array.from(geometry.index, (g) => (g < 0 ? Number.NaN : grid.lossDb[g]!))) : null;
+    curveCache = curve;
+    const interferers: number[] = [];
     for (let p = 0; p < geometry.index.length; p++) {
       const g = geometry.index[p]!;
       if (g < 0 || Number.isNaN(grid.lossDb[g]!)) {
@@ -310,11 +394,41 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
         levels[s] = base + sectorGainDbi(antenna, off, below) - grid.lossDb[g]!;
         if (levels[s]! > levels[best]!) best = s;
       }
-      bestRsrp[p] = levels[best]!;
+      bestRsrp[p] = levels[best]! - margin;
       bestSector[p] = best;
-      sinr[p] = sinrDb(levels[best]!, levels.filter((_, s) => s !== best), noise);
+      interferers.length = 0;
+      for (let s = 0; s < levels.length; s++) if (s !== best) interferers.push(levels[s]!);
+      if (curve) neighborLevels(geometry.distanceM[p]!, geometry.bearingDeg[p]!, base, dh, neighbors, curve, interferers);
+      sinr[p] = sinrDb(levels[best]!, interferers, noise);
     }
     lowConfidencePixels(geometry, result.grids, lowConfidenceMask(result.request.engine), out.lowConfidence);
+  }
+
+  /**
+   * Agrega a `out` la señal (dBm) de cada sector de los sitios vecinos en un punto a `distanceM` y
+   * `bearingDeg` del sitio: misma configuración y la pérdida típica por distancia del propio cálculo.
+   */
+  function neighborLevels(
+    distanceM: number,
+    bearingDeg: number,
+    base: number,
+    dh: number,
+    neighbors: { x: number; y: number }[],
+    curve: (d: number) => number,
+    out: number[],
+  ) {
+    const b = (bearingDeg * Math.PI) / 180;
+    const x = distanceM * Math.sin(b);
+    const y = distanceM * Math.cos(b);
+    for (const n of neighbors) {
+      const dx = x - n.x;
+      const dy = y - n.y;
+      const d = Math.max(10, Math.hypot(dx, dy));
+      const bearing = (Math.atan2(dx, dy) * 180) / Math.PI;
+      const below = (Math.atan2(dh, d) * 180) / Math.PI;
+      const loss = curve(d);
+      for (const a of azimuths) out.push(base + sectorGainDbi(antenna, angleDiffDeg(bearing, a), below) - loss);
+    }
   }
 
   /** Pinta la vista `v` en `out`, igual sobre el mapa que para el KMZ. */
@@ -333,7 +447,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   function legendTexts(v: View) {
     const descriptions = v === 'rsrp' ? RSRP_DESCRIPTIONS : SINR_DESCRIPTIONS;
     return {
-      title: VIEWS.find((x) => x.id === v)!.title,
+      title: v === 'rsrp' && reliability !== 50 ? `${VIEWS.find((x) => x.id === v)!.title} · ${reliability} % de confiabilidad` : VIEWS.find((x) => x.id === v)!.title,
       entries:
         v === 'best'
           ? azimuths.map((a, i) => ({ color: SECTOR_COLORS[i]!, label: `S${i + 1} (azimut ${a}°)` }))
@@ -509,6 +623,12 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   bindChoice(page.panel, 'banda', band.id, (id) => {
     band = BANDS.find((b) => b.id === id)!;
     carrier = CARRIERS.find((c) => c.id === band.carrier)!;
+    carrierSelect.setValue(carrier.id);
+    // Cada banda trae sus valores típicos de potencia, cable y antena.
+    siteParams = { ...siteParams, powerW: band.site?.powerW ?? BASE_SITE.powerW, cableLossDb: band.site?.cableLossDb ?? BASE_SITE.cableLossDb };
+    antenna = { ...antenna, gainDbi: band.antenna?.gainDbi ?? BASE_ANTENNA.gainDbi, verticalBeamwidthDeg: band.antenna?.verticalBeamwidthDeg ?? BASE_ANTENNA.verticalBeamwidthDeg };
+    siteFields.setValues(siteParams);
+    antennaFields.setValues(antenna);
     if (band.frequencyMHz > 2000 && model.startsWith('hata')) {
       model = 'uma';
       modelSelect.setValue(model);
@@ -517,6 +637,18 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     replaceQuery('banda', band.id);
     onGeometryChange();
   });
+
+  /** Interferencia en un punto de la lectura: los demás sectores y los vecinos, como en el mapa. */
+  function readoutInterferers(median: number[], best: number, d: number, bearing: number, base: number): number[] {
+    const out = median.filter((_, s) => s !== best);
+    if (neighborKm > 0 && coverage && geometry) {
+      const grid = coverage.grids[0]!;
+      curveCache ??= lossCurve(geometry.distanceM, Array.from(geometry.index, (g) => (g < 0 ? Number.NaN : grid.lossDb[g]!)));
+      neighborLevels(d, bearing, base, siteParams.antennaHeightM - siteParams.ueHeightM, neighborOffsetsM(neighborKm * 1000), curveCache, out);
+    }
+    return out;
+  }
+  let curveCache: ((d: number) => number) | null = null;
 
   const readout = createHoverReadout(page.readoutRoot);
   page.map.on('mousemove', (event) => {
@@ -529,20 +661,23 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     const grid = coverage.grids[0]!;
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const below = (Math.atan2(siteParams.antennaHeightM - siteParams.ueHeightM, Math.max(1, d)) * 180) / Math.PI;
-    const levels = azimuths.map(
-      (a) => pRe - siteParams.cableLossDb + sectorGainDbi(antenna, angleDiffDeg(bearing, a), below) - grid.lossDb[g]!,
-    );
+    const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(band.frequencyMHz, phone);
+    const margin = coverage.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(model));
+    const median = azimuths.map((a) => base + sectorGainDbi(antenna, angleDiffDeg(bearing, a), below) - grid.lossDb[g]!);
+    const levels = median.map((l) => l - margin);
     const best = levels.indexOf(Math.max(...levels));
     const noise = noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb);
     const lines = [
       `A ${oneDecimal.format(d / 1000)} km de la torre, rumbo ${integerFormat.format(bearing)}°`,
       `Mejor sector: S${best + 1} · RSRP ${oneDecimal.format(levels[best]!)} dBm`,
-      `SINR ${oneDecimal.format(sinrDb(levels[best]!, levels.filter((_, s) => s !== best), noise))} dB`,
+      `SINR ${oneDecimal.format(sinrDb(median[best]!, readoutInterferers(median, best, d, bearing, base), noise))} dB`,
       ...levels.map((l, s) => `S${s + 1}: ${oneDecimal.format(l)} dBm`),
     ];
     if (grid.warnings[g]! & lowConfidenceMask(coverage.request.engine)) {
       lines.push(model === 'itm' ? 'Baja confianza: ladera empinada junto a la torre' : 'Fuera del rango de validez del modelo');
     }
+    const entorno = clutterSummary(coverage.request);
+    if (entorno) lines.push(entorno);
     readout.show(lines, event.point.x, event.point.y);
   });
   page.map.on('mouseout', () => readout.hide());
