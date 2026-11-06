@@ -105,7 +105,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de radioenlaces y microondas punto a punto',
     about: [
       'Traza el perfil del terreno entre dos puntos, revisa el despeje de la primera zona de Fresnel con la curvatura de la Tierra y calcula el nivel recibido, el margen de desvanecimiento y la disponibilidad de un radioenlace VHF/UHF o de microondas.',
-      'Por ejemplo, a 6 GHz y 20 km la primera zona de Fresnel mide 15,8 m de radio en la mitad del trayecto; el criterio usual es dejar libre al menos el 60 % de ella.',
+      'Por ejemplo, a 6 GHz y 20 km la primera zona de Fresnel mide 15,8 m de radio en la mitad del trayecto. El veredicto pide el 100 % de ella libre con k = 4/3 y el 60 % con k = 2/3, y la disponibilidad suma el corte por lluvia (UIT-R P.838-3 y P.530) al de multitrayecto: un enlace de 11 GHz y 11 km en los Andes corta unos 46 minutos al año por lluvia.',
     ],
     faq: [
       {
@@ -114,7 +114,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         q: '¿Qué modelos usa?',
-        a: 'Espacio libre, difracción por aristas (Deygout) e ITM sobre el perfil real; la disponibilidad se estima con Vigants-Barnett.',
+        a: 'Espacio libre, difracción por aristas (Deygout) e ITM sobre el perfil real; la lluvia con la UIT-R P.838-3 y la P.530-18, y el multitrayecto con Vigants-Barnett.',
       },
       ...COMMON_FAQ,
     ],
@@ -122,8 +122,8 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
   radiodifusion: {
     h1: 'Simulador de cobertura de emisoras FM y AM',
     about: [
-      'Calcula la intensidad de campo en dBµV/m de una emisora y sus zonas de servicio urbana, suburbana y rural. FM se calcula con ITM sobre el relieve real; AM con onda de tierra, según la conductividad del suelo.',
-      'Sirve para estimar hasta dónde llega una emisora antes de pedir la licencia o cambiar la antena.',
+      'Calcula la intensidad de campo en dBµV/m de una emisora y sus zonas de servicio. FM se calcula con ITM sobre el relieve real, con la confiabilidad y el entorno del receptor que elijas; AM con onda de tierra sobre la Tierra esférica (Norton y la serie de Wait), según la conductividad del suelo, con los contornos de 62, 56, 54 y 48 dBµV/m del Decreto 1445 de 1995.',
+      'La cobertura AM es la diurna: de noche la onda de cielo trae interferencia de otras emisoras y la cobertura se encoge. Sirve para estimar hasta dónde llega una emisora antes de pedir la licencia o cambiar la antena.',
     ],
     faq: [
       {
@@ -140,8 +140,8 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
   cavernas: {
     h1: 'Simulador de radio en túneles, minas y cavernas',
     about: [
-      'Dibuja las galerías de una mina, un túnel vial o una caverna y simula la señal de radios, repetidores y cable radiante a lo largo de cada galería, con las pérdidas en curvas y cruces.',
-      'Un túnel se comporta como una guía de onda (modelo de Emslie): las frecuencias altas avanzan mejor en tramos rectos y las bajas, como VHF, se atenúan rápido en galerías pequeñas. Por eso bajo tierra se usa cable radiante.',
+      'Dibuja las galerías de una mina, un túnel vial o una caverna y simula la señal de radios, repetidores y cable radiante a lo largo de cada galería, con las pérdidas en curvas y cruces, en bajada (del repetidor al portátil) y en subida (del portátil al repetidor).',
+      'Un túnel se comporta como una guía de onda (modelo de Emslie, con la rugosidad y la inclinación de las paredes): las frecuencias altas avanzan mejor en tramos rectos y las bajas, como VHF, se atenúan rápido en galerías pequeñas. Por eso bajo tierra se usa cable radiante, que Hertzo calcula con los datos de un cable real de 1/2" (RFS RLKW12-50).',
     ],
     faq: [
       {

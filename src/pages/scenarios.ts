@@ -107,7 +107,7 @@ export const SCENARIOS: Scenario[] = [
       'Perfil del trayecto, despeje de la zona de Fresnel, nivel recibido, margen de desvanecimiento y disponibilidad de un enlace. Gratis, en tu navegador.',
     summary: 'Microondas y radioenlaces: perfil, zona de Fresnel y margen.',
     computes: 'Despeje de Fresnel, pérdidas, nivel recibido, margen de desvanecimiento y disponibilidad.',
-    model: 'Espacio libre + difracción por aristas (Deygout) e ITM; Vigants-Barnett',
+    model: 'Espacio libre + difracción por aristas (Deygout) e ITM; lluvia UIT-R P.838-3 y P.530-18; Vigants-Barnett',
     options: [
       { label: 'Microondas', href: '/enlace?tipo=microondas' },
       { label: 'Radioenlace VHF/UHF', href: '/enlace?tipo=radio' },
@@ -122,7 +122,7 @@ export const SCENARIOS: Scenario[] = [
       'Intensidad de campo en dBµV/m y zonas de servicio de una emisora: FM con ITM sobre el terreno real y AM con onda de tierra. Gratis, en tu navegador.',
     summary: 'Emisoras sobre el terreno: intensidad de campo y zonas de servicio.',
     computes: 'Campo en dBµV/m y contornos de servicio urbano, suburbano y rural.',
-    model: 'FM con ITM sobre terreno; AM con onda de tierra (Sommerfeld-Norton)',
+    model: 'FM con ITM sobre terreno; AM con onda de tierra sobre Tierra esférica (Norton y Wait)',
     options: [
       { label: 'FM', href: '/radiodifusion?servicio=fm' },
       { label: 'AM', href: '/radiodifusion?servicio=am' },
