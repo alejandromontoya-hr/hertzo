@@ -9,6 +9,7 @@ import type { LonLat } from '../geo/geodesy';
 import type { KmlPlacemark } from '../export/kml';
 import type { MapPage } from '../pages/shared/mapPage';
 import { formatLonLat } from './format';
+import { LOCATE_ICON } from './icons';
 import { infoButton } from './infoTip';
 
 export interface Device {
@@ -34,6 +35,8 @@ export interface DeviceListOptions {
   units: string[];
   /** Cómo se llama el equipo en plural y en singular: "medidores" / "medidor". */
   noun: { one: string; many: string };
+  /** Perfiles que se pueden elegir para un equipo, en el menú de su fila. */
+  profiles: readonly { id: string; name: string }[];
   /** Nombre del perfil para mostrarlo en la fila. */
   profileName(profileId: string | null): string;
   /** Busca el perfil escrito en la lista pegada (por id o por nombre); null si no lo reconoce. */
@@ -79,7 +82,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
       <label for="lista-equipos">Una línea por equipo: nombre, latitud, longitud y, si quieres, el tipo${infoButton(
         'Puedes copiar las columnas desde Excel o pegar un CSV. Ejemplo: "Medidor 12; 6,2442; -75,5812; medidor-caja". Sin tipo, usa el elegido arriba.',
       )}</label>
-      <textarea id="lista-equipos" rows="5" placeholder="Medidor 1&#9;6,2442&#9;-75,5812"></textarea>
+      <textarea id="lista-equipos" rows="5" placeholder="${capitalize(options.noun.one)} 1&#9;6,2442&#9;-75,5812"></textarea>
       <button type="button" class="button" data-device-load>Cargar</button>
       <p class="field-error" data-device-errors hidden></p>
     </div>
@@ -119,8 +122,10 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     page.map.getCanvas().style.cursor = active ? 'crosshair' : '';
   };
 
-  const onMapClick = (event: { lngLat: { lng: number; lat: number } }) => {
+  const onMapClick = (event: { lngLat: { lng: number; lat: number }; originalEvent: MouseEvent }) => {
     if (!picking) return;
+    // Un clic sobre un equipo (o al soltarlo tras arrastrarlo) no agrega otro encima.
+    if ((event.originalEvent.target as HTMLElement | null)?.closest('.device-dot')) return;
     add([{ name: `${capitalize(options.noun.one)} ${nextId}`, position: { lon: event.lngLat.lng, lat: event.lngLat.lat }, profileId: null }]);
   };
   page.map.on('click', onMapClick);
@@ -143,34 +148,77 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     }
   });
   q('[data-device-clear]').addEventListener('click', () => {
-    devices = [];
-    rows = new Map();
-    for (const m of markers.values()) m.remove();
-    markers.clear();
-    render();
+    for (const d of [...devices]) remove(d.id);
   });
   q('[data-device-csv]').addEventListener('click', downloadCsv);
-  body.addEventListener('click', (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLElement>('[data-remove]');
-    if (button) remove(Number(button.dataset.remove));
-    const name = (event.target as HTMLElement).closest<HTMLElement>('[data-fly]');
-    if (name) {
-      const device = devices.find((d) => d.id === Number(name.dataset.fly));
-      if (device) page.map.flyTo({ center: [device.position.lon, device.position.lat], zoom: Math.max(page.map.getZoom(), 14) });
-    }
-  });
+
+  /** Elementos de la fila de cada equipo: se crean una vez, así escribir el nombre no se interrumpe. */
+  interface RowElements {
+    tr: HTMLTableRowElement;
+    dot: HTMLElement;
+    sameOption: HTMLOptionElement;
+    cells: HTMLTableCellElement[];
+  }
+  const rowElements = new Map<number, RowElements>();
+
+  function createRow(device: Device): RowElements {
+    const tr = document.createElement('tr');
+    const profileOptions = options.profiles.map((p) => `<option value="${escape(p.id)}">${escape(p.name)}</option>`).join('');
+    tr.innerHTML = `
+      <th scope="row">
+        <div class="device-name"><span class="status-dot"></span><input type="text" maxlength="60" aria-label="Nombre del ${options.noun.one}"></div>
+        <select class="device-type" aria-label="Tipo de ${escape(device.name)}"><option value=""></option>${profileOptions}</select>
+      </th>
+      ${options.columns.map(() => '<td></td>').join('')}
+      <td class="device-row-actions">
+        <button type="button" class="device-locate" data-fly title="Ver en el mapa" aria-label="Ver ${escape(device.name)} en el mapa">${LOCATE_ICON}</button>
+        <button type="button" class="link-button" data-remove title="Quitar" aria-label="Quitar ${escape(device.name)}">×</button>
+      </td>`;
+    const input = tr.querySelector('input')!;
+    const select = tr.querySelector('select')!;
+    input.value = device.name;
+    select.value = device.profileId ?? '';
+    input.addEventListener('change', () => {
+      device.name = input.value.trim() || device.name;
+      input.value = device.name;
+      render();
+    });
+    select.addEventListener('change', () => {
+      device.profileId = select.value || null;
+      reevaluate(device.id);
+    });
+    tr.querySelector('[data-fly]')!.addEventListener('click', () =>
+      page.map.flyTo({ center: [device.position.lon, device.position.lat], zoom: Math.max(page.map.getZoom(), 14) }),
+    );
+    tr.querySelector('[data-remove]')!.addEventListener('click', () => remove(device.id));
+    return {
+      tr,
+      dot: tr.querySelector('.status-dot')!,
+      sameOption: select.options[0]!,
+      cells: [...tr.querySelectorAll('td')].slice(0, options.columns.length),
+    };
+  }
 
   function add(list: Omit<Device, 'id'>[]) {
     for (const d of list) {
-      const device = { ...d, id: nextId++ };
+      const device: Device = { ...d, id: nextId++ };
       devices.push(device);
       const element = document.createElement('div');
       element.className = 'device-dot';
-      const marker = new Marker({ element }).setLngLat([device.position.lon, device.position.lat]).addTo(page.map);
+      // Se arrastra para moverlo; al soltarlo se vuelve a calcular solo ese equipo.
+      const marker = new Marker({ element, draggable: true }).setLngLat([device.position.lon, device.position.lat]).addTo(page.map);
+      marker.on('dragend', () => {
+        const { lng, lat } = marker.getLngLat();
+        device.position = { lon: lng, lat };
+        reevaluate(device.id);
+      });
       markers.set(device.id, marker);
+      const row = createRow(device);
+      rowElements.set(device.id, row);
+      body.append(row.tr);
     }
     render();
-    refresh();
+    schedule(false);
   }
 
   function remove(id: number) {
@@ -178,7 +226,17 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     rows.delete(id);
     markers.get(id)?.remove();
     markers.delete(id);
+    rowElements.get(id)?.tr.remove();
+    rowElements.delete(id);
     render();
+    options.onRowsChange?.();
+  }
+
+  /** Cambió un equipo (lo moviste o le cambiaste el tipo): se calcula de nuevo solo ese. */
+  function reevaluate(id: number) {
+    rows.delete(id);
+    render();
+    schedule(false);
   }
 
   let lastCount = 0;
@@ -190,22 +248,14 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     }
     table.hidden = devices.length === 0;
     footer.hidden = devices.length === 0;
-    body.innerHTML = devices
-      .map((d) => {
-        const row = rows.get(d.id);
-        const status = row ? STATUS[row.status] : undefined;
-        const cells = row ? row.cells : options.columns.map(() => '…');
-        return `<tr>
-          <th scope="row"><span class="status-dot" style="background:${status?.color ?? 'transparent'}" title="${status?.label ?? 'Calculando'}"></span>
-            <button type="button" class="link-button" data-fly="${d.id}">${escape(d.name)}</button>
-            <small>${escape(options.profileName(d.profileId))}</small></th>
-          ${cells.map((c) => `<td>${c}</td>`).join('')}
-          <td><button type="button" class="link-button" data-remove="${d.id}" aria-label="Quitar ${escape(d.name)}">×</button></td>
-        </tr>`;
-      })
-      .join('');
     for (const d of devices) {
       const row = rows.get(d.id);
+      const status = row ? STATUS[row.status] : undefined;
+      const elements = rowElements.get(d.id)!;
+      elements.dot.style.background = status?.color ?? 'transparent';
+      elements.dot.title = status?.label ?? 'Calculando';
+      elements.sameOption.textContent = `${options.profileName(null)} · como arriba`;
+      elements.cells.forEach((cell, i) => (cell.innerHTML = row ? row.cells[i]! : '…'));
       const element = markers.get(d.id)?.getElement();
       if (!element) continue;
       element.style.background = row ? STATUS[row.status].color : STATUS.unknown.color;
@@ -228,14 +278,26 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     summary.textContent = `${ok} de ${devices.length} ${devices.length === 1 ? options.noun.one : options.noun.many}: llegan bajada y subida.`;
   }
 
-  /** Evalúa de a uno, en orden; si algo cambia mientras tanto, empieza de nuevo. */
+  let fullPending = false;
+
+  /** Todo cambió (el sitio, la banda, la potencia...): se vuelven a evaluar todos los equipos. */
   function refresh() {
+    schedule(true);
+  }
+
+  /**
+   * Evalúa de a uno, en orden, los equipos que no tienen resultado (todos si `full`); si algo
+   * cambia mientras tanto, empieza de nuevo.
+   */
+  function schedule(full: boolean) {
+    fullPending ||= full;
     clearTimeout(timer);
     timer = setTimeout(async () => {
       const current = ++generation;
-      rows = new Map();
+      if (fullPending) rows = new Map();
+      fullPending = false;
       render();
-      for (const device of [...devices]) {
+      for (const device of devices.filter((d) => !rows.has(d.id))) {
         let row: DeviceRow | null;
         try {
           row = await options.evaluate(device);
@@ -248,6 +310,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
           summary.textContent = 'Ubica el sitio para calcular los equipos.';
           return;
         }
+        if (!devices.includes(device)) continue;
         rows.set(device.id, row);
         render();
         options.onRowsChange?.();

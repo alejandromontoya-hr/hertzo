@@ -318,6 +318,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     columns: ['Bajada', 'Subida', 'SF'],
     units: ['dBm', 'dBm', ''],
     noun: { one: 'medidor', many: 'medidores' },
+    profiles: LORA_SENSORS,
     profileName: (id) => LORA_SENSORS.find((s) => s.id === id)?.name ?? sensor.name,
     matchProfile(text) {
       const t = text.trim().toLowerCase();

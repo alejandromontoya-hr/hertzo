@@ -169,6 +169,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     columns: ['Bajada', 'Subida', 'Margen'],
     units: ['dBm', 'dBm', ''],
     noun: { one: 'radio', many: 'radios' },
+    profiles: RADIO_PROFILES,
     profileName: (id) => RADIO_PROFILES.find((p) => p.id === id)?.name ?? radio.name,
     matchProfile(text) {
       const t = text.trim().toLowerCase();

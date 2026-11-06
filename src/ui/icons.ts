@@ -5,6 +5,7 @@ import antenna from 'lucide-static/icons/antenna.svg?raw';
 import boomBox from 'lucide-static/icons/boom-box.svg?raw';
 import download from 'lucide-static/icons/download.svg?raw';
 import houseWifi from 'lucide-static/icons/house-wifi.svg?raw';
+import locateFixed from 'lucide-static/icons/locate-fixed.svg?raw';
 import mapPin from 'lucide-static/icons/map-pin.svg?raw';
 import pickaxe from 'lucide-static/icons/pickaxe.svg?raw';
 import radioTower from 'lucide-static/icons/radio-tower.svg?raw';
@@ -19,6 +20,9 @@ export const DOWNLOAD_ICON = decorative(download);
 
 /** Ícono del botón "Elegir en el mapa" junto a las coordenadas. */
 export const PIN_ICON = decorative(mapPin);
+
+/** Ícono del botón que lleva el mapa hasta un equipo de la lista. */
+export const LOCATE_ICON = decorative(locateFixed);
 
 /** Ícono de cada escenario, por su dirección. */
 export const SCENARIO_ICONS: Record<string, string> = {

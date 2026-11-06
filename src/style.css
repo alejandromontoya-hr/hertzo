@@ -1988,14 +1988,88 @@ body {
 }
 
 .device-table tbody th {
+  /* Toma el ancho que dejan las columnas de números; el nombre y el tipo se ajustan a él. */
+  width: 100%;
+  max-width: 0;
   white-space: normal;
 }
 
-.device-table tbody th small {
+/* Nombre y tipo del equipo se editan en la misma fila: parecen texto hasta que los tocas. */
+.device-name {
+  display: flex;
+  align-items: center;
+}
+
+.device-name input,
+.device-type {
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+.device-name input {
+  width: 100%;
+  padding: 1px 3px;
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+}
+
+.device-type {
   display: block;
-  margin-left: 16px;
+  width: 100%;
+  text-overflow: ellipsis;
+  padding: 0 0 0 2px;
   font-size: 0.72rem;
   color: var(--muted);
+  cursor: pointer;
+}
+
+.device-name input:hover,
+.device-type:hover {
+  border-color: var(--muted);
+}
+
+.device-name input:focus-visible,
+.device-type:focus-visible {
+  text-decoration: none;
+  background: var(--surface);
+  border-color: var(--ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.device-table th,
+.device-table td {
+  padding-right: 4px;
+  padding-left: 4px;
+}
+
+.device-row-actions {
+  white-space: nowrap;
+}
+
+.device-locate {
+  display: inline-flex;
+  padding: 2px;
+  margin-right: 4px;
+  color: var(--muted);
+  vertical-align: middle;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.device-locate:hover,
+.device-locate:focus-visible {
+  color: var(--accent);
+}
+
+.device-locate svg {
+  width: 14px;
+  height: 14px;
 }
 
 .status-dot {
@@ -2014,5 +2088,5 @@ body {
   border: 2px solid #fff;
   border-radius: 50%;
   box-shadow: 0 0 0 1px var(--ink);
-  cursor: default;
+  cursor: grab;
 }
