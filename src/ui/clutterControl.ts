@@ -1,0 +1,73 @@
+// Menú "Entorno del equipo" y la altura de lo que lo rodea (UIT-R P.2108). Lo comparten
+// LoRa y Terreno. La elección queda en la dirección: ?entorno=urbano&altura-entorno=6.
+
+import { CLUTTER_TYPES, type Clutter, type ClutterType } from '../rf/clutter';
+import { createNumberField } from './fields';
+import { infoButton } from './infoTip';
+
+const NONE = 'ninguno';
+
+/** Lee el entorno de la dirección; null si no hay o no se reconoce. */
+export function parseClutter(params: URLSearchParams): Clutter | null {
+  const info = CLUTTER_TYPES.find((t) => t.id === params.get('entorno'));
+  if (!info) return null;
+  const height = Number(params.get('altura-entorno'));
+  return { type: info.id, heightM: Number.isFinite(height) && height >= 1 && height <= 100 ? height : info.heightM };
+}
+
+/** Lo que va en la dirección: la altura solo si no es la de la norma. */
+export function clutterQuery(clutter: Clutter | null): { entorno: string | null; altura: string | null } {
+  if (!clutter) return { entorno: null, altura: null };
+  const standard = CLUTTER_TYPES.find((t) => t.id === clutter.type)!.heightM;
+  return { entorno: clutter.type, altura: clutter.heightM === standard ? null : String(clutter.heightM) };
+}
+
+/** Nombre corto del entorno para la lectura y el KMZ: "urbano de 15 m". */
+export function clutterLabel(clutter: Clutter): string {
+  const label = CLUTTER_TYPES.find((t) => t.id === clutter.type)!.label;
+  return `${label.charAt(0).toLowerCase()}${label.slice(1)}, ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(clutter.heightM)} m`;
+}
+
+export function createClutterControl(
+  container: HTMLElement,
+  initial: Clutter | null,
+  onChange: (clutter: Clutter | null) => void,
+): void {
+  let clutter = initial;
+  const field = document.createElement('div');
+  field.className = 'field field-select';
+  field.innerHTML = `<label for="entorno">Entorno del equipo${infoButton(
+    'El relieve (SRTM) no trae edificios ni árboles: sin entorno, Hertzo calcula como si la ciudad estuviera vacía. Con entorno, suma lo que pierde el equipo por estar por debajo de lo que lo rodea, según la UIT-R P.2108.',
+  )}</label><select id="entorno"><option value="${NONE}">Sin entorno (solo relieve)</option>${CLUTTER_TYPES.map(
+    (t) => `<option value="${t.id}">${t.label}</option>`,
+  ).join('')}</select>`;
+  const select = field.querySelector('select')!;
+  select.value = clutter?.type ?? NONE;
+
+  const height = createNumberField(
+    {
+      key: 'clutterHeightM',
+      label: 'Altura de lo que rodea al equipo',
+      unit: 'm',
+      min: 1,
+      max: 100,
+      hint: 'La norma usa 10 m en abierto y suburbano, 15 m en urbano y 20 m en urbano denso. Para casetas o bodegas, escribe la altura de sus techos.',
+    },
+    clutter?.heightM ?? 15,
+    (value) => {
+      if (!clutter) return;
+      clutter = { ...clutter, heightM: value };
+      onChange(clutter);
+    },
+  );
+  height.element.hidden = !clutter;
+  container.append(field, height.element);
+
+  select.addEventListener('change', () => {
+    const info = CLUTTER_TYPES.find((t) => t.id === (select.value as ClutterType));
+    clutter = info ? { type: info.id, heightM: info.heightM } : null;
+    if (clutter) height.setValue(clutter.heightM);
+    height.element.hidden = !clutter;
+    onChange(clutter);
+  });
+}

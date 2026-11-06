@@ -45,7 +45,7 @@ export function createCoverageController(
     button.disabled = running;
     button.textContent = running ? 'Simulando…' : shown ? 'Simular de nuevo' : 'Simular';
     hint.hidden = running || !shown || !pending || upToDate;
-    hint.textContent = 'El mapa muestra el cálculo anterior: cambiaste la ubicación, el radio, la frecuencia o las alturas.';
+    hint.textContent = 'El mapa muestra el cálculo anterior: cambiaste la ubicación, el radio, la frecuencia, las alturas o el entorno.';
   }
 
   async function run() {

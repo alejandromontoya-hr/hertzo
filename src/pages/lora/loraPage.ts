@@ -4,7 +4,7 @@
 
 import { BALANCE_LEGEND, DEFAULT_LEVEL_THRESHOLDS_DBM, LEVEL_COLORS, levelBandLabels } from '../../coverage/colorScale';
 import type { CoverageResult } from '../../coverage/computeCoverage';
-import { TALK_IN, TALK_OUT, lmrCoverageRequest } from '../../coverage/inputs';
+import { TALK_IN, TALK_OUT, itmSpec, lmrCoverageRequest } from '../../coverage/inputs';
 import { SF_COLORS, renderSpreadingFactor } from '../../coverage/loraRender';
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { renderCoverage, type CoverageGrids, type CoverageView } from '../../coverage/render';
@@ -39,6 +39,7 @@ import {
 } from '../../rf/lora';
 import { LORA_BUDGET_NAMES, balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createMapLegend } from '../../ui/coverageLegend';
+import { clutterQuery, createClutterControl, parseClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createLoraCapacity } from '../../ui/loraCapacity';
 import { createFieldGroup, createNumberField, type NumberFieldSpec } from '../../ui/fields';
@@ -148,6 +149,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     <details class="panel-section" open>
       <summary>Sensor</summary>
       <div class="form" data-sensor-form></div>
+      <div class="form" data-clutter-form></div>
     </details>
     <details class="panel-section" open>
       <summary>Equipos${infoButton('Medidores o sensores concretos: agrégalos con clic en el mapa o pega su lista. Cada uno se calcula con el ITM punto a punto desde el gateway, a su propia altura.')}</summary>
@@ -178,6 +180,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   let sensor: LoraSensor = LORA_SENSORS.find((s) => s.id === DEFAULT_LORA_SENSOR_ID)!;
   let payloadBytes = DEFAULT_PAYLOAD_BYTES;
   let dwellLimit = params.get('tiempo') === '400';
+  let clutter = parseClutter(params);
   let view: LoraView = 'talkIn';
   let thresholds = [...DEFAULT_LEVEL_THRESHOLDS_DBM];
   let opacity = 0.7;
@@ -261,6 +264,14 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     onParametersChange();
   });
 
+  createClutterControl(page.find('[data-clutter-form]'), clutter, (next) => {
+    clutter = next;
+    const query = clutterQuery(clutter);
+    replaceQuery('entorno', query.entorno);
+    replaceQuery('altura-entorno', query.altura);
+    onParametersChange();
+  });
+
   createFieldGroup<GatewayValues>(page.find('[data-gateway-form]'), GATEWAY_FIELDS, gateway, (values) => {
     gateway = values;
     onParametersChange();
@@ -334,6 +345,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
         deviceHeightM: s.heightM,
         down: { siteHeightM: gateway.antennaHeightM, frequencyMHz: band.downlink.frequencyMHz },
         up: { siteHeightM: gateway.antennaHeightM, frequencyMHz: band.uplink.frequencyMHz },
+        clutter,
       };
       const key = JSON.stringify(path);
       if (!lossCache.has(key)) lossCache.set(key, deviceLoss(path));
@@ -480,7 +492,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     showSfTable();
     redraw();
     const location = site.getSite();
-    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio()));
+    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio(), itmSpec(clutter)));
     deviceList?.refresh();
     capacity.update();
   }

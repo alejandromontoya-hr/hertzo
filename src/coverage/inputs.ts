@@ -6,6 +6,7 @@
 
 import type { LonLat } from '../geo/geodesy';
 import type { EngineSpec } from '../propagation/engines';
+import type { Clutter } from '../rf/clutter';
 import type { RadioProfile, SiteRxChain, SiteTxChain } from '../rf/linkBudget';
 import type { CoverageRequest } from './computeCoverage';
 
@@ -16,6 +17,11 @@ export interface LinkGeometry {
   /** Altura de la antena del usuario (m). */
   radioHeightM: number;
   frequencyMHz: number;
+}
+
+/** Motor ITM, con el entorno del equipo si se eligió uno (sin él, solo el relieve). */
+export function itmSpec(clutter: Clutter | null): EngineSpec {
+  return clutter ? { id: 'itm', clutter } : { id: 'itm' };
 }
 
 /** Índices de los trayectos de un cálculo de radio profesional. */

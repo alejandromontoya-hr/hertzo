@@ -4,7 +4,7 @@
 
 import { BALANCE_LEGEND, DEFAULT_LEVEL_THRESHOLDS_DBM, LEVEL_COLORS, levelBandLabels } from '../../coverage/colorScale';
 import type { CoverageResult } from '../../coverage/computeCoverage';
-import { TALK_IN, TALK_OUT, lmrCoverageRequest } from '../../coverage/inputs';
+import { TALK_IN, TALK_OUT, itmSpec, lmrCoverageRequest } from '../../coverage/inputs';
 import { buildRasterGeometry, type RasterGeometry } from '../../coverage/raster';
 import { renderCoverage, type CoverageGrids, type CoverageView } from '../../coverage/render';
 import {
@@ -24,6 +24,7 @@ import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
+import { clutterQuery, createClutterControl, parseClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createTrunkingCapacity } from '../../ui/trunkingCapacity';
 import { formatDistance, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
@@ -72,6 +73,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     <details class="panel-section" open>
       <summary>Radio de usuario</summary>
       <div class="form" data-radio-form></div>
+      <div class="form" data-clutter-form></div>
     </details>
     <details class="panel-section" open>
       <summary>Equipos${infoButton('Radios concretos, por ejemplo los 20 portátiles de una cuadrilla: agrégalos con clic en el mapa o pega su lista. Cada uno se calcula con el ITM punto a punto desde el sitio, a su propia altura y con su perfil.')}</summary>
@@ -150,6 +152,14 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     radio = next;
     onParametersChange();
   });
+  let clutter = parseClutter(params);
+  createClutterControl(page.find('[data-clutter-form]'), clutter, (next) => {
+    clutter = next;
+    const query = clutterQuery(clutter);
+    replaceQuery('entorno', query.entorno);
+    replaceQuery('altura-entorno', query.altura);
+    onParametersChange();
+  });
   const txForm = createTxForm(page.find('[data-tx-form]'), tx, (next) => {
     tx = next;
     onParametersChange();
@@ -185,6 +195,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
         deviceHeightM: r.heightM,
         down: { siteHeightM: tx.antennaHeightM, frequencyMHz: tx.frequencyMHz },
         up: { siteHeightM: rx.antennaHeightM, frequencyMHz: rx.frequencyMHz },
+        clutter,
       };
       const key = JSON.stringify(path);
       if (!lossCache.has(key)) lossCache.set(key, deviceLoss(path));
@@ -308,7 +319,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     showBudget(talkOutBudget(tx, radio), talkInBudget(rx, radio));
     redraw();
     const location = site.getSite();
-    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio));
+    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio, itmSpec(clutter)));
     deviceList?.refresh();
   }
 
