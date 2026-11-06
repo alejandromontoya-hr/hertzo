@@ -17,7 +17,7 @@ Todas las fórmulas viven en módulos puros (`src/rf/`, `src/indoor/`, `src/cave
 ## Lo que comparten las páginas con mapa
 
 - **Confiabilidad** (Terreno, LoRa, FM y Celular): 50 % (la mediana), 90 % o 95 %. Con el ITM es el porcentaje de tiempo del modo móvil, que en ese modo cuenta tiempo y ubicación juntos; con Hata y 38.901 es un margen z·σ (σ = 8 dB en Hata y 6 dB en UMa). En el terreno de Medellín, 90 % exige unos 12 dB más que la mediana y 95 % unos 16 dB.
-- **Entorno del equipo** (Terreno, LoRa, FM y Celular con ITM): UIT-R P.2108-1, sección 3.1. El trayecto se calcula con la antena subida a la altura de lo que la rodea y se suma la pérdida de cada extremo: abierto (10 m), suburbano (10 m), urbano (15 m) o urbano denso (20 m), con la altura editable. Un equipo a 2 m en entorno urbano suma 22,35 dB a 916,8 MHz.
+- **Entorno del equipo** (Terreno, LoRa, FM y Celular con ITM): UIT-R P.2108-1, sección 3.1. El trayecto se calcula con la antena subida a la altura de lo que la rodea y se suma la pérdida de cada extremo: abierto (10 m), suburbano (10 m), urbano (15 m) o urbano denso (20 m), con la altura editable. Un equipo a 2 m en entorno urbano suma 22,35 dB a 916,8 MHz. Terreno y LoRa parten de urbano o arbolado (15 m); `?entorno=ninguno` deja solo el relieve.
 - **Equipos concretos** (Terreno y LoRa): cada equipo se calcula con el ITM punto a punto a su altura; a menos de 50 m del sitio, con espacio libre y la distancia real a la antena.
 - **Exportar:** KMZ para Google Earth y CSV de los equipos.
 
@@ -86,6 +86,7 @@ Son valores típicos de partida; conviene ajustarlos con los datos de los equipo
 | Terreno | Sitio | 100 W, 6 dBd a 50 m, 60 m de línea 7/8"; sensibilidad −110 dBm |
 | Terreno | Radio | Portátil en la cintura: 3 W, −3 dBd, 12 dB de pérdida por el cuerpo, −112 dBm |
 | Terreno y LoRa | Confiabilidad | 90 % |
+| Terreno y LoRa | Entorno del equipo | Urbano o arbolado, 15 m (UIT-R P.2108) |
 | LoRa | Gateway | 0,5 W, 10 m de cable (12,8 dB/100 m), conector 0,5 dB, 3 dBd a 30 m, NF 4 dB |
 | LoRa | Sensor | En poste: 0,1 W, 0 dBd a 2 m. Medidor en caja: 0,025 W, −3 dBd a 0,5 m y 15 dB por la caja |
 | LoRa | Mensaje y ADR | 11 bytes; 10 dB de margen |
@@ -114,7 +115,7 @@ Se comparó el cálculo de Hertzo (terreno de Terrain Tiles + ITM, sin entorno) 
 | MRC (Reino Unido) | 120 | +19,6 dB | +19,1 dB | 16,2 dB | 24 % |
 
 - En montaña la mediana queda entre −3 y +4 dB.
-- En el Reino Unido, sin entorno, el cálculo da unos 19 dB de más: el relieve no trae casas ni árboles. Con el entorno "Urbano o arbolado" de la UIT-R P.2108, un receptor a 10 m pierde unos 13 dB, que explican la mayor parte. Por eso la página avisa cuando se elige "Sin entorno".
+- En el Reino Unido, sin entorno, el cálculo da unos 19 dB de más: el relieve no trae casas ni árboles. Con el entorno "Urbano o arbolado" de la UIT-R P.2108, un receptor a 10 m pierde unos 13 dB, que explican la mayor parte. Por eso Terreno y LoRa parten de "Urbano o arbolado" y la página avisa cuando se elige "Sin entorno"; en montaña despejada, donde sin entorno el error queda entre −3 y +4 dB, conviene cambiarlo a "Abierto o rural" o a "Sin entorno".
 - La desviación de 13 a 24 dB es la de comparar puntos sueltos: incluye el desvanecimiento de cada lugar, que ningún modelo predice punto a punto.
 - Las distancias calculadas coinciden con las del banco (diferencia media 0,1 km) y la cota del terreno en el transmisor coincide en la mediana (0 m).
 - Falta la validación con sitios reales de Antioquia que pide la fase 1.

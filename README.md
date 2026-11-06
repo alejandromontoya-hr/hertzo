@@ -31,7 +31,7 @@ Las variantes van como parámetros: `/terreno?banda=uhf`, `/lora?banda=au915`, `
 
 - **Bajada y subida por separado.** Cada dirección tiene su frecuencia, su potencia y sus pérdidas; el mapa de desbalance muestra dónde llega solo una.
 - **Confiabilidad.** Terreno y LoRa calculan por omisión con 90 % (como se diseña la radio profesional); se puede elegir 50 % (la mediana) o 95 %. FM y celular parten de 50 %.
-- **Entorno del equipo.** El relieve no trae edificios: el menú "Entorno del equipo" suma la pérdida por estar entre construcciones o árboles (UIT-R P.2108), con la altura de lo que lo rodea editable.
+- **Entorno del equipo.** El relieve no trae edificios: el menú "Entorno del equipo" suma la pérdida por estar entre construcciones o árboles (UIT-R P.2108), con la altura de lo que lo rodea editable. Terreno y LoRa parten de "Urbano o arbolado" (15 m), porque solo con el relieve el cálculo dio 19 dB de más contra mediciones de la UIT; `?entorno=ninguno` calcula solo con el relieve.
 - **Equipos concretos** (Terreno y LoRa). Se agregan con clic en el mapa o pegando una lista de Excel; cada uno se calcula con el ITM punto a punto a su propia altura, se arrastra para moverlo y se le cambia el nombre o el tipo en su fila.
 - **Capacidad.** Terreno estima cuántas llamadas esperan canal en la hora pico (Erlang C); LoRa, qué parte de los mensajes choca en el aire (ALOHA).
 - **Exportar.** KMZ para Google Earth con cada capa y su leyenda, el sitio con su ficha y los equipos; CSV con los equipos. Interiores y Cavernas guardan y abren proyectos (.json).

@@ -25,7 +25,7 @@ import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPa
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
-import { clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseClutter } from '../../ui/clutterControl';
+import { DEFAULT_CLUTTER, clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createTrunkingCapacity } from '../../ui/trunkingCapacity';
 import { formatDistance, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
@@ -155,7 +155,8 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     radio = next;
     onParametersChange();
   });
-  let clutter = parseClutter(params);
+  // Por omisión urbano o arbolado: sin entorno el relieve solo da cobertura de más donde hay casas o árboles.
+  let clutter = parseClutter(params, DEFAULT_CLUTTER);
   let reliability = parseReliability(params, 90);
   createReliabilityControl(page.find('[data-reliability-form]'), reliability, (next) => {
     reliability = next;
@@ -164,7 +165,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   });
   createClutterControl(page.find('[data-clutter-form]'), clutter, (next) => {
     clutter = next;
-    const query = clutterQuery(clutter);
+    const query = clutterQuery(clutter, DEFAULT_CLUTTER);
     replaceQuery('entorno', query.entorno);
     replaceQuery('altura-entorno', query.altura);
     onParametersChange();

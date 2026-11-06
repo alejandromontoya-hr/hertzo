@@ -33,7 +33,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de cobertura de radio P25, trunking y convencional sobre terreno',
     about: [
       'Calcula la cobertura de una repetidora o un sitio de trunking (P25, SmartZone, convencional) en VHF, UHF, 700 u 800 MHz sobre el relieve real, con el modelo ITM (Longley-Rice) de NTIA y el terreno SRTM. Dibuja por separado la bajada (de la repetidora al radio) y la subida (del radio a la repetidora), porque cada una tiene su potencia, sus ganancias y sus pérdidas.',
-      'En el sitio UHF de ejemplo la bajada aguanta 151,7 dB de pérdida y la subida solo 136,5 dB: la subida limita la cobertura por 15,2 dB, y hay zonas donde el radio oye la repetidora pero ella no lo oye a él. Por omisión calcula con 90 % de confiabilidad y con la sensibilidad con desvanecimiento de los equipos P25 (−112 dBm el portátil y −110 dBm la repetidora), como se diseña la radio profesional (TIA TSB-88); puedes ver la mediana (50 %) o el 95 %. También ubica radios concretos, cuenta los edificios del entorno con la UIT-R P.2108 y estima cuántas llamadas esperan canal en la hora pico con Erlang C.',
+      'En el sitio UHF de ejemplo la bajada aguanta 151,7 dB de pérdida y la subida solo 136,5 dB: la subida limita la cobertura por 15,2 dB, y hay zonas donde el radio oye la repetidora pero ella no lo oye a él. Por omisión calcula con 90 % de confiabilidad y con la sensibilidad con desvanecimiento de los equipos P25 (−112 dBm el portátil y −110 dBm la repetidora), como se diseña la radio profesional (TIA TSB-88); puedes ver la mediana (50 %) o el 95 %. También ubica radios concretos y estima cuántas llamadas esperan canal en la hora pico con Erlang C. Por omisión cuenta los edificios y árboles alrededor del radio (urbano o arbolado de 15 m, UIT-R P.2108): un portátil a 1 m pierde unos 22 dB a 860 MHz frente al cálculo solo con el relieve.',
     ],
     faq: [
       {
@@ -42,7 +42,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         q: '¿Qué modelo de propagación usa?',
-        a: 'El Irregular Terrain Model (Longley-Rice) v1.4 de NTIA, sin modificaciones, compilado a WebAssembly, sobre el terreno de Terrain Tiles (SRTM). Con "Entorno del equipo" suma la pérdida por edificios de la UIT-R P.2108.',
+        a: 'El Irregular Terrain Model (Longley-Rice) v1.4 de NTIA, sin modificaciones, compilado a WebAssembly, sobre el terreno de Terrain Tiles (SRTM). Con "Entorno del equipo" suma la pérdida por edificios y árboles de la UIT-R P.2108; por omisión, urbano o arbolado de 15 m.',
       },
       ...COMMON_FAQ,
     ],
@@ -51,7 +51,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de cobertura LoRaWAN de un gateway sobre terreno',
     about: [
       'Calcula la cobertura de un gateway LoRaWAN en AU915 (Colombia), US915 o EU868 sobre el relieve real con el modelo ITM (Longley-Rice) de NTIA. Muestra la bajada, la subida, el desbalance entre las dos y el SF más rápido con el que llega cada punto, con su tiempo en el aire.',
-      'Con figura de ruido de 4 dB, el gateway oye SF12 en canales de 125 kHz hasta −139,0 dBm. En AU915, si la red limita cada mensaje a 400 ms, con 11 bytes la subida solo puede usar hasta SF10. El SF de cada punto se elige como lo hace la red (ADR), con 10 dB de margen sobre la sensibilidad, y la cobertura sale con 90 % de confiabilidad. Puedes pegar la lista de tus medidores, contar los edificios con la UIT-R P.2108 y ver qué parte de los mensajes choca en el aire (ALOHA).',
+      'Con figura de ruido de 4 dB, el gateway oye SF12 en canales de 125 kHz hasta −139,0 dBm. En AU915, si la red limita cada mensaje a 400 ms, con 11 bytes la subida solo puede usar hasta SF10. El SF de cada punto se elige como lo hace la red (ADR), con 10 dB de margen sobre la sensibilidad, y la cobertura sale con 90 % de confiabilidad. Por omisión cuenta los edificios y árboles alrededor del sensor (urbano o arbolado de 15 m, UIT-R P.2108). Puedes pegar la lista de tus medidores y ver qué parte de los mensajes choca en el aire (ALOHA).',
     ],
     faq: [
       {
