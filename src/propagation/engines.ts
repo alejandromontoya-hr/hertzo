@@ -2,6 +2,8 @@
 // `EngineSpec` (datos simples, que viajan a los hilos de cálculo) y `createEngine` lo arma.
 
 import type { HataEnvironment } from '../rf/cellular';
+import type { Clutter } from '../rf/clutter';
+import { withClutter } from './clutterEngine';
 import type { GroundType } from '../rf/groundwave';
 import { EMPIRICAL_WARN_OUT_OF_RANGE, createHataEngine, createUmaEngine } from './empiricalEngines';
 import type { PropagationEngine } from './engine';
@@ -9,7 +11,8 @@ import { GROUNDWAVE_WARN_BEYOND_FLAT_EARTH, createGroundwaveEngine } from './gro
 import { DEFAULT_ITM_PARAMETERS, createItmEngine, type ItmParameters } from './itm';
 
 export type EngineSpec =
-  | { id: 'itm'; params?: ItmParameters }
+  /** `clutter`: entorno del equipo (UIT-R P.2108), que el relieve no trae; sin él, terreno limpio. */
+  | { id: 'itm'; params?: ItmParameters; clutter?: Clutter }
   | { id: 'groundwave'; ground: GroundType }
   | { id: 'hata'; environment: HataEnvironment }
   | { id: 'uma' };
@@ -45,7 +48,7 @@ export function lowConfidenceMask(spec: EngineSpec): number {
 export function createEngine(spec: EngineSpec): Promise<PropagationEngine> {
   switch (spec.id) {
     case 'itm':
-      return createItmEngine(spec.params ?? DEFAULT_ITM_PARAMETERS);
+      return createItmEngine(spec.params ?? DEFAULT_ITM_PARAMETERS).then((e) => (spec.clutter ? withClutter(e, spec.clutter) : e));
     case 'groundwave':
       return Promise.resolve(createGroundwaveEngine(spec.ground));
     case 'hata':
