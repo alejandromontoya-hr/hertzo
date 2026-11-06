@@ -448,7 +448,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const noise = noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb);
     // Señal mediana en el teléfono: pierde lo del edificio si está adentro (también la de los vecinos).
-    const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(band.frequencyMHz, phone);
+    const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(result.request.links[0]!.frequencyMHz, phone);
     // Con Hata o UMa la confiabilidad es un margen z·σ sobre la mediana; con ITM ya viene en la pérdida.
     const margin = result.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(result.request.engine.id));
     const dh = siteParams.antennaHeightM - siteParams.ueHeightM;
@@ -798,7 +798,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     const grid = coverage.grids[0]!;
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const below = (Math.atan2(siteParams.antennaHeightM - siteParams.ueHeightM, Math.max(1, d)) * 180) / Math.PI;
-    const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(band.frequencyMHz, phone);
+    const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(coverage.request.links[0]!.frequencyMHz, phone);
     const margin = coverage.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(coverage.request.engine.id));
     const median = azimuths.map((a) => base + sectorGainDbi(antenna, angleDiffDeg(bearing, a), below) - grid.lossDb[g]!);
     const levels = median.map((l) => l - margin);

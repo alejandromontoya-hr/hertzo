@@ -109,7 +109,10 @@ function loadSaved(): (Saved & Partial<CaveProject>) | null {
     const data: unknown = JSON.parse(raw);
     const full = readCaveProject(data);
     if (full) return full;
-    return typeof data === 'object' && data !== null && 'model' in data ? (data as Saved) : null;
+    // Formato anterior: solo sirve si trae la red completa (galerías, antenas y cables).
+    const legacy = data as Partial<Saved> | null;
+    const m = legacy?.model;
+    return m && Array.isArray(m.galleries) && Array.isArray(m.transmitters) && Array.isArray(m.cables) ? (legacy as Saved) : null;
   } catch {
     return null;
   }
