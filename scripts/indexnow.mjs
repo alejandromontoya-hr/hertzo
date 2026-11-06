@@ -1,6 +1,7 @@
 // Le avisa a Bing (y a los demás buscadores de IndexNow: Yandex, Seznam, Naver) que las páginas
 // de hertzo.site cambiaron, para que no esperen días o semanas a volver a pasar por el sitio.
-// Se corre a mano cuando Vercel termina de publicar: npm run indexnow
+// Lo corre solo .github/workflows/indexnow.yml cuando Vercel termina de publicar producción;
+// a mano: npm run indexnow
 //
 // La clave no es secreta: IndexNow la pide publicada en el sitio (public/<clave>.txt) para
 // comprobar que el aviso viene del dueño del dominio.

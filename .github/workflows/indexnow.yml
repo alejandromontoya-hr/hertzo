@@ -1,0 +1,31 @@
+# .github/workflows/indexnow.yml
+# Cuando Vercel termina de publicar hertzo.site (producción, rama main), le avisa a Bing y a los
+# demás buscadores de IndexNow que las páginas cambiaron. Así nadie tiene que acordarse de
+# correr "npm run indexnow" después de cada /commit.
+#
+# Vercel reporta cada publicación como un estado del commit con el nombre "Vercel" (no como un
+# "deployment" de GitHub), así que el aviso sale del evento status.
+name: Avisar a Bing
+
+on:
+  status:
+
+permissions:
+  contents: read
+
+jobs:
+  indexnow:
+    name: IndexNow
+    # Solo cuando Vercel terminó bien y el commit está en main; las vistas previas de alejoBranch no.
+    if: >-
+      github.event.context == 'Vercel' &&
+      github.event.state == 'success' &&
+      contains(github.event.branches.*.name, 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/indexnow.mjs
