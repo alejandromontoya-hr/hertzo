@@ -5,6 +5,7 @@
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import { bandLabels } from '../../coverage/paint';
 import {
+  antennasOutsideGalleries,
   buildGraph,
   coveredLength,
   simulate,
@@ -30,6 +31,7 @@ import { distanceToSegment, newId, snap } from '../../indoor/plan';
 import {
   DEFAULT_TILT_DEG,
   LEAKY_CABLE_MAX_MHZ,
+  LEAKY_CABLE_MIN_MHZ,
   breakpointDistanceM,
   cornerLoss90Db,
   cutoffFrequencyMHz,
@@ -96,16 +98,24 @@ interface Saved {
 /** Entrada del historial: la red antes de un cambio, o el proyecto entero antes de abrir otro. */
 type UndoEntry = { model: CaveModel } | { project: CaveProject };
 
-function loadSaved(): Saved | null {
+/**
+ * Lo último que el usuario dejó en la página: el proyecto completo (red, radio, roca y cable).
+ * Lo guardado por versiones anteriores solo trae la red, la banda y la roca.
+ */
+function loadSaved(): (Saved & Partial<CaveProject>) | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Saved) : null;
+    if (!raw) return null;
+    const data: unknown = JSON.parse(raw);
+    const full = readCaveProject(data);
+    if (full) return full;
+    return typeof data === 'object' && data !== null && 'model' in data ? (data as Saved) : null;
   } catch {
     return null;
   }
 }
 
-function save(data: Saved) {
+function save(data: CaveProject) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
@@ -120,19 +130,19 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   let model: CaveModel = saved?.model ?? preset.build();
   let band: CaveBand = CAVE_BANDS.find((b) => b.id === (saved?.bandId ?? preset.band)) ?? CAVE_BANDS[3]!;
   let rock = ROCKS.find((r) => r.id === (saved?.rockId ?? preset.rockId)) ?? ROCKS[0]!;
-  let roughnessM = rock.roughnessM;
-  let tiltDeg = DEFAULT_TILT_DEG;
-  let polarization: Polarization = 'vertical';
+  let roughnessM = saved?.roughnessM ?? rock.roughnessM;
+  let tiltDeg = saved?.tiltDeg ?? DEFAULT_TILT_DEG;
+  let polarization: Polarization = saved?.polarization ?? 'vertical';
   /** Pérdida por curva típica de la banda, con un decimal como el resto del panel. */
   const typicalCornerDb = (f: number) => Math.round(cornerLoss90Db(f) * 10) / 10;
-  let corner90Db = typicalCornerDb(band.frequencyMHz);
-  let sensitivityDbm = band.sensitivityDbm;
-  let portablePowerDbm = band.portablePowerDbm;
-  let siteSensitivityDbm = band.sensitivityDbm;
+  let corner90Db = saved?.corner90Db ?? typicalCornerDb(band.frequencyMHz);
+  let sensitivityDbm = saved?.sensitivityDbm ?? band.sensitivityDbm;
+  let portablePowerDbm = saved?.portablePowerDbm !== undefined ? saved.portablePowerDbm : band.portablePowerDbm;
+  let siteSensitivityDbm = saved?.siteSensitivityDbm ?? band.sensitivityDbm;
   let view: View = 'bajada';
-  let cable: LeakyCable = typicalLeakyCable(band.frequencyMHz);
+  let cable: LeakyCable = saved?.cable ?? typicalLeakyCable(band.frequencyMHz);
   let newGallery = { widthM: 4.5, heightM: 3.5 };
-  let thresholds = [30, 20, 10, 0].map((m) => sensitivityDbm + m);
+  let thresholds = saved?.thresholds ?? [30, 20, 10, 0].map((m) => sensitivityDbm + m);
   let tool: Tool = 'select';
   let selection: Selection = null;
   let drawing: Point[] = [];
@@ -256,7 +266,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     renderSelection();
     renderSummary();
     updateLegend();
-    save({ model, bandId: band.id, rockId: rock.id });
+    save(currentProject());
     planView.redraw();
   }
 
@@ -779,7 +789,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
           g.heightM = next.heightM;
           recompute();
           renderSummary();
-          save({ model, bandId: band.id, rockId: rock.id });
+          save(currentProject());
           planView.redraw();
         },
       );
@@ -805,7 +815,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
         tx.gainDbi = next.gainDbi;
         recompute();
         renderSummary();
-        save({ model, bandId: band.id, rockId: rock.id });
+        save(currentProject());
         planView.redraw();
       });
       selectionBox.querySelector('[data-delete]')!.addEventListener('click', () => {
@@ -833,7 +843,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
           c.headPowerDbm = next.headPowerDbm;
           recompute();
           renderSummary();
-          save({ model, bandId: band.id, rockId: rock.id });
+          save(currentProject());
           planView.redraw();
         },
       );
@@ -872,6 +882,16 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     } else if (worstPer100m > HIGH_ATTENUATION_DB_PER_100M) {
       warnings.push(
         `A ${band.label} la galería "${worst.name}" atenúa ${oneDecimal.format(worstPer100m)} dB/100 m: la señal se apaga en pocos cientos de metros. Para cubrirla hace falta cable radiante a lo largo de la galería.`,
+      );
+    }
+    for (const { antenna, distanceM } of antennasOutsideGalleries(model, graph)) {
+      warnings.push(
+        `La antena "${antenna.name}" quedó a ${integerFormat.format(distanceM)} m de la galería más cercana, dentro de la roca: no se usa en el cálculo. Muévela dentro de una galería.`,
+      );
+    }
+    if (model.cables.length > 0 && band.frequencyMHz < LEAKY_CABLE_MIN_MHZ) {
+      warnings.push(
+        `El cable radiante de 1/2" de referencia (RFS RLKW12-50) empieza en ${integerFormat.format(LEAKY_CABLE_MIN_MHZ)} MHz: a ${band.label} su pérdida de ${oneDecimal.format(cable.longitudinalDbPer100m)} dB/100 m y su acople son una estimación. Pon los datos del cable que vayas a instalar.`,
       );
     }
     if (model.cables.length > 0 && band.frequencyMHz > LEAKY_CABLE_MAX_MHZ) {
@@ -1148,20 +1168,22 @@ export function mountCavePage({ root, params }: PageContext): () => void {
     });
   }
 
-  const currentProject = (): CaveProject => ({
-    model,
-    bandId: band.id,
-    rockId: rock.id,
-    roughnessM,
-    tiltDeg,
-    polarization,
-    corner90Db,
-    sensitivityDbm,
-    portablePowerDbm,
-    siteSensitivityDbm,
-    cable,
-    thresholds,
-  });
+  function currentProject(): CaveProject {
+    return {
+      model,
+      bandId: band.id,
+      rockId: rock.id,
+      roughnessM,
+      tiltDeg,
+      polarization,
+      corner90Db,
+      sensitivityDbm,
+      portablePowerDbm,
+      siteSensitivityDbm,
+      cable,
+      thresholds,
+    };
+  }
 
   bindProjectButtons(panel, {
     scenario: 'cavernas',

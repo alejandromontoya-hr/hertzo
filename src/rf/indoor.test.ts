@@ -150,3 +150,17 @@ describe('límites de potencia y sensibilidad', () => {
     expect(([20, 40, 80, 160] as const).map((w) => MCS0_SENSITIVITY_DBM[w])).toEqual([-82, -79, -76, -73]);
   });
 });
+
+describe('muro partido en dos tramos', () => {
+  // Un muro vertical en x = 5 partido en (5, 5): el rayo de (0, 5) a (10, 5) pasa justo por la unión.
+  // Atraviesa un solo grosor: 60,19 dB de espacio libre + un ladrillo (8 dB) = 68,19 dB, no 76,19.
+  it('un rayo por la unión de dos tramos cobra el muro una sola vez', () => {
+    const walls = [
+      { x1: 5, y1: 0, x2: 5, y2: 5, material: 'ladrillo' as const },
+      { x1: 5, y1: 5, x2: 5, y2: 10, material: 'ladrillo' as const },
+    ];
+    const r = multiWallLossDb(0, 5, 10, 5, walls, '2.4', 2437);
+    expect(r.wallsCrossed).toBe(1);
+    expect(r.lossDb).toBeCloseTo(68.19, 1);
+  });
+});

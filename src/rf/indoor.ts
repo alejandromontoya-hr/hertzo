@@ -59,17 +59,26 @@ export interface Segment {
   y2: number;
 }
 
-/** Si los segmentos AB y CD se cruzan (sin contar el solo roce en un extremo). */
-export function segmentsCross(ax: number, ay: number, bx: number, by: number, s: Segment): boolean {
+/**
+ * Dónde cruza la línea AB al muro: t (0 en A, 1 en B) y si lo cruza justo por un extremo del
+ * muro. null si no lo cruza (sin contar el solo roce en un extremo de AB).
+ */
+export function wallCrossing(ax: number, ay: number, bx: number, by: number, s: Segment): { t: number; atWallEnd: boolean } | null {
   const d1x = bx - ax;
   const d1y = by - ay;
   const d2x = s.x2 - s.x1;
   const d2y = s.y2 - s.y1;
   const denom = d1x * d2y - d1y * d2x;
-  if (Math.abs(denom) < 1e-12) return false; // paralelos
+  if (Math.abs(denom) < 1e-12) return null; // paralelos
   const t = ((s.x1 - ax) * d2y - (s.y1 - ay) * d2x) / denom;
   const u = ((s.x1 - ax) * d1y - (s.y1 - ay) * d1x) / denom;
-  return t > 1e-9 && t < 1 - 1e-9 && u >= 0 && u <= 1;
+  if (!(t > 1e-9 && t < 1 - 1e-9 && u >= -1e-9 && u <= 1 + 1e-9)) return null;
+  return { t, atWallEnd: u < 1e-6 || u > 1 - 1e-6 };
+}
+
+/** Si los segmentos AB y CD se cruzan (sin contar el solo roce en un extremo). */
+export function segmentsCross(ax: number, ay: number, bx: number, by: number, s: Segment): boolean {
+  return wallCrossing(ax, ay, bx, by, s) !== null;
 }
 
 /** Distancia mínima del modelo (m): más cerca del AP se toma la pérdida a 1 m. */
@@ -146,11 +155,25 @@ export function multiWallLossDb(
   const d = Math.max(MIN_DISTANCE_M, Math.hypot(px - ax, py - ay));
   let loss = freeSpaceLossDb(d / 1000, frequencyMHz) + furnitureExcessDb(d, exponent);
   let crossed = 0;
+  // Un rayo que pasa justo por la unión de dos muros (un muro partido en dos tramos, una esquina)
+  // atraviesa un solo grosor: de los muros cruzados por un extremo en el mismo punto se cobra el mayor.
+  const atJoints: { t: number; lossDb: number }[] = [];
   for (const wall of walls) {
-    if (segmentsCross(ax, ay, px, py, wall)) {
-      loss += materialById(wall.material).lossDb[band] * wallIncidenceFactor(px - ax, py - ay, wall);
+    const crossing = wallCrossing(ax, ay, px, py, wall);
+    if (!crossing) continue;
+    const wallLoss = materialById(wall.material).lossDb[band] * wallIncidenceFactor(px - ax, py - ay, wall);
+    if (!crossing.atWallEnd) {
+      loss += wallLoss;
       crossed++;
+      continue;
     }
+    const joint = atJoints.find((j) => Math.abs(j.t - crossing.t) < 1e-6);
+    if (joint) joint.lossDb = Math.max(joint.lossDb, wallLoss);
+    else atJoints.push({ t: crossing.t, lossDb: wallLoss });
+  }
+  for (const joint of atJoints) {
+    loss += joint.lossDb;
+    crossed++;
   }
   return { lossDb: loss, wallsCrossed: crossed };
 }

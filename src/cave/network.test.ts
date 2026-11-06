@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGraph, coveredLength, nearestNode, simulate, type CaveModel, type RadioSettings } from './network';
+import { antennasOutsideGalleries, buildGraph, coveredLength, nearestNode, simulate, type CaveModel, type RadioSettings } from './network';
 
 // Sin inclinación ni rugosidad, para que las cuentas a mano queden solo con la atenuación modal.
 const settings = (
@@ -104,6 +104,39 @@ describe('cable radiante', () => {
   });
 });
 
+describe('cable radiante junto a otras galerías', () => {
+  // Galería principal de 200 m con el cable por el eje y una cruzada de 100 m a 90° en x = 100.
+  // La cruzada no toca el cable: la señal entra por el cruce (−31,5 dBm a 100 m de la cabecera)
+  // y paga la curva de 90° (15 dB a 100 MHz). Antes se sembraban los nodos de la cruzada a menos
+  // de 8 m del cable y recibían el nivel del cable sin curva.
+  it('una cruzada a 90° recibe la señal del cable por el cruce, pagando la curva', () => {
+    const model: CaveModel = {
+      galleries: [gallery('principal', [[0, 0], [100, 0], [200, 0]]), gallery('cruzada', [[100, 0], [100, -100]])],
+      transmitters: [],
+      cables: [{ id: 'c', points: [{ x: 0, y: 0 }, { x: 200, y: 0 }], headPowerDbm: 30 }],
+    };
+    const graph = buildGraph(model.galleries);
+    const r = simulate(model, graph, settings(100, { longitudinalDbPer100m: 1.5, couplingLossDb: 60 }));
+    const junction = r.downlink.levelDbm[nearestNode(graph, 100, 0).node]!;
+    const inside = nearestNode(graph, 100, -8).node;
+    expect(junction).toBeCloseTo(-31.5, 1);
+    expect(r.downlink.bends[inside]).toBe(1);
+    expect(r.downlink.levelDbm[inside]!).toBeLessThanOrEqual(junction - 15 + 1e-9);
+  });
+
+  // Una galería paralela a 7 m, sin conexión con la del cable: la roca no deja pasar la señal.
+  it('una galería paralela sin conexión no recibe nada del cable', () => {
+    const model: CaveModel = {
+      galleries: [gallery('cable', [[0, 0], [200, 0]]), gallery('vecina', [[0, 7], [200, 7]])],
+      transmitters: [],
+      cables: [{ id: 'c', points: [{ x: 0, y: 0 }, { x: 200, y: 0 }], headPowerDbm: 30 }],
+    };
+    const graph = buildGraph(model.galleries);
+    const r = simulate(model, graph, settings(100, { longitudinalDbPer100m: 1.5, couplingLossDb: 60 }));
+    expect(r.downlink.levelDbm[nearestNode(graph, 100, 7).node]).toBe(-Infinity);
+  });
+});
+
 describe('subida (talk-in)', () => {
   // Mismo camino que la bajada a 500 m (74,505 dB). Subida: el portátil transmite con 36 dBm (4 W)
   // y el repetidor (0 dBi) recibe 36 − 74,505 = −38,5 dBm. Bajada: 30 − 74,505 = −44,5 dBm.
@@ -202,5 +235,23 @@ describe('alcance en una galería recta de 5 × 4 m (εr 5, rugosidad 10 cm, inc
   it('900 MHz, 5 W y −116 dBm: 1,46 km (sin inclinación eran 3,97 km)', () => {
     expect(reach(900, 37, -116)).toBeGreaterThan(1452);
     expect(reach(900, 37, -116)).toBeLessThan(1460);
+  });
+});
+
+describe('antena fuera de las galerías', () => {
+  // Galería de 4,3 m de ancho por y = 0; una antena a 50 m, en plena roca, no se usa.
+  it('una antena a 50 m de la galería no ilumina nada y se reporta', () => {
+    const rock = { ...tx, id: 'r', name: 'En la roca', x: 100, y: -50 };
+    const model: CaveModel = { galleries: [gallery('a', [[0, 0], [200, 0]])], transmitters: [rock], cables: [] };
+    const graph = buildGraph(model.galleries);
+    const r = simulate(model, graph, settings(460));
+    expect(r.downlink.levelDbm[nearestNode(graph, 100, 0).node]).toBe(-Infinity);
+    expect(antennasOutsideGalleries(model, graph).map((o) => o.antenna.id)).toEqual(['r']);
+  });
+
+  it('una antena dentro de la galería, a 1 m del eje, sí se usa', () => {
+    const model: CaveModel = { galleries: [gallery('a', [[0, 0], [200, 0]])], transmitters: [{ ...tx, x: 50, y: 1 }], cables: [] };
+    const graph = buildGraph(model.galleries);
+    expect(antennasOutsideGalleries(model, graph)).toEqual([]);
   });
 });

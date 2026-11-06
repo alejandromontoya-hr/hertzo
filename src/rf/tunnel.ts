@@ -160,6 +160,9 @@ const RLKW12_50: readonly [number, number, number][] = [
 /** Frecuencia más alta para la que el cable de referencia tiene datos (MHz). */
 export const LEAKY_CABLE_MAX_MHZ = 1950;
 
+/** Frecuencia más baja del rango del cable de referencia según su hoja (MHz). */
+export const LEAKY_CABLE_MIN_MHZ = 30;
+
 /**
  * Cable radiante típico de 1/2" según la hoja del RFS RLKW12-50. Entre dos puntos de la
  * tabla, ambas pérdidas se interpolan en línea recta contra log(f). Por debajo de 75 MHz la

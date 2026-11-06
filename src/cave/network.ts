@@ -232,6 +232,21 @@ export function nearestNode(graph: CaveGraph, x: number, y: number): { node: num
   return { node: best, distanceM: bestD };
 }
 
+/**
+ * Antenas que quedan fuera de las galerías: a más de medio ancho de la galería más cercana
+ * (más un paso entre nodos). La roca no deja pasar la señal como el espacio libre, así que no
+ * se usan en el cálculo y la página lo avisa.
+ */
+export function antennasOutsideGalleries(model: CaveModel, graph: CaveGraph): { antenna: CaveTransmitter; distanceM: number }[] {
+  return model.transmitters.flatMap((antenna) => {
+    const start = nearestNode(graph, antenna.x, antenna.y);
+    if (start.node < 0) return [];
+    const gallery = model.galleries[graph.edges[start.node]![0]?.gallery ?? 0];
+    const limit = (gallery ? gallery.widthM / 2 : 0) + NODE_STEP_M;
+    return start.distanceM > limit ? [{ antenna, distanceM: start.distanceM }] : [];
+  });
+}
+
 function angleBetweenDeg(ax: number, ay: number, bx: number, by: number): number {
   const dot = ax * bx + ay * by;
   return (Math.acos(Math.max(-1, Math.min(1, dot))) * 180) / Math.PI;
@@ -258,6 +273,34 @@ function turnStep(
   const accumulated = turnSince[u]! + angle;
   const counted = accumulated > BEND_COUNT_DEG;
   return { dx, dy, lossDb: bendLossDb(angle, corner90Db), turn: counted ? 0 : accumulated, counted };
+}
+
+/** Un cable de 1° a 30° del eje de la galería todavía va por ella (cos 30° ≈ 0,87). */
+const CABLE_PARALLEL_COS = Math.cos((30 * Math.PI) / 180);
+
+/**
+ * Si el punto (cx, cy) de un cable con dirección (ux, uy) va por dentro de una galería del nodo k:
+ * alguno de sus tramos es casi paralelo al cable y el punto queda a no más de medio ancho (más
+ * 0,5 m) del eje del tramo.
+ */
+function runsAlongGallery(
+  graph: CaveGraph,
+  galleries: readonly Gallery[],
+  k: number,
+  cx: number,
+  cy: number,
+  ux: number,
+  uy: number,
+): boolean {
+  for (const edge of graph.edges[k]!) {
+    const ex = (graph.x[edge.to]! - graph.x[k]!) / edge.length;
+    const ey = (graph.y[edge.to]! - graph.y[k]!) / edge.length;
+    if (Math.abs(ex * ux + ey * uy) < CABLE_PARALLEL_COS) continue;
+    // Distancia del punto del cable a la recta del tramo.
+    const offset = Math.abs((cx - graph.x[k]!) * ey - (cy - graph.y[k]!) * ex);
+    if (offset <= galleries[edge.gallery]!.widthM / 2 + 0.5) return true;
+  }
+  return false;
 }
 
 export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSettings): SimulationResult {
@@ -292,7 +335,9 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
   };
 
   // --- Antenas: camino de menor pérdida con espacio libre hasta el quiebre ---
+  const outside = new Set(antennasOutsideGalleries(model, graph).map((o) => o.antenna));
   model.transmitters.forEach((tx, t) => {
+    if (outside.has(tx)) return;
     const start = nearestNode(graph, tx.x, tx.y);
     if (start.node < 0) return;
     const firstGallery = graph.edges[start.node]![0]?.gallery ?? 0;
@@ -347,11 +392,16 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
     // Ganancia desde la cabecera hasta cada nodo junto al cable, sin la potencia de la cabecera:
     // pérdida longitudinal + acople + distancia al cable. En la subida es el mismo camino al revés.
     const seed = new Float64Array(n).fill(-Infinity);
+    const seedDirX = new Float64Array(n);
+    const seedDirY = new Float64Array(n);
     let along = 0;
     for (let i = 0; i < cable.points.length - 1; i++) {
       const p = cable.points[i]!;
       const q = cable.points[i + 1]!;
       const length = Math.hypot(q.x - p.x, q.y - p.y);
+      if (length <= 0) continue;
+      const ux = (q.x - p.x) / length;
+      const uy = (q.y - p.y) / length;
       const steps = Math.max(1, Math.ceil(length / NODE_STEP_M));
       for (let s = 0; s <= steps; s++) {
         const t = s / steps;
@@ -359,9 +409,16 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
         const cy = p.y + (q.y - p.y) * t;
         for (let k = 0; k < n; k++) {
           const r = Math.hypot(graph.x[k]! - cx, graph.y[k]! - cy);
-          if (r > 8) continue; // solo los nodos de la galería por donde va el cable
+          if (r > 8) continue;
+          // Solo los nodos de la galería por donde va el cable: la señal llega a una cruzada por el
+          // grafo, que cobra la curva, y no atraviesa la roca hasta una galería vecina.
+          if (!runsAlongGallery(graph, model.galleries, k, cx, cy, ux, uy)) continue;
           const gain = leakyCableLevelDbm(0, settings.cable, along + length * t, r) + settings.rxGainDbi;
-          if (gain > seed[k]!) seed[k] = gain;
+          if (gain > seed[k]!) {
+            seed[k] = gain;
+            seedDirX[k] = ux;
+            seedDirY[k] = uy;
+          }
         }
       }
       along += length;
@@ -375,9 +432,14 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
     const dirX = new Float64Array(n);
     const dirY = new Float64Array(n);
     const heap = new MinHeap();
+    /** Nodo sembrado por el cable: su dirección es la del cable, que no tiene sentido de avance. */
+    const onCable = new Uint8Array(n);
     for (let k = 0; k < n; k++) {
       if (seed[k] === -Infinity) continue;
       best[k] = -seed[k]!;
+      dirX[k] = seedDirX[k]!;
+      dirY[k] = seedDirY[k]!;
+      onCable[k] = 1;
       heap.push(best[k]!, k);
     }
     while (heap.size) {
@@ -385,7 +447,16 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
       if (cost > best[u]!) continue;
       for (const edge of graph.edges[u]!) {
         const v = edge.to;
-        const step = turnStep(graph, u, v, edge.length, dirX, dirY, turnSince, settings.corner90Db);
+        let step = turnStep(graph, u, v, edge.length, dirX, dirY, turnSince, settings.corner90Db);
+        if (onCable[u]) {
+          // Desde el cable se puede seguir la galería en los dos sentidos: se toma el giro menor.
+          dirX[u] = -dirX[u]!;
+          dirY[u] = -dirY[u]!;
+          const reverse = turnStep(graph, u, v, edge.length, dirX, dirY, turnSince, settings.corner90Db);
+          dirX[u] = -dirX[u]!;
+          dirY[u] = -dirY[u]!;
+          if (reverse.lossDb < step.lossDb) step = reverse;
+        }
         const candidate = cost + alpha[edge.gallery]! * edge.length + step.lossDb;
         if (candidate < best[v]!) {
           best[v] = candidate;
@@ -395,6 +466,7 @@ export function simulate(model: CaveModel, graph: CaveGraph, settings: RadioSett
           turnSince[v] = step.turn;
           dirX[v] = step.dx;
           dirY[v] = step.dy;
+          onCable[v] = 0;
           heap.push(candidate, v);
         }
       }
