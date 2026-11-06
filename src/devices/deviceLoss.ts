@@ -3,7 +3,7 @@
 // en frecuencias distintas y el sitio puede tener antenas a alturas distintas.
 
 import { distanceM, type LonLat } from '../geo/geodesy';
-import { loadItm } from '../propagation/itm';
+import { DEFAULT_ITM_PARAMETERS, loadItm } from '../propagation/itm';
 import { clutterLossDb, pathHeightM, type Clutter } from '../rf/clutter';
 import { closeRangeLossDb } from './devices';
 import { loadTerrain } from '../terrain/elevation';
@@ -22,6 +22,8 @@ export interface DevicePath {
   up: { siteHeightM: number; frequencyMHz: number };
   /** Entorno del equipo y del sitio (UIT-R P.2108); null o ausente, terreno limpio. */
   clutter?: Clutter | null;
+  /** Confiabilidad (%) del ITM, igual que la del mapa; ausente, la mediana (50 %). */
+  reliabilityPct?: number;
 }
 
 export interface DeviceLoss {
@@ -54,7 +56,8 @@ export async function deviceLoss(path: DevicePath): Promise<DeviceLoss> {
   const pfl = [profile.elevationsM.length - 1, profile.stepM, ...profile.elevationsM];
   const loss = (siteHeightM: number, frequencyMHz: number) => {
     try {
-      const lossDb = itm.pointToPoint(pfl, pathHeightM(siteHeightM, clutter), pathHeightM(path.deviceHeightM, clutter), frequencyMHz).lossDb;
+      const params = { ...DEFAULT_ITM_PARAMETERS, timePct: path.reliabilityPct ?? 50 };
+      const lossDb = itm.pointToPoint(pfl, pathHeightM(siteHeightM, clutter), pathHeightM(path.deviceHeightM, clutter), frequencyMHz, params).lossDb;
       return lossDb + endLoss(siteHeightM, frequencyMHz);
     } catch {
       return Number.NaN;

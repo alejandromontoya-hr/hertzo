@@ -30,6 +30,7 @@ import { addExportControl } from '../../map/exportControl';
 import { receivedPowerDbm, talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import {
   AU915_DWELL_TIME_MS,
+  DEFAULT_ADR_MARGIN_DB,
   SPREADING_FACTORS,
   loraSensitivityDbm,
   loraTimeOnAirMs,
@@ -39,6 +40,7 @@ import {
 } from '../../rf/lora';
 import { LORA_BUDGET_NAMES, balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createMapLegend } from '../../ui/coverageLegend';
+import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
 import { clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createLoraCapacity } from '../../ui/loraCapacity';
@@ -143,6 +145,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
           'En AU915 la red puede limitar cada mensaje a 400 ms en el aire. Con 11 bytes, SF11 y SF12 tardan más, así que no se pueden usar y la subida llega hasta SF10.',
         )}
       </div>
+      <div class="form" data-reliability-form></div>
     </section>
     ${siteSectionHtml('Gateway', 'el gateway')}
     ${coverageStatusHtml()}
@@ -264,6 +267,12 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     onParametersChange();
   });
 
+  let reliability = parseReliability(params, 90);
+  createReliabilityControl(page.find('[data-reliability-form]'), reliability, (next) => {
+    reliability = next;
+    replaceQuery('confiabilidad', next === 90 ? null : String(next));
+    onParametersChange();
+  });
   createClutterControl(page.find('[data-clutter-form]'), clutter, (next) => {
     clutter = next;
     const query = clutterQuery(clutter);
@@ -295,6 +304,26 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     },
   );
   page.find('[data-payload-form]').append(payloadField.element);
+
+  let adrMarginDb = DEFAULT_ADR_MARGIN_DB;
+  const adrField = createNumberField(
+    {
+      key: 'adrMarginDb',
+      label: 'Margen del ADR',
+      unit: 'dB',
+      min: 0,
+      max: 30,
+      hint: 'Lo que la red deja de sobra sobre la sensibilidad al elegir el SF de cada sensor. ChirpStack usa 10 dB y The Things Stack 15 dB. Con más margen el SF es más lento: más alcance seguro, pero más tiempo en el aire.',
+    },
+    adrMarginDb,
+    (value) => {
+      adrMarginDb = value;
+      redraw();
+      deviceList?.refresh();
+      capacity.update();
+    },
+  );
+  page.find('[data-payload-form]').append(adrField.element);
 
   const sfTable = page.find('[data-sf-table]');
   function showSfTable() {
@@ -346,13 +375,14 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
         down: { siteHeightM: gateway.antennaHeightM, frequencyMHz: band.downlink.frequencyMHz },
         up: { siteHeightM: gateway.antennaHeightM, frequencyMHz: band.uplink.frequencyMHz },
         clutter,
+        reliabilityPct: reliability,
       };
       const key = JSON.stringify(path);
       if (!lossCache.has(key)) lossCache.set(key, deviceLoss(path));
       const loss = await lossCache.get(key)!;
       const profile = sensorRadioProfile(band, s);
       const r = evaluateDevice(talkOutBudget(tx(), profile), talkInBudget(rx(), profile), loss.downDb, loss.upDb);
-      const sf = Number.isNaN(r.upDbm) ? null : minimumSpreadingFactor(r.upDbm, band.uplink.bandwidthKHz, gateway.noiseFigureDb, maxSf());
+      const sf = Number.isNaN(r.upDbm) ? null : minimumSpreadingFactor(r.upDbm, band.uplink.bandwidthKHz, gateway.noiseFigureDb, maxSf(), adrMarginDb);
       sfById.set(device.id, sf);
       const dbm = (v: number) => (Number.isNaN(v) ? '—' : integerDbm.format(v));
       return {
@@ -390,7 +420,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     const { down, up } = budgets();
     const grids = gridsOf(coverage);
     if (view === 'sf') {
-      renderSpreadingFactor(geometry, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, pixels, maxSf());
+      renderSpreadingFactor(geometry, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, pixels, maxSf(), adrMarginDb);
     } else {
       renderCoverage(geometry, grids, view, down, up, thresholds, pixels);
     }
@@ -398,7 +428,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     legend.update({
       views: VIEWS,
       activeView: view,
-      title: viewTitle(view),
+      title: coverage ? `${viewTitle(view)} · ${requestReliability(coverage.request)} % de confiabilidad` : viewTitle(view),
       ...legendFor(view),
       hatchLabel: HATCH_LABEL,
       opacity,
@@ -440,7 +470,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
         file: v === 'talkOut' ? 'bajada' : v === 'talkIn' ? 'subida' : 'sf',
         paint: (g: RasterGeometry, out: Uint8ClampedArray<ArrayBuffer>) =>
           v === 'sf'
-            ? renderSpreadingFactor(g, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, out, maxSf())
+            ? renderSpreadingFactor(g, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, out, maxSf(), adrMarginDb)
             : renderCoverage(g, grids, v, down, up, thresholds, out),
         legend: { title: viewTitle(v), entries: legendData.entries, emptyLabel: legendData.emptyLabel, hatchLabel: HATCH_LABEL },
       };
@@ -493,7 +523,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     showSfTable();
     redraw();
     const location = site.getSite();
-    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio(), itmSpec(clutter)));
+    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio(), itmSpec(clutter, reliability)));
     deviceList?.refresh();
     capacity.update();
   }
@@ -509,7 +539,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     if (!lines) return readout.hide();
     const loss = coverage.grids[TALK_IN]!.lossDb[gridIndexAt(coverage.plan, point)]!;
     if (!Number.isNaN(loss)) {
-      const sf = minimumSpreadingFactor(receivedPowerDbm(up, loss), band.uplink.bandwidthKHz, gateway.noiseFigureDb, maxSf());
+      const sf = minimumSpreadingFactor(receivedPowerDbm(up, loss), band.uplink.bandwidthKHz, gateway.noiseFigureDb, maxSf(), adrMarginDb);
       lines.splice(3, 0, sf === null ? 'SF de subida: no llega ni con SF12' : `SF de subida: SF${sf} (${msFormat.format(timeOnAir(sf))} ms)`);
     }
     const entorno = clutterSummary(coverage.request);

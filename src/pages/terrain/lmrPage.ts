@@ -24,6 +24,7 @@ import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
+import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
 import { clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createTrunkingCapacity } from '../../ui/trunkingCapacity';
@@ -67,6 +68,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     <section class="panel-section page-intro">
       <h2>Radiocomunicaciones en terreno${infoButton('Trunking P25, SmartZone y convencional. Bajada y subida por separado, cada una con su frecuencia y su cadena.')}</h2>
       ${choiceHtml('banda', LMR_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda', '')}
+      <div class="form" data-reliability-form></div>
     </section>
     ${siteSectionHtml()}
     ${coverageStatusHtml()}
@@ -153,6 +155,12 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     onParametersChange();
   });
   let clutter = parseClutter(params);
+  let reliability = parseReliability(params, 90);
+  createReliabilityControl(page.find('[data-reliability-form]'), reliability, (next) => {
+    reliability = next;
+    replaceQuery('confiabilidad', next === 90 ? null : String(next));
+    onParametersChange();
+  });
   createClutterControl(page.find('[data-clutter-form]'), clutter, (next) => {
     clutter = next;
     const query = clutterQuery(clutter);
@@ -196,6 +204,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
         down: { siteHeightM: tx.antennaHeightM, frequencyMHz: tx.frequencyMHz },
         up: { siteHeightM: rx.antennaHeightM, frequencyMHz: rx.frequencyMHz },
         clutter,
+        reliabilityPct: reliability,
       };
       const key = JSON.stringify(path);
       if (!lossCache.has(key)) lossCache.set(key, deviceLoss(path));
@@ -237,7 +246,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     legend.update({
       views: VIEWS,
       activeView: view,
-      title: viewTitle(view),
+      title: coverage ? `${viewTitle(view)} · ${requestReliability(coverage.request)} % de confiabilidad` : viewTitle(view),
       entries: isLevel
         ? levelEntries(sensitivity, thresholds)
         : BALANCE_LEGEND.map((e) => ({ color: e.color, label: e.label })),
@@ -320,7 +329,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     showBudget(talkOutBudget(tx, radio), talkInBudget(rx, radio));
     redraw();
     const location = site.getSite();
-    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio, itmSpec(clutter)));
+    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio, itmSpec(clutter, reliability)));
     deviceList?.refresh();
   }
 

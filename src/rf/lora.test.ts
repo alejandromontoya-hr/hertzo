@@ -88,3 +88,26 @@ describe('límite de 400 ms (AU915)', () => {
     expect(maxSpreadingFactorForDwell(125, 60)).toBe(9);
   });
 });
+
+describe('minimumSpreadingFactor con margen del ADR', () => {
+  // NF 6 dB a 125 kHz: SF7 −124,53 dBm, SF11 −134,53, SF12 −137,03.
+  it('−125 dBm sin margen no llega a SF7 (−124,53): SF8', () => {
+    expect(minimumSpreadingFactor(-125, 125)).toBe(8);
+  });
+
+  it('−125 dBm con 10 dB de margen: SF11 pediría −124,53 y SF12 −127,03 → SF12', () => {
+    expect(minimumSpreadingFactor(-125, 125, 6, 12, 10)).toBe(12);
+  });
+
+  it('−110 dBm con 10 dB de margen: SF7 pide −114,53 → SF7', () => {
+    expect(minimumSpreadingFactor(-110, 125, 6, 12, 10)).toBe(7);
+  });
+
+  it('−136 dBm con 10 dB de margen: ninguno deja margen, pero SF12 (−137,03) llega → SF12', () => {
+    expect(minimumSpreadingFactor(-136, 125, 6, 12, 10)).toBe(12);
+  });
+
+  it('−138 dBm no llega ni con SF12', () => {
+    expect(minimumSpreadingFactor(-138, 125, 6, 12, 10)).toBeNull();
+  });
+});

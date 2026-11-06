@@ -33,7 +33,11 @@ export interface ItmParameters {
    * +10 elimina la variabilidad por ubicación, +20 la de situación.
    */
   variabilityMode: number;
-  /** Porcentajes de tiempo, ubicación y situación (0–100, sin incluir los extremos). */
+  /**
+   * Porcentajes de tiempo, ubicación y situación (0–100, sin incluir los extremos). En el modo
+   * móvil (2) el ITM usa el de tiempo para tiempo y ubicación juntos (Variability.cpp: z_L = z_T),
+   * así que la confiabilidad se pide con `timePct` y `locationPct` no cambia nada.
+   */
   timePct: number;
   locationPct: number;
   situationPct: number;

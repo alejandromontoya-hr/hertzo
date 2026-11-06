@@ -80,9 +80,20 @@ export function minimumSpreadingFactor(
   bandwidthKHz: number,
   noiseFigureDb: number = DEFAULT_LORA_NOISE_FIGURE_DB,
   maxSf: SpreadingFactor = 12,
+  marginDb = 0,
 ): SpreadingFactor | null {
-  return SPREADING_FACTORS.find((sf) => sf <= maxSf && receivedDbm >= loraSensitivityDbm(sf, bandwidthKHz, noiseFigureDb)) ?? null;
+  // Como el ADR: el SF más rápido que deja `marginDb` de sobra; si ninguno lo deja pero el más
+  // lento permitido todavía llega, queda en ese.
+  const withMargin = SPREADING_FACTORS.find((sf) => sf <= maxSf && receivedDbm >= loraSensitivityDbm(sf, bandwidthKHz, noiseFigureDb) + marginDb);
+  if (withMargin !== undefined) return withMargin;
+  return receivedDbm >= loraSensitivityDbm(maxSf, bandwidthKHz, noiseFigureDb) ? maxSf : null;
 }
+
+/**
+ * Margen del ADR (dB) por omisión: el que deja la red sobre la sensibilidad al elegir el SF.
+ * ChirpStack usa 10 dB y The Things Stack 15 dB; con 0 dB el SF sale demasiado rápido.
+ */
+export const DEFAULT_ADR_MARGIN_DB = 10;
 
 /** Límite de tiempo en el aire por mensaje de AU915 cuando la red lo exige (UplinkDwellTime = 1). */
 export const AU915_DWELL_TIME_MS = 400;

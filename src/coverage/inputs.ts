@@ -7,6 +7,7 @@
 import type { LonLat } from '../geo/geodesy';
 import type { EngineSpec } from '../propagation/engines';
 import type { Clutter } from '../rf/clutter';
+import { DEFAULT_ITM_PARAMETERS } from '../propagation/itm';
 import type { RadioProfile, SiteRxChain, SiteTxChain } from '../rf/linkBudget';
 import type { CoverageRequest } from './computeCoverage';
 
@@ -19,9 +20,17 @@ export interface LinkGeometry {
   frequencyMHz: number;
 }
 
-/** Motor ITM, con el entorno del equipo si se eligió uno (sin él, solo el relieve). */
-export function itmSpec(clutter: Clutter | null): EngineSpec {
-  return clutter ? { id: 'itm', clutter } : { id: 'itm' };
+/**
+ * Motor ITM con el entorno del equipo si se eligió uno (sin él, solo el relieve) y la
+ * confiabilidad: en el modo móvil del ITM, el porcentaje de tiempo es la confiabilidad
+ * combinada de tiempo y ubicación (50 % es la mediana).
+ */
+export function itmSpec(clutter: Clutter | null, reliabilityPct = 50): EngineSpec {
+  return {
+    id: 'itm',
+    ...(reliabilityPct !== 50 && { params: { ...DEFAULT_ITM_PARAMETERS, timePct: reliabilityPct } }),
+    ...(clutter && { clutter }),
+  };
 }
 
 /** Índices de los trayectos de un cálculo de radio profesional. */
