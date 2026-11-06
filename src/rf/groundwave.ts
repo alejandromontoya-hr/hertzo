@@ -274,11 +274,15 @@ export function groundwaveLossDb(distanceM: number, frequencyMHz: number, ground
   return freeSpaceLossDb(distanceM / 1000, frequencyMHz) - groundAttenuationDb(distanceM, frequencyMHz, ground);
 }
 
-/** Ganancia sobre suelo perfecto de las antenas AM habituales (dBi). */
+/**
+ * Ganancia sobre suelo perfecto de las antenas AM habituales (dBi), sin pérdidas, con corriente
+ * senoidal: D = 2·f(90°)² / ∫ f²·sen θ dθ. λ/4 → 3,282 (5,16 dBi, 313,8 mV/m con 1 kW) y
+ * 0,625 λ → 6,565 (8,17 dBi, 443,8 mV/m).
+ */
 export const AM_ANTENNAS: readonly { id: string; label: string; gainDbi: number }[] = [
   { id: 'corto', label: 'Monopolo corto (≈300 mV/m a 1 km con 1 kW)', gainDbi: 4.77 },
   { id: 'cuarto', label: 'Monopolo de λ/4 (≈313 mV/m a 1 km con 1 kW)', gainDbi: 5.15 },
-  { id: 'media', label: 'Monopolo de 0,625 λ (≈410 mV/m a 1 km con 1 kW)', gainDbi: 7.5 },
+  { id: 'media', label: 'Monopolo de 0,625 λ (≈444 mV/m a 1 km con 1 kW)', gainDbi: 8.17 },
 ];
 
 /**

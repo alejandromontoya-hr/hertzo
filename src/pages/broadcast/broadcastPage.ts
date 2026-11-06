@@ -280,7 +280,10 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       const label = `≥ ${t} dBµV/m (${mvmFormat.format(dbuvmToMvm(t))} mV/m)`;
       const area = `${integerFormat.format(areas[i]!)} km²`;
       if (!isAm) return [label, area];
-      const range = groundwaveRangeKm(eirpDbm(), frequencyMHz(), ground, t);
+      // Suelo y frecuencia del cálculo que muestra el mapa, aunque el formulario ya tenga otros.
+      const shownEngine = coverage!.request.engine;
+      const shownGround = shownEngine.id === 'groundwave' ? shownEngine.ground : ground;
+      const range = groundwaveRangeKm(eirpDbm(), coverage!.request.links[0]!.frequencyMHz, shownGround, t);
       const rangeText = range >= radiusKm ? `> ${integerFormat.format(radiusKm)} km` : `${oneDecimal.format(range)} km`;
       return [label, rangeText, area];
     });
@@ -343,18 +346,18 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     const station =
       service === 'fm'
         ? [
-            ['Frecuencia', formatMHz(fm.frequencyMHz)],
+            ['Frecuencia', formatMHz(result.request.links[0]!.frequencyMHz)],
             ['Potencia radiada (ERP)', `${mvmFormat.format(fm.erpKw)} kW (${oneDecimal.format(kilowattsToDbm(fm.erpKw))} dBm)`],
             ['PIRE', `${oneDecimal.format(eirpDbm())} dBm (${mvmFormat.format(fm.erpKw * 1.64)} kW)`],
             ['Altura de la antena', `${formatHeight(fm.antennaHeightM)} sobre el terreno`],
             ['Altura del receptor', formatHeight(fm.receiverHeightM)],
           ]
         : [
-            ['Frecuencia', `${integerFormat.format(am.frequencyKHz)} kHz`],
+            ['Frecuencia', `${integerFormat.format(result.request.links[0]!.frequencyMHz * 1000)} kHz`],
             ['Potencia del transmisor', `${mvmFormat.format(am.powerKw)} kW (${oneDecimal.format(kilowattsToDbm(am.powerKw))} dBm)`],
             ['Antena', amAntenna.label],
             ['PIRE', `${oneDecimal.format(eirpDbm())} dBm`],
-            ['Suelo', ground.label],
+            ['Suelo', (result.request.engine.id === 'groundwave' ? result.request.engine.ground : ground).label],
           ];
 
     await downloadCoverageKmz({
