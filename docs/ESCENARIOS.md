@@ -8,7 +8,7 @@ El selector de escenarios (`/escenarios`) pregunta "¿Qué quieres simular?" y c
 | Interiores (WiFi) | `/interiores?plano=casa\|apartamento\|oficina` | Editor de planos | Multipared COST-231 con ángulo de incidencia y muebles |
 | LoRaWAN | `/lora?banda=au915\|us915\|eu868` | Mapa con relieve SRTM | ITM (Longley-Rice) de NTIA; sensibilidad y tiempo en el aire de Semtech |
 | Radiocomunicaciones en terreno | `/terreno?banda=vhf\|uhf\|700\|800` | Mapa con relieve SRTM | ITM (Longley-Rice) de NTIA |
-| Enlaces punto a punto | `/enlace?tipo=microondas\|radio` | Mapa y perfil del enlace | Espacio libre + difracción Deygout + gases + lluvia; ITM |
+| Enlaces punto a punto | `/enlace?tipo=microondas\|radio` | Mapa y perfil del enlace | Espacio libre + difracción por aristas (UIT-R P.526) + gases + lluvia; ITM |
 | Radiodifusión FM y AM | `/radiodifusion?servicio=fm\|am` | Mapa con relieve | FM: ITM. AM: onda de tierra sobre la Tierra esférica (Norton y serie de Wait) |
 | Cavernas, túneles y minas | `/cavernas?escenario=mina\|tunel\|cueva` | Editor de galerías | Guía de onda de Emslie, curvas y cable radiante |
 
@@ -49,14 +49,14 @@ Todas las fórmulas viven en módulos puros (`src/rf/`, `src/indoor/`, `src/cave
 ## Enlaces punto a punto
 
 - Perfil con la curvatura de la Tierra según el factor k (4/3, 1 o 2/3), primera zona de Fresnel, línea del 60 % y puntos que la invaden. El veredicto pide las dos condiciones: 100 % de F1 libre con k = 4/3 y 60 % con k = 2/3.
-- Pérdida: espacio libre + difracción por aristas (UIT-R P.526, Deygout hasta 3 aristas) + gases (UIT-R P.676 aproximada, a nivel del mar). El ITM aparece como comparación y se puede usar para el balance (modo accidental, el de enlaces fijos).
-- Disponibilidad: lluvia (UIT-R P.838-3 y P.530-18, con R0,01 de 95 mm/h por omisión, zona N de la P.837-1, y polarización) más multitrayecto (Vigants-Barnett). El enlace de ejemplo a 11 GHz y 11,4 km corta 46 min al año por lluvia y 34 por multitrayecto.
+- Pérdida: espacio libre + difracción por aristas en cascada (UIT-R P.526-10 §4.4.2: Deygout hasta 3 aristas con la corrección T y C) + gases (UIT-R P.676 aproximada, a nivel del mar). El ITM aparece como comparación y se puede usar para el balance (modo accidental, el de enlaces fijos).
+- Disponibilidad: lluvia (UIT-R P.838-3 y P.530-18, con R0,01 de 95 mm/h por omisión, zona N de la P.837-1, y polarización) más multitrayecto (Vigants-Barnett, con factor de terreno a y de clima b; por omisión terreno promedio y clima cálido y húmedo). El enlace de ejemplo a 11 GHz y 11,4 km corta 47 min al año por lluvia y 17 por multitrayecto.
 - **Limitación:** no incluye árboles ni edificios junto a las antenas (el SRTM no los trae del todo).
 
 ## Radiodifusión
 
 - **FM:** campo en dBµV/m con el ITM sobre el relieve; receptor a 10 m por omisión (referencia de planificación) o 1,5 m (portátil). Zonas de la UIT-R BS.412: 74 (estéreo, ciudades grandes), 66 (estéreo, urbano; también el contorno de servicio de la ANE), 54 (estéreo, rural) y 48 dBµV/m (mono, rural). Confiabilidad 50 % por omisión, como las curvas F(50,50), y entorno del receptor.
-- **AM:** cobertura diurna con onda de tierra: Norton exacto cerca del transmisor y la serie de residuos de Wait sobre la Tierra esférica más lejos, validada con los casos de prueba del LFMF de NTIA. 8 tipos de suelo de la UIT-R P.368 y monopolos de 300, 313 y 410 mV/m a 1 km con 1 kW. Contornos de 62, 56, 54 y 48 dBµV/m (1250, 625, 500 y 250 µV/m, Decreto 1445 de 1995).
+- **AM:** cobertura diurna con onda de tierra: Norton exacto cerca del transmisor y la serie de residuos de Wait sobre la Tierra esférica más lejos, validada con los casos de prueba del LFMF de NTIA. 8 tipos de suelo de la UIT-R P.368 y monopolos de 300, 313 y 444 mV/m a 1 km con 1 kW. Contornos de 62, 56, 54 y 48 dBµV/m (1250, 625, 500 y 250 µV/m, Decreto 1445 de 1995).
 - **Limitación:** no modela trayectos mixtos tierra-mar ni la onda de cielo nocturna, que de noche trae interferencia y encoge la cobertura AM.
 
 ## Interiores (WiFi)
