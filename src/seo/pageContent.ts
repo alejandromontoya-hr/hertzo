@@ -70,6 +70,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     about: [
       'Calcula la señal (RSRP), el mejor sector y la interferencia (SINR) de un sitio celular con varios sectores, de 700 a 3500 MHz, con el patrón de la antena y su inclinación. Puedes elegir el modelo: Okumura-Hata / COST-231 para entornos urbanos, suburbanos o rurales, 3GPP 38.901 para macroceldas urbanas, o ITM sobre el terreno real.',
       'La SINR cuenta seis sitios vecinos a la distancia que elijas, transmitiendo a plena carga: con vecinos a 1 km, en el borde de celda da unos +3 dB, como en una red real. También puedes poner el teléfono dentro de un edificio (pérdida de 3GPP 38.901: unos 15 dB a 850 MHz) y elegir la confiabilidad. En 3500 MHz usa los valores de una antena activa 5G: 200 W y 24 dBi.',
+      'La subida se calcula aparte, en su propia frecuencia (en la banda de 850, 836,5 MHz): un teléfono de 23 dBm repartidos en 2 bloques de recursos, una torre con 5 dB de figura de ruido y 3 dB de margen por interferencia. El mapa de desbalance muestra dónde el teléfono ve la red pero la torre no lo oye.',
     ],
     faq: [
       {

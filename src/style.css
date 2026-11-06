@@ -1321,7 +1321,7 @@ body {
   position: absolute;
   top: 12px;
   left: 12px;
-  width: 280px;
+  width: 320px;
   /* En celular deja libres los botones de acercar y alejar. */
   max-width: calc(100% - 64px);
   padding: 10px 12px 12px;
@@ -1374,7 +1374,7 @@ body {
 
 .legend-views {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   margin: -4px 0 10px;
   border-bottom: 1px solid var(--border);
 }

@@ -4,7 +4,7 @@ El selector de escenarios (`/escenarios`) pregunta "¿Qué quieres simular?" y c
 
 | Página | Dirección | Entorno | Modelo |
 | --- | --- | --- | --- |
-| Celular (LTE / 5G) | `/celular?banda=700\|850\|1900\|aws\|2600\|3500` | Mapa con relieve | Okumura-Hata / COST-231, 3GPP 38.901 UMa o ITM; entrada a edificios de 38.901 |
+| Celular (LTE / 5G) | `/celular?banda=700\|850\|1900\|aws\|2600\|3500` | Mapa con relieve | Okumura-Hata / COST-231, 3GPP 38.901 UMa o ITM; entrada a edificios de 38.901; bajada y subida en sus frecuencias |
 | Interiores (WiFi) | `/interiores?plano=casa\|apartamento\|oficina` | Editor de planos | Multipared COST-231 con ángulo de incidencia y muebles |
 | LoRaWAN | `/lora?banda=au915\|us915\|eu868` | Mapa con relieve SRTM | ITM (Longley-Rice) de NTIA; sensibilidad y tiempo en el aire de Semtech |
 | Radiocomunicaciones en terreno | `/terreno?banda=vhf\|uhf\|700\|800` | Mapa con relieve SRTM | ITM (Longley-Rice) de NTIA |

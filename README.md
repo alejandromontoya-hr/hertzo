@@ -17,7 +17,7 @@ Cada simulación tiene su propia dirección. La raíz (`hertzo.site/`) es la pá
 | Dirección | Escenario | Entorno | Qué calcula |
 | --- | --- | --- | --- |
 | `/escenarios` | Selector "¿Qué quieres simular?" | — | Enlaces a cada escenario y sus variantes |
-| `/celular` | Celular LTE / 5G (700 a 3500 MHz) | Mapa con relieve | RSRP, mejor sector y SINR con seis sitios vecinos; teléfono en la calle o dentro de un edificio (Hata, 3GPP 38.901 o ITM) |
+| `/celular` | Celular LTE / 5G (700 a 3500 MHz) | Mapa con relieve | RSRP, mejor sector, SINR con seis sitios vecinos, subida del teléfono a la torre y desbalance; teléfono en la calle o dentro de un edificio (Hata, 3GPP 38.901 o ITM) |
 | `/interiores` | Interiores WiFi (2,4, 5 y 6 GHz) | Editor de planos | Mapa de calor de bajada y subida con muros de distintos materiales, muebles y varios access points |
 | `/lora` | LoRaWAN (AU915, US915, EU868) | Mapa con relieve | Bajada, subida, SF de cada punto, tiempo en el aire, medidores concretos y mensajes que chocan en el aire (ITM de NTIA) |
 | `/terreno` | Radiocomunicaciones en terreno: P25, trunking y convencional (VHF, UHF, 700, 800 MHz) | Mapa con relieve | Bajada, subida y desbalance de un sitio, radios concretos y llamadas que esperan canal (ITM de NTIA) |

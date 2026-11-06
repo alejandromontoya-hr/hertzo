@@ -12,6 +12,7 @@ import {
   locationMarginDb,
   lossCurve,
   neighborOffsetsM,
+  uplinkSinrDb,
 } from './cellular';
 
 describe('Okumura-Hata: 900 MHz, base 30 m, móvil 1,5 m', () => {
@@ -160,5 +161,21 @@ describe('margen por confiabilidad', () => {
 
   it('50 % es la mediana: 0 dB', () => {
     expect(locationMarginDb(50, 8)).toBe(0);
+  });
+});
+
+describe('subida (teléfono → torre)', () => {
+  // 23 dBm en 2 bloques: 23 − 3,0103 = 19,99 dBm por bloque. Ruido de un bloque LTE (180 kHz) con
+  // NF 5 dB: −174 + 52,553 + 5 = −116,447 dBm. Con 130 dB de pérdida neta y 3 dB de interferencia:
+  // 19,99 − 130 + 116,447 − 3 = 3,44 dB.
+  it('LTE, 23 dBm en 2 bloques, NF 5 dB, 130 dB netos y 3 dB de interferencia: 3,44 dB', () => {
+    const params = { uePowerDbm: 23, resourceBlocks: 2, siteNoiseFigureDb: 5, interferenceMarginDb: 3 };
+    expect(uplinkSinrDb(params, 15, -130)).toBeCloseTo(3.436, 2);
+  });
+
+  // NR a 30 kHz: el bloque mide 360 kHz, 3,01 dB más de ruido que en LTE.
+  it('NR a 30 kHz: 3,01 dB menos que LTE con lo mismo', () => {
+    const params = { uePowerDbm: 23, resourceBlocks: 2, siteNoiseFigureDb: 5, interferenceMarginDb: 3 };
+    expect(uplinkSinrDb(params, 15, -130) - uplinkSinrDb(params, 30, -130)).toBeCloseTo(3.0103, 3);
   });
 });

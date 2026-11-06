@@ -153,6 +153,33 @@ export function noisePerResourceElementDbm(subcarrierKHz: number, noiseFigureDb:
   return -174 + 10 * Math.log10(subcarrierKHz * 1000) + noiseFigureDb;
 }
 
+// --- Subida (teléfono → torre) ---
+
+/** Parámetros de la subida: lo que manda el teléfono y cómo oye la torre. */
+export interface UplinkParams {
+  /** Potencia del teléfono (dBm): 23 dBm (0,2 W) en la clase 3 de 3GPP. */
+  uePowerDbm: number;
+  /** Bloques de recursos que la torre le asigna al teléfono en el borde. */
+  resourceBlocks: number;
+  /** Figura de ruido del receptor de la torre (dB): 5 dB en las simulaciones de 3GPP TR 36.814. */
+  siteNoiseFigureDb: number;
+  /** Margen por la interferencia de los teléfonos de otras celdas (dB), el "IoT" de los balances. */
+  interferenceMarginDb: number;
+}
+
+/**
+ * SINR de subida en la torre (dB), por bloque de recursos: la potencia del teléfono se reparte en
+ * los bloques asignados y se compara con el ruido de un bloque (12 subportadoras) más el margen de
+ * interferencia. `pathGainDb` = ganancias − pérdidas entre el teléfono y el receptor de la torre
+ * (antena del sector − cable − edificio − trayecto − margen de confiabilidad).
+ *   SINR = P − 10·log(N_RB) + pathGainDb − (−174 + 10·log(12·Δf) + NF) − margen
+ */
+export function uplinkSinrDb(params: UplinkParams, subcarrierKHz: number, pathGainDb: number): number {
+  const perBlockDbm = params.uePowerDbm - 10 * Math.log10(Math.max(1, params.resourceBlocks));
+  const noiseDbm = -174 + 10 * Math.log10(12 * subcarrierKHz * 1000) + params.siteNoiseFigureDb;
+  return perBlockDbm + pathGainDb - noiseDbm - params.interferenceMarginDb;
+}
+
 /** SINR (dB) del sector servidor frente a los interferentes (otros sectores y sitios vecinos), todos a plena carga. */
 export function sinrDb(servingDbm: number, interferersDbm: readonly number[], noiseDbm: number): number {
   let interferenceMw = 10 ** (noiseDbm / 10);

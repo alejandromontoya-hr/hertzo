@@ -36,9 +36,9 @@ export const SCENARIOS: Scenario[] = [
     title: 'Celular (LTE / 5G)',
     pageTitle: 'Simulador de cobertura celular LTE y 5G',
     description:
-      'RSRP, mejor sector y SINR de un sitio con sectores de 700 a 3500 MHz, con Okumura-Hata, 3GPP 38.901 o ITM sobre el terreno. Gratis, en tu navegador.',
+      'RSRP, mejor sector, SINR y subida de un sitio con sectores de 700 a 3500 MHz, con Okumura-Hata, 3GPP 38.901 o ITM sobre el terreno. Gratis, en tu navegador.',
     summary: 'Un sitio con sectores: señal, mejor sector e interferencia entre sectores.',
-    computes: 'RSRP, mejor sector y SINR, con patrón de antena e inclinación.',
+    computes: 'RSRP, mejor sector, SINR y subida del teléfono a la torre, con patrón de antena e inclinación.',
     model: 'Okumura-Hata / COST-231, 3GPP 38.901 o ITM con terreno',
     options: [
       { label: '700 MHz', href: '/celular?banda=700' },

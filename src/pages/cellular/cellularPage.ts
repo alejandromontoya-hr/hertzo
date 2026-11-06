@@ -27,6 +27,7 @@ import {
   powerPerResourceElementDbm,
   sectorGainDbi,
   sinrDb,
+  uplinkSinrDb,
   type HataEnvironment,
   type PhoneLocation,
   type SectorAntenna,
@@ -50,6 +51,8 @@ interface Band {
   label: string;
   /** Frecuencia central de bajada (MHz). */
   frequencyMHz: number;
+  /** Frecuencia central de subida (MHz); en TDD (n78) es la misma. */
+  uplinkMHz: number;
   carrier: string;
   description: string;
   /** Valores típicos del sitio y la antena en esta banda, si son distintos de los de LTE macro. */
@@ -58,15 +61,16 @@ interface Band {
 }
 
 const BANDS: readonly Band[] = [
-  { id: '700', label: '700', frequencyMHz: 780, carrier: 'lte10', description: 'Banda 28 (APT 700): bajada 758–803 MHz.' },
-  { id: '850', label: '850', frequencyMHz: 880, carrier: 'lte10', description: 'Banda 5: bajada 869–894 MHz.' },
-  { id: '1900', label: '1900', frequencyMHz: 1960, carrier: 'lte15', description: 'Banda 2 (PCS): bajada 1930–1990 MHz.' },
-  { id: 'aws', label: 'AWS', frequencyMHz: 2130, carrier: 'lte20', description: 'Bandas 4 y 66 (AWS): bajada 2110–2200 MHz.' },
-  { id: '2600', label: '2600', frequencyMHz: 2650, carrier: 'lte20', description: 'Banda 7: bajada 2620–2690 MHz.' },
+  { id: '700', label: '700', frequencyMHz: 780, uplinkMHz: 725.5, carrier: 'lte10', description: 'Banda 28 (APT 700): bajada 758–803 MHz y subida 703–748 MHz.' },
+  { id: '850', label: '850', frequencyMHz: 880, uplinkMHz: 836.5, carrier: 'lte10', description: 'Banda 5: bajada 869–894 MHz y subida 824–849 MHz.' },
+  { id: '1900', label: '1900', frequencyMHz: 1960, uplinkMHz: 1880, carrier: 'lte15', description: 'Banda 2 (PCS): bajada 1930–1990 MHz y subida 1850–1910 MHz.' },
+  { id: 'aws', label: 'AWS', frequencyMHz: 2130, uplinkMHz: 1745, carrier: 'lte20', description: 'Bandas 4 y 66 (AWS): bajada 2110–2200 MHz y subida 1710–1780 MHz.' },
+  { id: '2600', label: '2600', frequencyMHz: 2650, uplinkMHz: 2535, carrier: 'lte20', description: 'Banda 7: bajada 2620–2690 MHz y subida 2500–2570 MHz.' },
   {
     id: '3500',
     label: '3500',
     frequencyMHz: 3500,
+    uplinkMHz: 3500,
     carrier: 'nr80',
     description: 'Banda n78 (5G NR): 3300–3800 MHz. Antena activa (AAU 64T64R): unos 200 W, 24 dBi y sin cable, como la Ericsson AIR 6449.',
     site: { powerW: 200, cableLossDb: 0 },
@@ -88,6 +92,11 @@ interface SiteParams {
   cableLossDb: number;
   ueHeightM: number;
   noiseFigureDb: number;
+  /** Subida: potencia del teléfono (W), bloques asignados, ruido de la torre y margen de interferencia. */
+  uePowerW: number;
+  uplinkResourceBlocks: number;
+  siteNoiseFigureDb: number;
+  uplinkInterferenceDb: number;
 }
 
 const SITE_FIELDS: readonly NumberFieldSpec<keyof SiteParams>[] = [
@@ -96,6 +105,39 @@ const SITE_FIELDS: readonly NumberFieldSpec<keyof SiteParams>[] = [
   { key: 'cableLossDb', label: 'Pérdida de cable y conectores', unit: 'dB', min: 0, max: 20 },
   { key: 'ueHeightM', label: 'Altura del teléfono', unit: 'm', min: 0.5, max: 30 },
   { key: 'noiseFigureDb', label: 'Figura de ruido del teléfono', unit: 'dB', min: 0, max: 15 },
+  {
+    key: 'uePowerW',
+    label: 'Potencia del teléfono (subida)',
+    unit: 'W',
+    min: 0,
+    max: 2,
+    minExclusive: true,
+    hint: '0,2 W (23 dBm) es la clase 3 de 3GPP, la de casi todos los teléfonos.',
+  },
+  {
+    key: 'uplinkResourceBlocks',
+    label: 'Bloques de subida en el borde',
+    unit: 'bloques',
+    min: 1,
+    max: 273,
+    hint: 'En el borde la torre le da pocos bloques al teléfono para que concentre su potencia: con 2 bloques (360 kHz en LTE) alcanza para voz y datos lentos. Más bloques es más caudal, pero menos SINR en cada uno.',
+  },
+  {
+    key: 'siteNoiseFigureDb',
+    label: 'Figura de ruido de la torre',
+    unit: 'dB',
+    min: 0,
+    max: 15,
+    hint: '5 dB es el valor de las simulaciones de 3GPP (TR 36.814).',
+  },
+  {
+    key: 'uplinkInterferenceDb',
+    label: 'Margen por interferencia de subida',
+    unit: 'dB',
+    min: 0,
+    max: 20,
+    hint: 'Lo que sube el ruido en la torre por los teléfonos de las celdas vecinas: 3 dB es un valor típico de diseño; con mucha carga, 5 a 6 dB.',
+  },
 ];
 
 const ANTENNA_FIELDS: readonly NumberFieldSpec<keyof SectorAntenna>[] = [
@@ -107,11 +149,21 @@ const ANTENNA_FIELDS: readonly NumberFieldSpec<keyof SectorAntenna>[] = [
 
 const SECTOR_COLORS = ['#1f5c8c', '#d95f0e', '#6b8e23', '#8c2d4a'];
 
-type View = 'rsrp' | 'best' | 'sinr';
+type View = 'rsrp' | 'best' | 'sinr' | 'up' | 'balance';
+type BandView = 'rsrp' | 'sinr' | 'up';
 const VIEWS: { id: View; label: string; title: string }[] = [
   { id: 'rsrp', label: 'RSRP', title: 'Señal de referencia del mejor sector (dBm)' },
-  { id: 'best', label: 'Mejor sector', title: 'Sector que atiende cada punto' },
+  { id: 'best', label: 'Sector', title: 'Sector que atiende cada punto' },
   { id: 'sinr', label: 'SINR', title: 'Señal a interferencia más ruido, carga 100 % con los vecinos (dB)' },
+  { id: 'up', label: 'Subida', title: 'SINR de subida en la torre, por bloque de recursos (dB)' },
+  { id: 'balance', label: 'Desbalance', title: 'Dónde llega cada dirección' },
+];
+
+/** Clases del desbalance: el teléfono ve la red (RSRP) y la torre lo oye (SINR de subida). */
+const CELL_BALANCE = [
+  { color: '#1f5c8c', label: 'Bajada y subida llegan' },
+  { color: '#d95f0e', label: 'Solo bajada: el teléfono ve la red, pero la torre no lo oye' },
+  { color: '#a8b65a', label: 'Solo subida: la torre oiría al teléfono, pero él no ve la red' },
 ];
 
 const RSRP_DESCRIPTIONS = ['excelente', 'buena', 'regular', 'débil'];
@@ -122,6 +174,8 @@ interface SectorPixels {
   bestRsrp: Float32Array;
   bestSector: Int16Array;
   sinr: Float32Array;
+  /** SINR de subida en el sector servidor (dB). */
+  uplinkSinr: Float32Array;
   lowConfidence: Uint8Array;
 }
 
@@ -129,14 +183,27 @@ const sectorPixelsFor = (size: number): SectorPixels => ({
   bestRsrp: new Float32Array(size),
   bestSector: new Int16Array(size),
   sinr: new Float32Array(size),
+  uplinkSinr: new Float32Array(size),
   lowConfidence: new Uint8Array(size),
 });
 
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
+/** 1745 → "1.745"; 725,5 → "725,5". */
+const mhzFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 
 /** Sitio LTE macro típico: 40 W por sector, 2 dB de cable, teléfono a 1,5 m. */
-const BASE_SITE: SiteParams = { antennaHeightM: 30, powerW: 40, cableLossDb: 2, ueHeightM: 1.5, noiseFigureDb: 7 };
+const BASE_SITE: SiteParams = {
+  antennaHeightM: 30,
+  powerW: 40,
+  cableLossDb: 2,
+  ueHeightM: 1.5,
+  noiseFigureDb: 7,
+  uePowerW: 0.2,
+  uplinkResourceBlocks: 2,
+  siteNoiseFigureDb: 5,
+  uplinkInterferenceDb: 3,
+};
 const BASE_ANTENNA: SectorAntenna = { gainDbi: 17, horizontalBeamwidthDeg: 65, verticalBeamwidthDeg: 7, downtiltDeg: 4 };
 
 /** Desviación del desvanecimiento lognormal (dB): 8 dB para Hata y 6 dB para 38.901 UMa NLOS. */
@@ -156,7 +223,8 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   let neighborKm = 1;
   let azimuths = [0, 120, 240];
   let view: View = 'rsrp';
-  let thresholds: Record<'rsrp' | 'sinr', number[]> = { rsrp: [-80, -90, -100, -110], sinr: [20, 13, 5, 0] };
+  // Subida: −5 dB por bloque es más o menos lo mínimo con que decodifica la modulación más robusta (QPSK).
+  let thresholds: Record<BandView, number[]> = { rsrp: [-80, -90, -100, -110], sinr: [20, 13, 5, 0], up: [20, 10, 0, -5] };
   let opacity = 0.7;
 
   let coverage: CoverageResult | null = null;
@@ -207,7 +275,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       repaint();
     },
     onThresholds(values) {
-      if (view !== 'best') thresholds = { ...thresholds, [view]: values };
+      if (view === 'rsrp' || view === 'sinr' || view === 'up') thresholds = { ...thresholds, [view]: values };
       repaint();
     },
     onOpacity(value) {
@@ -340,7 +408,11 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       site: location,
       radiusM: site.getRadiusKm() * 1000,
       engine: engineSpec(),
-      links: [{ siteHeightM: siteParams.antennaHeightM, radioHeightM: siteParams.ueHeightM, frequencyMHz: band.frequencyMHz }],
+      // Bajada y subida por separado: cada una en su frecuencia (en TDD, la misma).
+      links: [
+        { siteHeightM: siteParams.antennaHeightM, radioHeightM: siteParams.ueHeightM, frequencyMHz: band.frequencyMHz },
+        { siteHeightM: siteParams.antennaHeightM, radioHeightM: siteParams.ueHeightM, frequencyMHz: band.uplinkMHz },
+      ],
     };
   }
 
@@ -366,8 +438,13 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
 
   /** RSRP por sector, mejor sector, SINR y baja confianza de cada píxel de la cuadrícula `geometry`. */
   function computePixels(result: CoverageResult, geometry: RasterGeometry, out: SectorPixels) {
-    const { bestRsrp, bestSector, sinr } = out;
+    const { bestRsrp, bestSector, sinr, uplinkSinr } = out;
     const grid = result.grids[0]!;
+    // Sin la grilla de subida (no debería faltar) se usa la de bajada, del lado conservador.
+    const upGrid = result.grids[1] ?? grid;
+    const uplinkMHz = result.request.links[1]?.frequencyMHz ?? band.uplinkMHz;
+    const up = uplinkParams();
+    const upBase = -siteParams.cableLossDb - buildingEntryLossDb(uplinkMHz, phone);
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const noise = noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb);
     // Señal mediana en el teléfono: pierde lo del edificio si está adentro (también la de los vecinos).
@@ -386,6 +463,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
         bestRsrp[p] = Number.NaN;
         bestSector[p] = -1;
         sinr[p] = Number.NaN;
+        uplinkSinr[p] = Number.NaN;
         continue;
       }
       const below = (Math.atan2(dh, Math.max(1, geometry.distanceM[p]!)) * 180) / Math.PI;
@@ -397,6 +475,10 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       }
       bestRsrp[p] = levels[best]! - margin;
       bestSector[p] = best;
+      // El teléfono se engancha al sector que mejor ve en bajada y transmite hacia esa antena.
+      const upGain =
+        upBase + sectorGainDbi(antenna, angleDiffDeg(geometry.bearingDeg[p]!, azimuths[best]!), below) - upGrid.lossDb[g]! - margin;
+      uplinkSinr[p] = uplinkSinrDb(up, carrier.subcarrierKHz, upGain);
       interferers.length = 0;
       for (let s = 0; s < levels.length; s++) if (s !== best) interferers.push(levels[s]!);
       if (curve) neighborLevels(geometry.distanceM[p]!, geometry.bearingDeg[p]!, base, dh, neighbors, curve, interferers);
@@ -432,31 +514,62 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     }
   }
 
+  function uplinkParams() {
+    return {
+      uePowerDbm: wattsToDbm(siteParams.uePowerW),
+      resourceBlocks: Math.round(siteParams.uplinkResourceBlocks),
+      siteNoiseFigureDb: siteParams.siteNoiseFigureDb,
+      interferenceMarginDb: siteParams.uplinkInterferenceDb,
+    };
+  }
+
   /** Pinta la vista `v` en `out`, igual sobre el mapa que para el KMZ. */
   function paintView(v: View, size: RasterGeometry, px: SectorPixels, out: Uint8ClampedArray) {
-    if (v === 'best') {
+    if (v === 'balance') {
+      // Llega la bajada si el RSRP pasa el umbral más bajo; la subida, si su SINR pasa el suyo.
+      const minRsrp = Math.min(...thresholds.rsrp);
+      const minUp = Math.min(...thresholds.up);
+      const classes = new Int16Array(px.bestRsrp.length);
+      for (let p = 0; p < classes.length; p++) {
+        const down = px.bestRsrp[p]! >= minRsrp;
+        const upOk = px.uplinkSinr[p]! >= minUp;
+        classes[p] = down && upOk ? 0 : down ? 1 : upOk ? 2 : -1;
+      }
+      paintCategories(size, classes, CELL_BALANCE.map((c) => c.color), px.lowConfidence, out);
+    } else if (v === 'best') {
       const shown = new Int16Array(px.bestSector.length);
       const minRsrp = Math.min(...thresholds.rsrp);
       for (let p = 0; p < shown.length; p++) shown[p] = px.bestRsrp[p]! >= minRsrp ? px.bestSector[p]! : -1;
       paintCategories(size, shown, SECTOR_COLORS, px.lowConfidence, out);
     } else {
-      paintBands(size, v === 'rsrp' ? px.bestRsrp : px.sinr, thresholds[v], LEVEL_COLORS, px.lowConfidence, out);
+      paintBands(size, v === 'rsrp' ? px.bestRsrp : v === 'sinr' ? px.sinr : px.uplinkSinr, thresholds[v], LEVEL_COLORS, px.lowConfidence, out);
     }
   }
 
   /** Título y textos de la leyenda de una vista, iguales en el mapa y en el KMZ. */
   function legendTexts(v: View) {
     const descriptions = v === 'rsrp' ? RSRP_DESCRIPTIONS : SINR_DESCRIPTIONS;
+    const title =
+      v === 'balance'
+        ? `Dónde llega cada dirección: RSRP ≥ ${Math.min(...thresholds.rsrp)} dBm y SINR de subida ≥ ${Math.min(...thresholds.up)} dB (los umbrales más bajos de cada mapa)`
+        : VIEWS.find((x) => x.id === v)!.title;
     return {
-      title: v === 'rsrp' && reliability !== 50 ? `${VIEWS.find((x) => x.id === v)!.title} · ${reliability} % de confiabilidad` : VIEWS.find((x) => x.id === v)!.title,
+      title: (v === 'rsrp' || v === 'up' || v === 'balance') && reliability !== 50 ? `${title} · ${reliability} % de confiabilidad` : title,
       entries:
         v === 'best'
           ? azimuths.map((a, i) => ({ color: SECTOR_COLORS[i]!, label: `S${i + 1} (azimut ${a}°)` }))
-          : bandLabels(thresholds[v], v === 'rsrp' ? 'dBm' : 'dB').map((label, i) => ({
-              color: LEVEL_COLORS[i]!,
-              label: `${label} · ${descriptions[i]}`,
-            })),
-      emptyLabel: v === 'sinr' ? 'por debajo del umbral más bajo' : `RSRP por debajo de ${Math.min(...thresholds.rsrp)} dBm`,
+          : v === 'balance'
+            ? CELL_BALANCE.map((c) => ({ color: c.color, label: c.label }))
+            : bandLabels(thresholds[v], v === 'rsrp' ? 'dBm' : 'dB').map((label, i) => ({
+                color: LEVEL_COLORS[i]!,
+                label: `${label} · ${descriptions[i]}`,
+              })),
+      emptyLabel:
+        v === 'sinr' || v === 'up'
+          ? 'por debajo del umbral más bajo'
+          : v === 'balance'
+            ? 'no llega ninguna'
+            : `RSRP por debajo de ${Math.min(...thresholds.rsrp)} dBm`,
       hatchLabel: model === 'itm' ? 'baja confianza (ladera empinada junto a la torre)' : 'fuera del rango de validez del modelo',
     };
   }
@@ -483,7 +596,13 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       documentName: `Hertzo · Celular ${bandName()}${site.getName() ? ` · ${site.getName()}` : ''}`,
       fileName: exportFileName('celular', bandName(), result.plan.site, 'kmz', site.getName()),
       plan: result.plan,
-      layers: [layerOf('rsrp', 'rsrp'), layerOf('best', 'mejor-sector'), layerOf('sinr', 'sinr')],
+      layers: [
+        layerOf('rsrp', 'rsrp'),
+        layerOf('best', 'mejor-sector'),
+        layerOf('sinr', 'sinr'),
+        layerOf('up', 'subida'),
+        layerOf('balance', 'desbalance'),
+      ],
       opacity,
       site: towerPlacemark(result),
       lines: sectorLines(result),
@@ -498,13 +617,13 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     paintView(view, geometry, values, pixels);
     coverageLayer.draw(geometry, pixels);
 
-    const isBands = view !== 'best';
+    const isBands = view === 'rsrp' || view === 'sinr' || view === 'up';
     legend.update({
       views: VIEWS,
       activeView: view,
       ...legendTexts(view),
       thresholds: isBands
-        ? { values: thresholds[view as 'rsrp' | 'sinr'], unit: view === 'rsrp' ? 'dBm' : 'dB', min: view === 'rsrp' ? -150 : -20, max: view === 'rsrp' ? -20 : 50 }
+        ? { values: thresholds[view as BandView], unit: view === 'rsrp' ? 'dBm' : 'dB', min: view === 'rsrp' ? -150 : -20, max: view === 'rsrp' ? -20 : 50 }
         : undefined,
       opacity,
     });
@@ -514,28 +633,41 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   /** Resumen del último cálculo: filas (etiqueta, valor) y nota. La misma tabla va al KMZ. */
   function summaryTable(): { rows: string[][]; strongRow: number; note: string } | null {
     if (!coverage || !geometry || !values) return null;
-    const { bestRsrp, sinr } = values;
+    const { bestRsrp, sinr, uplinkSinr } = values;
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const area = pixelAreaKm2(geometry, coverage.plan.radiusM);
     const minRsrp = Math.min(...thresholds.rsrp);
+    const minUp = Math.min(...thresholds.up);
     let inCircle = 0;
     let covered = 0;
     let goodSinr = 0;
+    let upCovered = 0;
+    let both = 0;
     for (let p = 0; p < bestRsrp.length; p++) {
       if (geometry.index[p]! < 0) continue;
       inCircle++;
       if (bestRsrp[p]! >= minRsrp) covered++;
       if (sinr[p]! >= 0) goodSinr++;
+      if (uplinkSinr[p]! >= minUp) upCovered++;
+      if (bestRsrp[p]! >= minRsrp && uplinkSinr[p]! >= minUp) both++;
     }
+    const up = uplinkParams();
+    const uplinkMHz = coverage.request.links[1]?.frequencyMHz ?? band.uplinkMHz;
     return {
       rows: [
         ['Potencia por elemento de recurso', `${oneDecimal.format(pRe)} dBm`],
         ['Ruido por elemento de recurso', `${oneDecimal.format(noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb))} dBm`],
         [`Área con RSRP ≥ ${minRsrp} dBm`, `${integerFormat.format(covered * area)} km² (${integerFormat.format((100 * covered) / inCircle)} %)`],
         ['Área con SINR ≥ 0 dB', `${integerFormat.format((100 * goodSinr) / inCircle)} %`],
+        [`Área con subida (SINR ≥ ${minUp} dB)`, `${integerFormat.format(upCovered * area)} km² (${integerFormat.format((100 * upCovered) / inCircle)} %)`],
+        ['Área con bajada y subida', `${integerFormat.format(both * area)} km² (${integerFormat.format((100 * both) / inCircle)} %)`],
+        [
+          'Teléfono por bloque de subida',
+          `${oneDecimal.format(up.uePowerDbm - 10 * Math.log10(up.resourceBlocks))} dBm (${oneDecimal.format(up.uePowerDbm)} dBm en ${up.resourceBlocks} bloque${up.resourceBlocks === 1 ? '' : 's'})`,
+        ],
       ],
-      strongRow: 2,
-      note: `Porcentajes sobre el círculo de cálculo. La SINR supone los ${azimuths.length} sectores transmitiendo a la vez.`,
+      strongRow: 5,
+      note: `Porcentajes sobre el círculo de cálculo. La SINR de bajada supone los ${azimuths.length} sectores transmitiendo a la vez; la de subida suma ${oneDecimal.format(up.interferenceMarginDb)} dB de margen por interferencia y usa la pérdida calculada a ${mhzFormat.format(uplinkMHz)} MHz.`,
     };
   }
 
@@ -565,7 +697,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
           rows: [
             ['Ubicación (lat, lon)', formatLonLat(position.lon, position.lat)],
             ['Banda', band.description],
-            ['Frecuencia de cálculo', `${band.frequencyMHz} MHz`],
+            ['Frecuencia de cálculo', `bajada ${mhzFormat.format(band.frequencyMHz)} MHz, subida ${mhzFormat.format(band.uplinkMHz)} MHz`],
             ['Portadora', carrier.label],
             ['Modelo de propagación', MODELS.find((m) => m.id === model)!.label],
             ['Radio de cálculo', `${integerFormat.format(result.plan.radiusM / 1000)} km`],
@@ -579,6 +711,10 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
             ['Altura de las antenas', `${formatHeight(siteParams.antennaHeightM)} sobre el terreno`],
             ['Altura del teléfono', formatHeight(siteParams.ueHeightM)],
             ['Figura de ruido del teléfono', formatDb(siteParams.noiseFigureDb)],
+            ['Potencia del teléfono', `${formatWatts(siteParams.uePowerW)} (${oneDecimal.format(wattsToDbm(siteParams.uePowerW))} dBm)`],
+            ['Bloques de subida en el borde', integerFormat.format(siteParams.uplinkResourceBlocks)],
+            ['Figura de ruido de la torre', formatDb(siteParams.siteNoiseFigureDb)],
+            ['Margen por interferencia de subida', formatDb(siteParams.uplinkInterferenceDb)],
           ],
         },
         {
@@ -668,10 +804,19 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     const levels = median.map((l) => l - margin);
     const best = levels.indexOf(Math.max(...levels));
     const noise = noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb);
+    const upGrid = coverage.grids[1] ?? grid;
+    const uplinkMHz = coverage.request.links[1]?.frequencyMHz ?? band.uplinkMHz;
+    const upGain =
+      -siteParams.cableLossDb -
+      buildingEntryLossDb(uplinkMHz, phone) +
+      sectorGainDbi(antenna, angleDiffDeg(bearing, azimuths[best]!), below) -
+      upGrid.lossDb[g]! -
+      margin;
     const lines = [
       `A ${oneDecimal.format(d / 1000)} km de la torre, rumbo ${integerFormat.format(bearing)}°`,
       `Mejor sector: S${best + 1} · RSRP ${oneDecimal.format(levels[best]!)} dBm`,
       `SINR ${oneDecimal.format(sinrDb(median[best]!, readoutInterferers(median, best, d, bearing, base), noise))} dB`,
+      `Subida: SINR ${oneDecimal.format(uplinkSinrDb(uplinkParams(), carrier.subcarrierKHz, upGain))} dB por bloque en S${best + 1}`,
       ...levels.map((l, s) => `S${s + 1}: ${oneDecimal.format(l)} dBm`),
     ];
     if (grid.warnings[g]! & lowConfidenceMask(coverage.request.engine)) {
