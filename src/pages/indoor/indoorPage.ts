@@ -1,5 +1,5 @@
 // Interiores (WiFi): editor de planos con muros de distintos materiales y access points,
-// y mapa de calor de señal con el modelo multipared.
+// y mapa de calor de señal con el modelo multipared, de bajada, de subida y el peor de los dos.
 
 import { paintBands, paintCategories, bandLabels } from '../../coverage/paint';
 import { createPlanView, renderPlanImage, type PlanPointer, type PlanView } from '../../editor/planView';
@@ -9,29 +9,42 @@ import { saveFile } from '../../export/download';
 import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectButtons';
 import { addPlanExport } from '../../map/exportControl';
 import {
-  computeHeatmap,
+  LINK_DIRECTIONS,
+  computeHeatmaps,
   coverageFraction,
   distanceToSegment,
+  linkEirps,
   newId,
+  signalsAt,
   snap,
   type AccessPoint,
   type FloorPlan,
   type Heatmap,
+  type LinkDirection,
+  type LinkRadio,
   type Wall,
 } from '../../indoor/plan';
 import { PLAN_PRESETS } from '../../indoor/presets';
 import { readIndoorProject, type IndoorProject } from '../../indoor/project';
 import {
+  CHANNEL_WIDTHS,
+  DEFAULT_CHANNEL_WIDTH,
+  DEFAULT_CLIENT_POWER_DBM,
+  FURNITURE,
   MATERIALS,
+  MCS0_SENSITIVITY_DBM,
   WIFI_BANDS,
   WIFI_THRESHOLDS,
+  eirpLimitDbm,
+  furnitureById,
   materialById,
-  multiWallLossDb,
+  type ChannelWidth,
+  type FurnitureId,
   type MaterialId,
   type WifiBand,
 } from '../../rf/indoor';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { createFieldGroup, createNumberField, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
@@ -67,6 +80,9 @@ const meters = (m: number) => `${oneDecimal.format(m)} m`;
 interface Saved {
   plan: FloorPlan;
   band: WifiBand;
+  /** No vienen en lo guardado antes de que existieran. */
+  clientPowerDbm?: Record<WifiBand, number>;
+  channelWidthMHz?: Record<WifiBand, ChannelWidth>;
 }
 
 /** Entrada del historial: el plano antes de un cambio, o el proyecto entero antes de abrir otro. */
@@ -93,7 +109,12 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   const presetId = params.get('plano');
   const saved = presetId ? null : loadSaved();
   let plan: FloorPlan = saved?.plan ?? (PLAN_PRESETS.find((p) => p.id === presetId) ?? PLAN_PRESETS[0]!).build();
+  // Un plano guardado antes de que existiera el mobiliario queda en "Casa amueblada".
+  if (!FURNITURE.some((f) => f.id === plan.furniture)) plan.furniture = 'casa';
   let band: WifiBand = saved?.band ?? '2.4';
+  let clientPowerDbm: Record<WifiBand, number> = { ...DEFAULT_CLIENT_POWER_DBM, ...saved?.clientPowerDbm };
+  let channelWidthMHz: Record<WifiBand, ChannelWidth> = { ...DEFAULT_CHANNEL_WIDTH, ...saved?.channelWidthMHz };
+  let direction: LinkDirection = 'worst';
   let tool: Tool = 'select';
   let newMaterial: MaterialId = 'ladrillo';
   let selection: Selection = null;
@@ -103,7 +124,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   let view: View = 'rssi';
   let thresholds = WIFI_THRESHOLDS.map((t) => t.dbm);
   let opacity = 0.65;
-  let heatmap: Heatmap | null = null;
+  let heatmaps: Record<LinkDirection, Heatmap> | null = null;
   const undoStack: string[] = [];
   const heatCanvas = document.createElement('canvas');
   /** Al dibujar para la imagen: sin selección, puntos editables ni el muro que se está trazando. */
@@ -115,11 +136,13 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
         <section class="panel-section page-intro">
           <h2>Interiores (WiFi)${infoButton('Dibuja el plano con sus muros, elige el material de cada uno y ubica los access points. El mapa de calor usa el modelo multipared.')}</h2>
           ${choiceHtml('banda', WIFI_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda WiFi')}
+          ${choiceHtml('sentido', LINK_DIRECTIONS.map((d) => ({ id: d.id, label: d.label })), 'Sentido del enlace', 'La pérdida del camino es la misma de ida y de vuelta, pero el cliente (celular, portátil) transmite con menos potencia que el AP. "Peor de las dos" muestra en cada punto el sentido más débil: ahí es donde el enlace se cae.')}
         </section>
         <section class="panel-section">
           <h2>Plano</h2>
           <div class="preset-buttons">${PLAN_PRESETS.map((p) => `<button type="button" class="button" data-preset="${p.id}">${p.label}</button>`).join('')}</div>
           <div class="form" data-size></div>
+          <div class="form" data-furniture></div>
           ${PROJECT_BUTTONS_HTML}
         </section>
         <section class="panel-section">
@@ -133,6 +156,11 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
         </section>
         <section class="panel-section" data-selection hidden></section>
         <section class="panel-section">
+          <h2>Cliente y canal</h2>
+          <div class="form" data-radio></div>
+          <p class="hint" data-radio-note></p>
+        </section>
+        <section class="panel-section">
           <h2>Access points</h2>
           <div data-aps></div>
         </section>
@@ -141,7 +169,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
           <div data-summary></div>
         </section>
         <details class="panel-section">
-          <summary>Pérdida de cada material${infoButton('Valores típicos (ITU-R P.2040 y guías de diseño WiFi). Varían con el grosor y la humedad del muro.')}</summary>
+          <summary>Pérdida de cada material${infoButton('Valores típicos (ITU-R P.2040 y guías de diseño WiFi) al cruzar el muro de frente. Varían con el grosor y la humedad del muro. Si la señal lo cruza en ángulo, recorre más material: la pérdida se multiplica por 1/cos del ángulo, hasta el doble (a 60° o más).')}</summary>
           <div data-materials></div>
         </details>
       </aside>
@@ -164,6 +192,8 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   const apsBox = find('[data-aps]');
   const summaryBox = find('[data-summary]');
   const materialsBox = find('[data-materials]');
+  const radioBox = find('[data-radio]');
+  const radioNote = find('[data-radio-note]');
   const readout = createHoverReadout(find('.readout'));
 
   const legend = createMapLegend(find('.legend'), {
@@ -194,19 +224,34 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     pushUndo({ plan });
   }
 
+  const radio = (): LinkRadio => ({ clientPowerDbm: clientPowerDbm[band], channelWidthMHz: channelWidthMHz[band] });
+
+  /** Mapa de calor del sentido elegido. */
+  const activeHeatmap = (): Heatmap | null => heatmaps?.[direction] ?? null;
+
+  function recompute() {
+    heatmaps = computeHeatmaps(plan, band, radio());
+  }
+
+  function persist() {
+    save({ plan, band, clientPowerDbm, channelWidthMHz });
+  }
+
   function changed() {
-    heatmap = computeHeatmap(plan, band);
+    recompute();
     paintHeat();
     renderAps();
     renderSelection();
+    renderRadioNote();
     renderSummary();
-    save({ plan, band });
+    persist();
     planView.redraw();
   }
 
   // --- Mapa de calor ---
 
   function paintHeat() {
+    const heatmap = activeHeatmap();
     if (!heatmap) return;
     heatCanvas.width = heatmap.cols;
     heatCanvas.height = heatmap.rows;
@@ -230,11 +275,13 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     });
   }
 
+  const directionLabel = () => LINK_DIRECTIONS.find((d) => d.id === direction)!.label;
+
   /** Título y franjas de la leyenda de la vista activa, iguales en pantalla y en la imagen. */
   function legendTexts() {
     const sorted = [...thresholds].sort((a, b) => b - a);
     return {
-      title: view === 'rssi' ? 'Señal recibida (dBm)' : 'Access point que da la mejor señal',
+      title: `${view === 'rssi' ? 'Señal recibida (dBm)' : 'Access point que da la mejor señal'} · ${directionLabel()}`,
       entries:
         view === 'rssi'
           ? bandLabels(sorted, 'dBm').map((label, i) => ({
@@ -254,7 +301,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     const [ox, oy] = v.toScreen(0, 0);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(ox, oy, plan.widthM * px, plan.heightM * px);
-    if (heatmap) {
+    if (heatmaps) {
       ctx.save();
       ctx.globalAlpha = opacity;
       ctx.imageSmoothingEnabled = true;
@@ -537,7 +584,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
           });
         }
       }
-      heatmap = computeHeatmap(plan, band);
+      recompute();
       paintHeat();
       planView.redraw();
     } else if (e.type === 'up' && drag) {
@@ -551,19 +598,16 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       readout.hide();
       return;
     }
-    const f = WIFI_BANDS.find((b) => b.id === band)!.frequencyMHz;
-    let best: { ap: AccessPoint; rssi: number; walls: number } | null = null;
-    for (const ap of plan.aps) {
-      const r = multiWallLossDb(ap.x, ap.y, e.x, e.y, plan.walls, band, f);
-      const rssi = ap.powerDbm + ap.gainDbi - r.lossDb;
-      if (!best || rssi > best.rssi) best = { ap, rssi, walls: r.wallsCrossed };
-    }
-    const quality = WIFI_THRESHOLDS.find((t) => best!.rssi >= t.dbm)?.label ?? 'sin servicio';
+    // El AP que sirve el punto es el de mejor señal en el sentido elegido.
+    const best = signalsAt(plan, band, radio(), e.x, e.y).reduce((a, b) => (b.signals[direction] > a.signals[direction] ? b : a));
+    const rssi = best.signals[direction];
+    const quality = WIFI_THRESHOLDS.find((t) => rssi >= t.dbm)?.label ?? 'sin servicio';
     readout.show(
       [
         `${meters(e.x)} · ${meters(e.y)}`,
-        `${oneDecimal.format(best!.rssi)} dBm · ${quality}`,
-        `Desde ${best!.ap.name}, ${integerFormat.format(best!.walls)} muro${best!.walls === 1 ? '' : 's'} en el camino`,
+        `${oneDecimal.format(rssi)} dBm · ${quality}`,
+        `Bajada ${oneDecimal.format(best.signals.down)} dBm · subida ${oneDecimal.format(best.signals.up)} dBm`,
+        `Desde ${best.ap.name}, ${integerFormat.format(best.walls)} muro${best.walls === 1 ? '' : 's'} en el camino`,
       ],
       e.sx,
       e.sy,
@@ -621,8 +665,16 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
             <input type="text" aria-label="Nombre del access point" value="${ap.name.replace(/"/g, '&quot;')}" />
             <button type="button" class="link-button" data-remove>Borrar</button>
           </div>
-          <div class="form"></div>`;
+          <div class="form"></div>
+          <p class="notice" data-eirp hidden></p>`;
         const name = card.querySelector<HTMLInputElement>('input')!;
+        const eirpNotice = card.querySelector<HTMLElement>('[data-eirp]')!;
+        const showEirpNotice = () => {
+          const text = apEirpNotice(ap);
+          eirpNotice.hidden = text === null;
+          eirpNotice.textContent = text ?? '';
+        };
+        showEirpNotice();
         name.addEventListener('change', () => {
           snapshot();
           ap.name = name.value.trim() || `AP ${i + 1}`;
@@ -636,10 +688,11 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
         createFieldGroup(card.querySelector<HTMLElement>('.form')!, AP_FIELDS, { powerDbm: ap.powerDbm, gainDbi: ap.gainDbi }, (next) => {
           ap.powerDbm = next.powerDbm;
           ap.gainDbi = next.gainDbi;
-          heatmap = computeHeatmap(plan, band);
+          showEirpNotice();
+          recompute();
           paintHeat();
           renderSummary();
-          save({ plan, band });
+          persist();
           planView.redraw();
         });
         return card;
@@ -647,19 +700,53 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     );
   }
 
+  /**
+   * Aviso cuando la PIRE del AP (potencia + ganancia) pasa el límite de 6 GHz en interiores: el
+   * cálculo usa el límite legal, no el valor escrito. Null si no aplica.
+   */
+  function apEirpNotice(ap: AccessPoint): string | null {
+    const limit = eirpLimitDbm(band, channelWidthMHz[band], 'ap');
+    const eirp = ap.powerDbm + ap.gainDbi;
+    if (limit === null || eirp <= limit) return null;
+    return `PIRE de ${oneDecimal.format(eirp)} dBm: en 6 GHz, en interiores, con canal de ${channelWidthMHz[band]} MHz el máximo legal es ${oneDecimal.format(limit)} dBm (5 dBm/MHz). El mapa se calcula con ${oneDecimal.format(limit)} dBm.`;
+  }
+
+  /** Texto bajo "Cliente y canal": sensibilidad del canal y, en 6 GHz, los límites de potencia. */
+  function renderRadioNote() {
+    const width = channelWidthMHz[band];
+    const parts = [
+      `Con ${width} MHz, un equipo WiFi 6 necesita al menos ${MCS0_SENSITIVITY_DBM[width]} dBm para conectarse (MCS0): 3 dB más por cada vez que se duplica el canal. La antena del cliente se toma de 0 dBi.`,
+    ];
+    const apLimit = eirpLimitDbm(band, width, 'ap');
+    const clientLimit = eirpLimitDbm(band, width, 'client');
+    if (apLimit !== null && clientLimit !== null) {
+      parts.push(
+        `En 6 GHz solo se permite el uso en interiores, con PIRE máxima de ${oneDecimal.format(apLimit)} dBm en el AP y ${oneDecimal.format(clientLimit)} dBm en el cliente a ${width} MHz (FCC; la ANE de Colombia sigue el mismo esquema, su valor exacto no está verificado aquí). Si se pasa, el mapa usa el límite.`,
+      );
+    }
+    radioNote.textContent = parts.join(' ');
+  }
+
   /** Resumen del panel: filas (etiqueta, valor, resaltada) y consejo. La misma tabla va a la imagen. */
   function summaryTable(): { rows: [string, string, boolean][]; note: string } | null {
-    if (!heatmap || plan.aps.length === 0) return null;
+    const heatmap = activeHeatmap();
+    if (!heatmap || !heatmaps || plan.aps.length === 0) return null;
     const sorted = [...thresholds].sort((a, b) => b - a);
     const good = coverageFraction(heatmap, sorted[2] ?? -67);
     const usable = coverageFraction(heatmap, sorted[3] ?? -75);
     const none = 1 - coverageFraction(heatmap, sorted[sorted.length - 1] ?? -85);
+    const width = channelWidthMHz[band];
+    const sensitivity = MCS0_SENSITIVITY_DBM[width];
+    const linked = coverageFraction(heatmaps.worst, sensitivity);
     return {
       rows: [
+        ['Sentido', directionLabel(), false],
         [`Área con ≥ ${sorted[2]} dBm (voz y video)`, `${integerFormat.format(good * 100)} %`, true],
         [`Área con ≥ ${sorted[3]} dBm (navegar)`, `${integerFormat.format(usable * 100)} %`, false],
         [`Sin servicio (< ${sorted[sorted.length - 1]} dBm)`, `${integerFormat.format(none * 100)} %`, false],
+        [`Conecta en ambos sentidos (≥ ${sensitivity} dBm a ${width} MHz)`, `${integerFormat.format(linked * 100)} %`, false],
         ['Plano', `${meters(plan.widthM)} × ${meters(plan.heightM)}, ${plan.walls.length} muros`, false],
+        ['Mobiliario y personas', furnitureById(plan.furniture).label, false],
       ],
       note:
         good >= 0.9
@@ -669,7 +756,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   }
 
   function renderSummary() {
-    exporter.setEnabled(plan.aps.length > 0 && heatmap !== null);
+    exporter.setEnabled(plan.aps.length > 0 && heatmaps !== null);
     const table = summaryTable();
     if (!table) {
       summaryBox.innerHTML = '<p class="hint">Ubica al menos un access point para ver la señal.</p>';
@@ -705,9 +792,20 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       forImage = false;
     }
     const texts = legendTexts();
-    const apRows = plan.aps.map(
-      (ap): [string, string, boolean] => [ap.name, `${oneDecimal.format(ap.powerDbm)} dBm · ${oneDecimal.format(ap.gainDbi)} dBi`, false],
-    );
+    const apRows = plan.aps.map((ap): [string, string, boolean] => {
+      const used = linkEirps(ap, band, radio()).apDbm;
+      const capped = used < ap.powerDbm + ap.gainDbi - 1e-9;
+      return [
+        ap.name,
+        `${oneDecimal.format(ap.powerDbm)} dBm · ${oneDecimal.format(ap.gainDbi)} dBi${capped ? ` · PIRE limitada a ${oneDecimal.format(used)} dBm` : ''}`,
+        false,
+      ];
+    });
+    const clientRow: [string, string, boolean] = [
+      'Cliente',
+      `${oneDecimal.format(clientPowerDbm[band])} dBm, antena de 0 dBi · canal de ${channelWidthMHz[band]} MHz`,
+      false,
+    ];
     const png = await drawReport({
       title: `Cobertura WiFi en interiores · ${bandInfo.label}`,
       subtitle: [
@@ -720,10 +818,10 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
         ...texts.entries.map((e) => swatchKey(e.label, e.color)),
         ...(texts.emptyLabel ? [swatchKey(`Sin color: ${texts.emptyLabel}`, '#ffffff', true)] : []),
       ],
-      rows: [...summary.rows, ...apRows],
+      rows: [...summary.rows, clientRow, ...apRows],
       note: summary.note,
     });
-    saveFile(png, `hertzo-interiores-${band}GHz-${isoDate(new Date())}.png`, 'image/png');
+    saveFile(png, `hertzo-interiores-${band}GHz-${direction === 'worst' ? 'peor' : direction === 'down' ? 'bajada' : 'subida'}-${isoDate(new Date())}.png`, 'image/png');
   }
 
   function renderMaterials() {
@@ -751,6 +849,47 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     },
   );
 
+  const furnitureField = createSelectField(
+    'Mobiliario y personas',
+    FURNITURE.map((f) => ({ id: f.id, label: f.label })),
+    plan.furniture,
+    (id) => {
+      snapshot();
+      plan.furniture = id as FurnitureId;
+      changed();
+    },
+  );
+  find('[data-furniture]').append(furnitureField.element);
+
+  /** Campos del cliente y del canal de la banda activa; se rehacen al cambiar de banda. */
+  function renderRadio() {
+    const widthField = createSelectField(
+      'Ancho de canal',
+      CHANNEL_WIDTHS[band].map((w) => ({ id: String(w), label: `${w} MHz` })),
+      String(channelWidthMHz[band]),
+      (id) => {
+        channelWidthMHz = { ...channelWidthMHz, [band]: Number(id) as ChannelWidth };
+        changed();
+      },
+    );
+    const powerField = createNumberField(
+      {
+        key: 'clientPowerDbm',
+        label: 'Potencia del cliente',
+        unit: 'dBm',
+        min: -10,
+        max: 30,
+        hint: 'Potencia con que transmite el celular o el portátil, para la subida. Típico: 15 dBm en 2,4 GHz y 13 dBm en 5 y 6 GHz.',
+      },
+      clientPowerDbm[band],
+      (value) => {
+        clientPowerDbm = { ...clientPowerDbm, [band]: value };
+        changed();
+      },
+    );
+    radioBox.replaceChildren(widthField.element, powerField.element);
+  }
+
   find('[data-material]').append(
     createSelectField('Material del muro nuevo', MATERIALS.map((m) => ({ id: m.id, label: m.label })), newMaterial, (id) => {
       newMaterial = id as MaterialId;
@@ -769,7 +908,15 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   const bandControl = bindChoice(panel, 'banda', band, (id) => {
     band = id as WifiBand;
     renderMaterials();
+    renderRadio();
     changed();
+  });
+
+  bindChoice(panel, 'sentido', direction, (id) => {
+    direction = id as LinkDirection;
+    paintHeat();
+    renderSummary();
+    planView.redraw();
   });
 
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-preset]')) {
@@ -779,24 +926,29 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       selection = null;
       readout.hide();
       sizeFields.setValues({ widthM: plan.widthM, heightM: plan.heightM });
+      furnitureField.setValue(plan.furniture);
       replaceQuery('plano', button.dataset.preset!);
       changed();
       planView.fit();
     });
   }
 
-  const currentProject = (): IndoorProject => ({ plan, band, thresholds });
+  const currentProject = (): IndoorProject => ({ plan, band, thresholds, clientPowerDbm, channelWidthMHz });
 
   /** Pone en la página un proyecto abierto de un archivo (o el anterior, al deshacer). */
   function applyProject(data: IndoorProject) {
     plan = data.plan;
     band = data.band;
     thresholds = data.thresholds;
+    clientPowerDbm = data.clientPowerDbm;
+    channelWidthMHz = data.channelWidthMHz;
     selection = null;
     drawingFrom = null;
     readout.hide();
     bandControl.set(band);
     sizeFields.setValues({ widthM: plan.widthM, heightM: plan.heightM });
+    furnitureField.setValue(plan.furniture);
+    renderRadio();
     // Sin "?plano=…" en la dirección, al recargar se ve este proyecto y no el plano de ejemplo.
     replaceQuery('plano', null);
     renderMaterials();
@@ -822,6 +974,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     plan = entry.plan;
     selection = null;
     sizeFields.setValues({ widthM: plan.widthM, heightM: plan.heightM });
+    furnitureField.setValue(plan.furniture);
     changed();
   }
   find('[data-undo]').addEventListener('click', undo);
@@ -860,6 +1013,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   setTool('select');
   toolControl.set('select');
   renderMaterials();
+  renderRadio();
   changed();
 
   return () => {

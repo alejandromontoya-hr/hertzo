@@ -1,4 +1,5 @@
-// Planos de ejemplo para interiores: casa, apartamento y oficina.
+// Planos de ejemplo para interiores: casa, apartamento y oficina. Cada uno trae el mobiliario
+// que le corresponde (casa amueblada u oficina con puestos).
 
 import type { MaterialId } from '../rf/indoor';
 import type { AccessPoint, FloorPlan, Wall } from './plan';
@@ -56,6 +57,7 @@ function house(): FloorPlan {
       wall(4.2, 0.4, 5.0, 0.4, 'metal'),
     ],
     aps: [ap('ap1', 'Router de la sala', 2.5, 4.2)],
+    furniture: 'casa',
   };
 }
 
@@ -78,6 +80,7 @@ function apartment(): FloorPlan {
       wall(3.4, 0.3, 4.2, 0.3, 'metal'),
     ],
     aps: [ap('ap1', 'Router del operador', 1.6, 0.6)],
+    furniture: 'casa',
   };
 }
 
@@ -108,6 +111,7 @@ function office(): FloorPlan {
       wall(20, 1, 22, 1, 'metal'),
     ],
     aps: [ap('ap1', 'AP zona abierta oeste', 5, 9.5, 20, 4), ap('ap2', 'AP zona abierta este', 16, 7, 20, 4)],
+    furniture: 'oficina',
   };
 }
 
@@ -115,5 +119,5 @@ export const PLAN_PRESETS: readonly { id: string; label: string; build: () => Fl
   { id: 'casa', label: 'Casa', build: house },
   { id: 'apartamento', label: 'Apartamento', build: apartment },
   { id: 'oficina', label: 'Oficina', build: office },
-  { id: 'blanco', label: 'En blanco', build: () => ({ widthM: 15, heightM: 10, walls: [], aps: [] }) },
+  { id: 'blanco', label: 'En blanco', build: () => ({ widthM: 15, heightM: 10, walls: [], aps: [], furniture: 'casa' }) },
 ];

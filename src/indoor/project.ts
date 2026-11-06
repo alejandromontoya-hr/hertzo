@@ -1,7 +1,20 @@
-// Proyecto de Interiores para guardar en un archivo: el plano, la banda y los umbrales. Módulo puro.
+// Proyecto de Interiores para guardar en un archivo: el plano, la banda, los umbrales, la potencia
+// del cliente y el ancho de canal de cada banda. Módulo puro.
 
 import { isFiniteNumber, isRecord, readList, readNumbers } from '../export/projectFile';
-import { MATERIALS, WIFI_BANDS, WIFI_THRESHOLDS, type MaterialId, type WifiBand } from '../rf/indoor';
+import {
+  CHANNEL_WIDTHS,
+  DEFAULT_CHANNEL_WIDTH,
+  DEFAULT_CLIENT_POWER_DBM,
+  FURNITURE,
+  MATERIALS,
+  WIFI_BANDS,
+  WIFI_THRESHOLDS,
+  type ChannelWidth,
+  type FurnitureId,
+  type MaterialId,
+  type WifiBand,
+} from '../rf/indoor';
 import type { AccessPoint, FloorPlan, Wall } from './plan';
 
 export interface IndoorProject {
@@ -9,6 +22,45 @@ export interface IndoorProject {
   band: WifiBand;
   /** Umbrales de la leyenda de señal (dBm), uno por franja. */
   thresholds: number[];
+  /** Potencia del cliente (dBm) en cada banda. */
+  clientPowerDbm: Record<WifiBand, number>;
+  /** Ancho de canal (MHz) en cada banda. */
+  channelWidthMHz: Record<WifiBand, ChannelWidth>;
+}
+
+/**
+ * Los archivos guardados antes de que existieran estos datos no los traen: el mobiliario queda en
+ * "Casa amueblada" y la potencia del cliente y el ancho de canal en los valores por omisión.
+ */
+const DEFAULT_FURNITURE: FurnitureId = 'casa';
+
+function readFurniture(v: unknown): FurnitureId | null {
+  if (v === undefined) return DEFAULT_FURNITURE;
+  return FURNITURE.find((f) => f.id === v)?.id ?? null;
+}
+
+function readClientPower(v: unknown): Record<WifiBand, number> | null {
+  if (v === undefined) return { ...DEFAULT_CLIENT_POWER_DBM };
+  if (!isRecord(v)) return null;
+  const out = { ...DEFAULT_CLIENT_POWER_DBM };
+  for (const { id } of WIFI_BANDS) {
+    const value = v[id];
+    if (!isFiniteNumber(value)) return null;
+    out[id] = value;
+  }
+  return out;
+}
+
+function readChannelWidths(v: unknown): Record<WifiBand, ChannelWidth> | null {
+  if (v === undefined) return { ...DEFAULT_CHANNEL_WIDTH };
+  if (!isRecord(v)) return null;
+  const out = { ...DEFAULT_CHANNEL_WIDTH };
+  for (const { id } of WIFI_BANDS) {
+    const width = CHANNEL_WIDTHS[id].find((w) => w === v[id]);
+    if (width === undefined) return null;
+    out[id] = width;
+  }
+  return out;
 }
 
 function readWall(v: unknown): Wall | null {
@@ -35,6 +87,9 @@ export function readIndoorProject(data: unknown): IndoorProject | null {
   const aps = readList(data.plan.aps, readAp);
   const band = WIFI_BANDS.find((b) => b.id === data.band)?.id;
   const thresholds = readNumbers(data.thresholds, WIFI_THRESHOLDS.length);
-  if (!walls || !aps || !band || !thresholds) return null;
-  return { plan: { widthM, heightM, walls, aps }, band, thresholds };
+  const furniture = readFurniture(data.plan.furniture);
+  const clientPowerDbm = readClientPower(data.clientPowerDbm);
+  const channelWidthMHz = readChannelWidths(data.channelWidthMHz);
+  if (!walls || !aps || !band || !thresholds || !furniture || !clientPowerDbm || !channelWidthMHz) return null;
+  return { plan: { widthM, heightM, walls, aps, furniture }, band, thresholds, clientPowerDbm, channelWidthMHz };
 }
