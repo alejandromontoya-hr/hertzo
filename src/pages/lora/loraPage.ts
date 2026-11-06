@@ -39,10 +39,10 @@ import {
 } from '../../rf/lora';
 import { LORA_BUDGET_NAMES, balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { createDeviceList, type Device, type DeviceList } from '../../ui/deviceList';
+import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createLoraCapacity } from '../../ui/loraCapacity';
 import { createFieldGroup, createNumberField, type NumberFieldSpec } from '../../ui/fields';
-import { formatDbm, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
+import { formatDbm, formatDistance, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
@@ -346,7 +346,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
       return {
         cells: [dbm(r.downDbm), dbm(r.upDbm), sf === null ? '—' : `SF${sf}`],
         status: r.status,
-        detail: `A ${kmFormat.format(loss.distanceM / 1000)} km del gateway · bajada ${dbm(r.downDbm)} dBm · subida ${dbm(r.upDbm)} dBm`,
+        detail: `A ${formatDistance(loss.distanceM)} del gateway`,
       };
     },
     fileName: () => exportFileName('lora-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
@@ -487,6 +487,8 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
 
   const readout = createHoverReadout(page.readoutRoot);
   page.map.on('mousemove', (event) => {
+    // Sobre un equipo manda su propio globo.
+    if (isOverDevice(event.originalEvent)) return;
     const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
     if (!coverage) return readout.hide();
     const { down, up } = budgets();

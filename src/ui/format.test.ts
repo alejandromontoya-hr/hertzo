@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDb, formatDbi, formatDbm, formatHeight, formatLonLat, formatMeters, formatWatts } from './format';
+import { formatDb, formatDbi, formatDbm, formatDistance, formatHeight, formatLonLat, formatMeters, formatWatts } from './format';
 
 describe('formatos de RF', () => {
   it('dBm con un decimal y signo menos simple: −105,1 → "-105,1 dBm"', () => {
@@ -43,5 +43,15 @@ describe('formatMeters', () => {
 describe('formatLonLat', () => {
   it('latitud primero, 5 decimales, con punto decimal', () => {
     expect(formatLonLat(-75.6681, 6.2689)).toBe('6.26890, -75.66810');
+  });
+});
+
+describe('formatDistance', () => {
+  it('en metros hasta 1 km: 219,4 → "219 m"', () => {
+    expect(formatDistance(219.4)).toBe('219 m');
+  });
+
+  it('desde 1 km, en km con un decimal: 2340 → "2,3 km"', () => {
+    expect(formatDistance(2340)).toBe('2,3 km');
   });
 });

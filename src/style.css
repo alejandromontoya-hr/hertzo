@@ -2082,11 +2082,36 @@ body {
 }
 
 /* Punto del equipo en el mapa: borde blanco para que se vea sobre cualquier color de cobertura. */
+.device-marker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: grab;
+}
+
 .device-dot {
+  flex: 0 0 auto;
   width: 14px;
   height: 14px;
   border: 2px solid #fff;
   border-radius: 50%;
   box-shadow: 0 0 0 1px var(--ink);
-  cursor: grab;
+}
+
+/* Nombre junto al punto, como las etiquetas del mapa: texto con halo claro, sin caja. */
+.device-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+  text-shadow:
+    0 0 2px #fff,
+    0 0 2px #fff,
+    0 0 3px #fff;
+  pointer-events: none;
+}
+
+.device-labels-off .device-label {
+  display: none;
 }

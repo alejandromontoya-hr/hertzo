@@ -24,9 +24,9 @@ import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { createDeviceList, type Device, type DeviceList } from '../../ui/deviceList';
+import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createTrunkingCapacity } from '../../ui/trunkingCapacity';
-import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
+import { formatDistance, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
@@ -196,7 +196,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       return {
         cells: [dbm(result.downDbm), dbm(result.upDbm), Number.isNaN(margin) ? '—' : `${marginFormat.format(margin).replace('−', '-')} dB`],
         status: result.status,
-        detail: `A ${kmFormat.format(loss.distanceM / 1000)} km del sitio · bajada ${dbm(result.downDbm)} dBm · subida ${dbm(result.upDbm)} dBm`,
+        detail: `A ${formatDistance(loss.distanceM)} del sitio`,
       };
     },
     fileName: () => exportFileName('terreno-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
@@ -314,6 +314,8 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
 
   const readout = createHoverReadout(page.readoutRoot);
   page.map.on('mousemove', (event) => {
+    // Sobre un equipo manda su propio globo.
+    if (isOverDevice(event.originalEvent)) return;
     const lines =
       coverage &&
       readoutLines(coverage, talkOutBudget(tx, radio), talkInBudget(rx, radio), {

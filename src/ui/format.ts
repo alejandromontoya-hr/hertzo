@@ -14,6 +14,11 @@ export function formatMeters(meters: number): string {
   return `${metersFormat.format(meters)} m`;
 }
 
+/** Distancia a un equipo: en metros hasta 1 km, luego en km con un decimal. 219 → "219 m"; 2340 → "2,3 km". */
+export function formatDistance(meters: number): string {
+  return meters < 1000 ? formatMeters(meters) : `${oneDecimal.format(meters / 1000)} km`;
+}
+
 /** Alturas de antena con hasta un decimal: 1.5 → "1,5 m"; 30 → "30 m". */
 export function formatHeight(meters: number): string {
   return `${heightFormat.format(meters)} m`;

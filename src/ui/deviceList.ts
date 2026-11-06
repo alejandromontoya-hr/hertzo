@@ -9,6 +9,7 @@ import type { LonLat } from '../geo/geodesy';
 import type { KmlPlacemark } from '../export/kml';
 import type { MapPage } from '../pages/shared/mapPage';
 import { formatLonLat } from './format';
+import { createHoverReadout } from './hoverReadout';
 import { LOCATE_ICON } from './icons';
 import { infoButton } from './infoTip';
 
@@ -24,7 +25,7 @@ export interface DeviceRow {
   /** Un texto por columna, en el orden de `columns`. */
   cells: string[];
   status: DeviceStatus;
-  /** Texto del globo al pasar sobre el punto del mapa. */
+  /** A qué distancia del sitio está, por ejemplo "A 0,2 km del gateway"; va en el globo y en el KMZ. */
   detail: string;
 }
 
@@ -125,7 +126,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   const onMapClick = (event: { lngLat: { lng: number; lat: number }; originalEvent: MouseEvent }) => {
     if (!picking) return;
     // Un clic sobre un equipo (o al soltarlo tras arrastrarlo) no agrega otro encima.
-    if ((event.originalEvent.target as HTMLElement | null)?.closest('.device-dot')) return;
+    if (isOverDevice(event.originalEvent)) return;
     add([{ name: `${capitalize(options.noun.one)} ${nextId}`, position: { lon: event.lngLat.lng, lat: event.lngLat.lat }, profileId: null }]);
   };
   page.map.on('click', onMapClick);
@@ -166,7 +167,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     const profileOptions = options.profiles.map((p) => `<option value="${escape(p.id)}">${escape(p.name)}</option>`).join('');
     tr.innerHTML = `
       <th scope="row">
-        <div class="device-name"><span class="status-dot"></span><input type="text" maxlength="60" aria-label="Nombre del ${options.noun.one}"></div>
+        <div class="device-name"><span class="status-dot" role="img"></span><input type="text" maxlength="60" aria-label="Nombre del ${options.noun.one}"></div>
         <select class="device-type" aria-label="Tipo de ${escape(device.name)}"><option value=""></option>${profileOptions}</select>
       </th>
       ${options.columns.map(() => '<td></td>').join('')}
@@ -203,10 +204,18 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     for (const d of list) {
       const device: Device = { ...d, id: nextId++ };
       devices.push(device);
+      // Punto con el nombre al lado: el ancla queda en el centro del punto, no del conjunto.
       const element = document.createElement('div');
-      element.className = 'device-dot';
+      element.className = 'device-marker';
+      element.innerHTML = '<span class="device-dot"></span><span class="device-label"></span>';
+      element.addEventListener('mouseenter', (event) => showReadout(device, event));
+      element.addEventListener('mousemove', (event) => showReadout(device, event));
+      element.addEventListener('mouseleave', () => readout.hide());
       // Se arrastra para moverlo; al soltarlo se vuelve a calcular solo ese equipo.
-      const marker = new Marker({ element, draggable: true }).setLngLat([device.position.lon, device.position.lat]).addTo(page.map);
+      const marker = new Marker({ element, draggable: true, anchor: 'left', offset: [-DOT_RADIUS_PX, 0] })
+        .setLngLat([device.position.lon, device.position.lat])
+        .addTo(page.map);
+      marker.on('dragstart', () => readout.hide());
       marker.on('dragend', () => {
         const { lng, lat } = marker.getLngLat();
         device.position = { lon: lng, lat };
@@ -239,6 +248,28 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     schedule(false);
   }
 
+  const readout = createHoverReadout(page.readoutRoot);
+
+  /** Globo del equipo, igual al de la lectura del mapa: nombre, estado, tipo y cada columna. */
+  function showReadout(device: Device, event: MouseEvent) {
+    const row = rows.get(device.id);
+    const status = row ? STATUS[row.status] : undefined;
+    const lines = [
+      device.name,
+      `${status?.label ?? 'Calculando…'} · ${options.profileName(device.profileId)}`,
+      ...(row ? options.columns.map((c, i) => `${c}: ${cellWithUnit(row.cells[i]!, options.units[i]!)}`) : []),
+      ...(row ? [row.detail] : []),
+    ];
+    const box = page.readoutRoot.parentElement!.getBoundingClientRect();
+    readout.show(lines, event.clientX - box.left, event.clientY - box.top);
+  }
+
+  // Lejos, los nombres se montan unos sobre otros: se muestran desde el zoom 13.
+  const mapContainer = page.map.getContainer();
+  const toggleLabels = () => mapContainer.classList.toggle('device-labels-off', page.map.getZoom() < 13);
+  page.map.on('zoom', toggleLabels);
+  toggleLabels();
+
   let lastCount = 0;
 
   function render() {
@@ -253,13 +284,13 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
       const status = row ? STATUS[row.status] : undefined;
       const elements = rowElements.get(d.id)!;
       elements.dot.style.background = status?.color ?? 'transparent';
-      elements.dot.title = status?.label ?? 'Calculando';
+      elements.dot.setAttribute('aria-label', status?.label ?? 'Calculando');
       elements.sameOption.textContent = `${options.profileName(null)} · como arriba`;
       elements.cells.forEach((cell, i) => (cell.innerHTML = row ? row.cells[i]! : '…'));
       const element = markers.get(d.id)?.getElement();
       if (!element) continue;
-      element.style.background = row ? STATUS[row.status].color : STATUS.unknown.color;
-      element.title = row ? `${d.name}\n${row.detail}` : d.name;
+      element.querySelector<HTMLElement>('.device-dot')!.style.background = row ? STATUS[row.status].color : STATUS.unknown.color;
+      element.querySelector('.device-label')!.textContent = d.name;
     }
     showSummary();
   }
@@ -378,9 +409,20 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
       clearTimeout(timer);
       generation++;
       page.map.off('click', onMapClick);
+      page.map.off('zoom', toggleLabels);
+      mapContainer.classList.remove('device-labels-off');
+      readout.hide();
       for (const m of markers.values()) m.remove();
     },
   };
+}
+
+/** Radio del punto del equipo en el mapa (14 px de diámetro). */
+const DOT_RADIUS_PX = 7;
+
+/** El cursor está sobre un equipo del mapa: la lectura de cobertura no debe tapar su globo. */
+export function isOverDevice(event: MouseEvent): boolean {
+  return !!(event.target as Element | null)?.closest?.('.device-marker');
 }
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
