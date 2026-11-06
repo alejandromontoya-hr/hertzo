@@ -24,7 +24,7 @@ import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { clutterQuery, createClutterControl, parseClutter } from '../../ui/clutterControl';
+import { clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createTrunkingCapacity } from '../../ui/trunkingCapacity';
 import { formatDistance, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
@@ -207,7 +207,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       return {
         cells: [dbm(result.downDbm), dbm(result.upDbm), Number.isNaN(margin) ? '—' : `${marginFormat.format(margin).replace('−', '-')} dB`],
         status: result.status,
-        detail: `A ${formatDistance(loss.distanceM)} del sitio`,
+        detail: `A ${formatDistance(loss.distanceM)} del sitio${loss.clutterUpDb > 0 ? ` · entorno ${formatClutterDb(loss.clutterUpDb)}` : ''}`,
       };
     },
     fileName: () => exportFileName('terreno-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
@@ -287,6 +287,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
             ['Antena de transmisión', `${formatHeight(tx.antennaHeightM)} sobre el terreno`],
             ['Antena de recepción', `${formatHeight(rx.antennaHeightM)} sobre el terreno`],
             ['Radio de cálculo', `${kmFormat.format(radiusM / 1000)} km`],
+            ['Entorno del equipo', clutterSummary(coverage.request)?.replace(/^Entorno /, '') ?? 'Sin entorno (solo relieve)'],
           ],
         },
         {
@@ -333,6 +334,8 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
         lon: event.lngLat.lng,
         lat: event.lngLat.lat,
       });
+    const entorno = coverage && clutterSummary(coverage.request);
+    if (lines && entorno) lines.push(entorno);
     if (lines) readout.show(lines, event.point.x, event.point.y);
     else readout.hide();
   });

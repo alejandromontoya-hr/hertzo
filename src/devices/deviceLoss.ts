@@ -29,6 +29,8 @@ export interface DeviceLoss {
   /** Pérdida básica de trayecto (dB); NaN si no se pudo calcular. */
   downDb: number;
   upDb: number;
+  /** Lo que sumó el entorno en subida, en los dos extremos (dB); 0 sin entorno. */
+  clutterUpDb: number;
 }
 
 export async function deviceLoss(path: DevicePath): Promise<DeviceLoss> {
@@ -42,6 +44,7 @@ export async function deviceLoss(path: DevicePath): Promise<DeviceLoss> {
     // para que el resultado no salte al cruzar los 50 m.
     return {
       distanceM: d,
+      clutterUpDb: endLoss(path.up.siteHeightM, path.up.frequencyMHz),
       downDb: closeRangeLossDb(d, path.down.siteHeightM, path.deviceHeightM, path.down.frequencyMHz) + endLoss(path.down.siteHeightM, path.down.frequencyMHz),
       upDb: closeRangeLossDb(d, path.up.siteHeightM, path.deviceHeightM, path.up.frequencyMHz) + endLoss(path.up.siteHeightM, path.up.frequencyMHz),
     };
@@ -59,6 +62,7 @@ export async function deviceLoss(path: DevicePath): Promise<DeviceLoss> {
   };
   return {
     distanceM: d,
+    clutterUpDb: endLoss(path.up.siteHeightM, path.up.frequencyMHz),
     downDb: loss(path.down.siteHeightM, path.down.frequencyMHz),
     upDb: loss(path.up.siteHeightM, path.up.frequencyMHz),
   };

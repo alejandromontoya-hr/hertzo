@@ -39,7 +39,7 @@ import {
 } from '../../rf/lora';
 import { LORA_BUDGET_NAMES, balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { clutterQuery, createClutterControl, parseClutter } from '../../ui/clutterControl';
+import { clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createLoraCapacity } from '../../ui/loraCapacity';
 import { createFieldGroup, createNumberField, type NumberFieldSpec } from '../../ui/fields';
@@ -358,7 +358,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
       return {
         cells: [dbm(r.downDbm), dbm(r.upDbm), sf === null ? '—' : `SF${sf}`],
         status: r.status,
-        detail: `A ${formatDistance(loss.distanceM)} del gateway`,
+        detail: `A ${formatDistance(loss.distanceM)} del gateway${loss.clutterUpDb > 0 ? ` · entorno ${formatClutterDb(loss.clutterUpDb)}` : ''}`,
       };
     },
     fileName: () => exportFileName('lora-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
@@ -458,6 +458,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
             ['Plan de frecuencias', `${band.label} (${band.range})`],
             ['Antena del gateway', `${formatHeight(gateway.antennaHeightM)} sobre el terreno`],
             ['Radio de cálculo', `${kmFormat.format(radiusM / 1000)} km`],
+            ['Entorno del equipo', clutterSummary(coverage.request)?.replace(/^Entorno /, '') ?? 'Sin entorno (solo relieve)'],
           ],
         },
         {
@@ -511,6 +512,8 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
       const sf = minimumSpreadingFactor(receivedPowerDbm(up, loss), band.uplink.bandwidthKHz, gateway.noiseFigureDb, maxSf());
       lines.splice(3, 0, sf === null ? 'SF de subida: no llega ni con SF12' : `SF de subida: SF${sf} (${msFormat.format(timeOnAir(sf))} ms)`);
     }
+    const entorno = clutterSummary(coverage.request);
+    if (entorno) lines.push(entorno);
     readout.show(lines, event.point.x, event.point.y);
   });
   page.map.on('mouseout', () => readout.hide());

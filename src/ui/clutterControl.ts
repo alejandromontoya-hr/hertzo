@@ -1,7 +1,9 @@
 // Menú "Entorno del equipo" y la altura de lo que lo rodea (UIT-R P.2108). Lo comparten
 // LoRa y Terreno. La elección queda en la dirección: ?entorno=urbano&altura-entorno=6.
 
-import { CLUTTER_TYPES, type Clutter, type ClutterType } from '../rf/clutter';
+import type { CoverageRequest } from '../coverage/computeCoverage';
+import { TALK_IN } from '../coverage/inputs';
+import { CLUTTER_TYPES, clutterLossDb, type Clutter, type ClutterType } from '../rf/clutter';
 import { createNumberField } from './fields';
 import { infoButton } from './infoTip';
 
@@ -70,4 +72,23 @@ export function createClutterControl(
     height.element.hidden = !clutter;
     onChange(clutter);
   });
+}
+
+const dbFormat = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** Lo que sumó el entorno: 22,35 → "+22,4 dB". */
+export function formatClutterDb(db: number): string {
+  return `+${dbFormat.format(db)} dB`;
+}
+
+/**
+ * Entorno con el que se hizo un cálculo de cobertura y lo que sumó en subida, en los dos
+ * extremos: "Entorno urbano o arbolado, 15 m: +22,4 dB". Null si se calculó sin entorno.
+ */
+export function clutterSummary(request: CoverageRequest): string | null {
+  const clutter = request.engine.id === 'itm' ? request.engine.clutter : undefined;
+  if (!clutter) return null;
+  const link = request.links[TALK_IN] ?? request.links[0]!;
+  const db = clutterLossDb(link.frequencyMHz, link.siteHeightM, clutter) + clutterLossDb(link.frequencyMHz, link.radioHeightM, clutter);
+  return `Entorno ${clutterLabel(clutter)}: ${formatClutterDb(db)}`;
 }
