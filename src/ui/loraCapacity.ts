@@ -91,7 +91,7 @@ export function createLoraCapacity(container: HTMLElement, context: LoraCapacity
     const rows = SPREADING_FACTORS.filter((sf) => bySf.has(sf))
       .map((sf) => {
         const e = bySf.get(sf)!;
-        return `<tr><th scope="row">SF${sf}</th><td>${integerFormat.format(e.devices)}</td><td>${formatShare(e.load)}</td><td>${formatShare(e.loss)}</td></tr>`;
+        return `<tr><th scope="row">SF${sf}</th><td>${integerFormat.format(e.devices)}</td><td>${formatLoss(e.load)}</td><td>${formatLoss(e.loss)}</td></tr>`;
       })
       .join('');
     const n = list.length;
@@ -120,8 +120,21 @@ export function createLoraCapacity(container: HTMLElement, context: LoraCapacity
   };
 }
 
-/** "el <strong>9,8 %</strong>", o "menos del <strong>0,1 %</strong>" cuando es casi nada. */
+const significantFormat = new Intl.NumberFormat('es-CO', { maximumSignificantDigits: 2 });
+
+/**
+ * Parte de los mensajes, sin esconder lo pequeño: con pocos medidores la pérdida es de
+ * milésimas de por ciento y cambia con cada ajuste, así que no se redondea a "< 0,1 %".
+ * 0,0978 → "9,8 %"; 0,00034 → "0,034 %"; 0 → "0 %".
+ */
+export function formatLoss(fraction: number): string {
+  if (fraction <= 0) return '0 %';
+  if (fraction >= 0.0005) return formatShare(fraction);
+  return `${significantFormat.format(fraction * 100)} %`;
+}
+
+/** "el <strong>9,8 %</strong> (1 de cada 10)"; sin pérdida, "el <strong>0 %</strong>". */
 export function lossPhrase(fraction: number): string {
-  const share = formatShare(fraction);
-  return share.startsWith('<') ? `menos del <strong>${share.slice(2)}</strong>` : `el <strong>${share}</strong>`;
+  const share = `el <strong>${formatLoss(fraction)}</strong>`;
+  return fraction > 0 ? `${share} (1 de cada ${significantFormat.format(1 / fraction)})` : share;
 }

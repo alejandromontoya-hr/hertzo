@@ -34,13 +34,13 @@ export function formatShare(fraction: number): string {
   return `${percentFormat.format(fraction * 100)} %`;
 }
 
-/** 1 → "1,0 s"; menos de 0,05 s → "< 0,1 s"; sistema saturado → "sin límite". */
 /** Para una frase: "el 10,0 %", o "menos del 0,1 %" cuando es casi nada (no "el < 0,1 %"). */
 export function sharePhrase(fraction: number): string {
   const share = formatShare(fraction);
   return share.startsWith('<') ? `menos del ${share.slice(2)}` : `el ${share}`;
 }
 
+/** 1 → "1,0 s"; menos de 0,05 s → "< 0,1 s"; sistema saturado → "sin límite". */
 export function formatWait(seconds: number): string {
   if (!Number.isFinite(seconds)) return 'sin límite';
   if (seconds > 0 && seconds < 0.05) return '< 0,1 s';

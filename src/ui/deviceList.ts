@@ -216,6 +216,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
         .setLngLat([device.position.lon, device.position.lat])
         .addTo(page.map);
       marker.on('dragstart', () => readout.hide());
+      marker.on('drag', scheduleLabels);
       marker.on('dragend', () => {
         const { lng, lat } = marker.getLngLat();
         device.position = { lon: lng, lat };
@@ -264,11 +265,31 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     readout.show(lines, event.clientX - box.left, event.clientY - box.top);
   }
 
-  // Lejos, los nombres se montan unos sobre otros: se muestran desde el zoom 13.
-  const mapContainer = page.map.getContainer();
-  const toggleLabels = () => mapContainer.classList.toggle('device-labels-off', page.map.getZoom() < 13);
-  page.map.on('zoom', toggleLabels);
-  toggleLabels();
+  // Un nombre se muestra solo si cabe sin pisar otro nombre ni otro punto; los equipos de
+  // arriba en la lista tienen prioridad. Se recalcula al mover el mapa, una vez por cuadro.
+  let labelFrame = 0;
+  const scheduleLabels = () => {
+    if (!labelFrame) labelFrame = requestAnimationFrame(layoutLabels);
+  };
+  function layoutLabels() {
+    labelFrame = 0;
+    const items = devices.flatMap((d) => {
+      const element = markers.get(d.id)?.getElement();
+      return element ? [{ dot: element.querySelector('.device-dot')!, label: element.querySelector<HTMLElement>('.device-label')! }] : [];
+    });
+    // Primero se miden todos y después se esconden: medir y cambiar alternados es lento con cientos.
+    const dots = items.map((i) => i.dot.getBoundingClientRect());
+    const labels = items.map((i) => i.label.getBoundingClientRect());
+    const placed: DOMRect[] = [];
+    const overlaps = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const visible = labels.map((rect, i) => {
+      const free = !placed.some((p) => overlaps(rect, p)) && !dots.some((d, j) => j !== i && overlaps(rect, d));
+      if (free) placed.push(rect);
+      return free;
+    });
+    items.forEach((item, i) => item.label.classList.toggle('device-label-hidden', !visible[i]));
+  }
+  page.map.on('move', scheduleLabels);
 
   let lastCount = 0;
 
@@ -292,6 +313,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
       element.querySelector<HTMLElement>('.device-dot')!.style.background = row ? STATUS[row.status].color : STATUS.unknown.color;
       element.querySelector('.device-label')!.textContent = d.name;
     }
+    scheduleLabels();
     showSummary();
   }
 
@@ -409,8 +431,8 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
       clearTimeout(timer);
       generation++;
       page.map.off('click', onMapClick);
-      page.map.off('zoom', toggleLabels);
-      mapContainer.classList.remove('device-labels-off');
+      page.map.off('move', scheduleLabels);
+      cancelAnimationFrame(labelFrame);
       readout.hide();
       for (const m of markers.values()) m.remove();
     },

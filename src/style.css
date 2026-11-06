@@ -788,7 +788,8 @@ body {
 }
 
 /* Sin esto, `display: grid` le gana al atributo `hidden` (por ejemplo, el material del muro nuevo). */
-.form[hidden] {
+.form[hidden],
+.field[hidden] {
   display: none;
 }
 
@@ -2112,6 +2113,7 @@ body {
   pointer-events: none;
 }
 
-.device-labels-off .device-label {
-  display: none;
+/* Nombre que pisaría otro nombre u otro punto: guarda su espacio, pero no se ve. */
+.device-label-hidden {
+  visibility: hidden;
 }
