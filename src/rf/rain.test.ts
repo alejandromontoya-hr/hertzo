@@ -4,6 +4,7 @@ import {
   rainAttenuationDb,
   rainCoefficients,
   rainOutagePercent,
+  rainTimeCoefficients,
   rainPathFactor,
   rainSpecificAttenuationDbPerKm,
 } from './rain';
@@ -43,24 +44,36 @@ describe('ITU-R P.530-18: 18 GHz vertical, 10 km, R0,01 = 95 mm/h', () => {
     expect(rainAttenuation001Db(18000, 10, 95, 'vertical')).toBeCloseTo(40.64, 1);
   });
 
-  // Al 0,01 %: 0,07·0,01^−(0,855 − 0,278) = 0,07·10^1,154 = 0,998: la fórmula devuelve A0,01.
-  it('A al 0,01 % ≈ A0,01', () => {
-    expect(rainAttenuationDb(40.64, 0.01)).toBeCloseTo(40.64 * 0.998, 1);
+  // P.530-18 a 18 GHz: C0 = 0,12 + 0,4·log(1,8^0,8) = 0,12 + 0,4·0,20421 = 0,20168;
+  // C1 = 0,07^0,20168 · 0,12^0,79832 = 0,58489 · 0,18405 = 0,10764;
+  // C2 = 0,855·0,20168 + 0,546·0,79832 = 0,60832; C3 = 0,139·0,20168 + 0,043·0,79832 = 0,06236.
+  it('coeficientes de la P.530-18 a 18 GHz', () => {
+    const { c1, c2, c3 } = rainTimeCoefficients(18000);
+    expect(c1).toBeCloseTo(0.10764, 4);
+    expect(c2).toBeCloseTo(0.60832, 4);
+    expect(c3).toBeCloseTo(0.06236, 4);
   });
 
-  // Margen de 30 dB: y = log(30 / (0,07·40,64)) = 1,0231; 0,139·L² + 0,855·L + 1,0231 = 0 →
-  // L = (−0,855 + √(0,731025 − 0,568855)) / 0,278 = −1,6270 → p = 0,0236 % = 124 min al año.
-  it('con 30 dB de margen la lluvia corta el 0,0236 % del año (124 min)', () => {
+  // Al 0,01 %: C1·0,01^−(C2 − 2·C3) = 0,10764·10^(2·0,4836) = 0,10764·9,2766 = 0,99853: devuelve A0,01.
+  it('A al 0,01 % ≈ A0,01', () => {
+    expect(rainAttenuationDb(40.64, 0.01, 18000)).toBeCloseTo(40.64 * 0.999, 1);
+  });
+
+  // Margen de 30 dB: y = log(30 / (0,10764·40,64)) = log 6,8578 = 0,83620;
+  // 0,06236·L² + 0,60832·L + 0,83620 = 0 → L = (−0,60832 + √(0,370053 − 0,208578)) / 0,12472
+  // = (−0,60832 + 0,40184) / 0,12472 = −1,6556 → p = 0,02211 % = 116 min al año (antes 124 min
+  // con la fórmula de latitudes menores de 30° de la P.530-16).
+  it('con 30 dB de margen la lluvia corta el 0,0221 % del año (116 min)', () => {
     const a001 = rainAttenuation001Db(18000, 10, 95, 'vertical');
-    const outage = rainOutagePercent(a001, 30);
+    const outage = rainOutagePercent(a001, 30, 18000);
     expect(outage.bound).toBeNull();
-    expect(outage.percent).toBeCloseTo(0.0236, 3);
-    expect((outage.percent / 100) * 525960).toBeCloseTo(124, -1);
-    expect(rainAttenuationDb(a001, outage.percent)).toBeCloseTo(30, 6);
+    expect(outage.percent).toBeCloseTo(0.0221, 3);
+    expect((outage.percent / 100) * 525960).toBeCloseTo(116, -1);
+    expect(rainAttenuationDb(a001, outage.percent, 18000)).toBeCloseTo(30, 6);
   });
 
   it('fuera de 0,001–1 % se acota y se marca', () => {
-    expect(rainOutagePercent(40.64, 200)).toEqual({ percent: 0.001, bound: 'below' });
-    expect(rainOutagePercent(40.64, 1)).toEqual({ percent: 1, bound: 'above' });
+    expect(rainOutagePercent(40.64, 200, 18000)).toEqual({ percent: 0.001, bound: 'below' });
+    expect(rainOutagePercent(40.64, 1, 18000)).toEqual({ percent: 1, bound: 'above' });
   });
 });

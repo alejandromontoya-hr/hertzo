@@ -137,8 +137,14 @@ export interface DiffractionEdge {
 }
 
 /**
- * Pérdida por difracción con el método de Deygout (hasta 3 aristas): la arista principal es la
- * de mayor v entre A y B; luego se busca la principal a cada lado de ella.
+ * Pérdida por difracción con aristas en cascada de la UIT-R P.526-10 (§4.4.2, ecuaciones 46 a 48),
+ * un Deygout de hasta 3 aristas: la principal p es la de mayor v entre A y B; luego se busca la
+ * de mayor v entre A y p (t) y entre p y B (r). La pérdida es
+ *   L = J(vp) + T·[J(vt) + J(vr) + C],  T = 1 − exp(−J(vp)/6),  C = 10 + 0,04·D (km).
+ * T apaga las aristas secundarias cuando la principal casi no obstruye: en un perfil denso, la
+ * muestra vecina de un cerro queda sobre la línea nueva (v ≈ 0, J ≈ 6 dB) y el Deygout puro
+ * cobraría unos 11 dB de más con el 55 % de F1 libre. C es la corrección empírica de la UIT para
+ * terreno real, que no es un filo ideal (la P.526-13 vigente la mantiene en el método Bullington).
  */
 export function deygoutLoss(input: LinkGeometryInput): { lossDb: number; edges: DiffractionEdge[] } {
   const { distancesM: d, elevationsM: e } = input.profile;
@@ -170,7 +176,10 @@ export function deygoutLoss(input: LinkGeometryInput): { lossDb: number; edges: 
   const right = principal(main.index, n - 1, top, hB);
   if (left) edges.push(left);
   if (right) edges.push(right);
-  return { lossDb: edges.reduce((sum, edge) => sum + edge.lossDb, 0), edges };
+  const t = 1 - Math.exp(-main.lossDb / 6);
+  const c = 10 + 0.04 * (total / 1000);
+  const lossDb = main.lossDb + t * ((left?.lossDb ?? 0) + (right?.lossDb ?? 0) + c);
+  return { lossDb, edges };
 }
 
 /** Ganancia de una antena parabólica (dBi): 10·log(η·(π·D/λ)²), eficiencia típica 0,55. */
@@ -210,19 +219,27 @@ export function gaseousAttenuationDbPerKm(frequencyMHz: number): number {
   return GASEOUS_TABLE[GASEOUS_TABLE.length - 1]![1];
 }
 
-/** Factor de terreno y clima de Vigants-Barnett. */
-export const CLIMATE_FACTORS: readonly { id: string; label: string; c: number }[] = [
-  { id: 'agua', label: 'Sobre agua o llanura húmeda (C = 4)', c: 4 },
-  { id: 'promedio', label: 'Terreno y clima promedio (C = 1)', c: 1 },
-  { id: 'montana', label: 'Montañoso o seco (C = 0,25)', c: 0.25 },
+/** Factor de terreno de Vigants-Barnett (a). */
+export const TERRAIN_FACTORS: readonly { id: string; label: string; a: number }[] = [
+  { id: 'agua', label: 'Sobre agua o llanura muy lisa (a = 4)', a: 4 },
+  { id: 'promedio', label: 'Terreno promedio, algo ondulado (a = 1)', a: 1 },
+  { id: 'montana', label: 'Montañoso o muy quebrado (a = 1/4)', a: 0.25 },
+];
+
+/** Factor de clima de Vigants-Barnett (b). */
+export const CLIMATE_FACTORS: readonly { id: string; label: string; b: number }[] = [
+  { id: 'humedo', label: 'Cálido y húmedo, costa o valle tropical (b = 1/2)', b: 0.5 },
+  { id: 'promedio', label: 'Templado o interior (b = 1/4)', b: 0.25 },
+  { id: 'seco', label: 'Seco o de alta montaña (b = 1/8)', b: 0.125 },
 ];
 
 /**
  * Probabilidad anual de corte por desvanecimiento multitrayecto (Vigants-Barnett):
- * P = 6·10⁻⁷ · C · f(GHz) · d(km)³ · 10^(−margen/10).
+ * P = 6·10⁻⁷ · a · b · f(GHz) · d(km)³ · 10^(−margen/10), con a el factor de terreno y b el de clima.
+ * Es la forma en km de la original en millas, a·b·2,5·10⁻⁶·f·D³ (2,5·10⁻⁶ / 1,609³ = 6,0·10⁻⁷).
  */
-export function multipathOutageProbability(frequencyMHz: number, distanceKm: number, fadeMarginDb: number, c: number): number {
-  return Math.min(1, 6e-7 * c * (frequencyMHz / 1000) * distanceKm ** 3 * 10 ** (-fadeMarginDb / 10));
+export function multipathOutageProbability(frequencyMHz: number, distanceKm: number, fadeMarginDb: number, a: number, b: number): number {
+  return Math.min(1, 6e-7 * a * b * (frequencyMHz / 1000) * distanceKm ** 3 * 10 ** (-fadeMarginDb / 10));
 }
 
 /** Ángulo de elevación (grados) para apuntar de un extremo al otro, con curvatura de la Tierra (k). */

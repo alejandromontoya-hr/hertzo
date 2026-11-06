@@ -63,7 +63,9 @@ describe('perfil del enlace', () => {
 
   // Arista de 20 m a mitad de camino: 10 m sobre la línea → v = 1,2654 →
   // J = 6,9 + 20·log(√(1,16535² + 1) + 1,16535) = 6,9 + 20·log 2,70094 = 15,53 dB.
-  it('Deygout con una sola arista de 10 m sobre la línea: 15,53 dB', () => {
+  // P.526-10 (46a): sin aristas secundarias, L = 15,53 + (1 − e^(−15,53/6))·(10 + 0,04·10)
+  // = 15,53 + 0,92485 · 10,4 = 25,15 dB.
+  it('aristas en cascada con una sola arista de 10 m sobre la línea: J = 15,53 y L = 25,15 dB', () => {
     const result = deygoutLoss({
       profile: { distancesM: flat, elevationsM: spike },
       heightAM: 10,
@@ -73,7 +75,24 @@ describe('perfil del enlace', () => {
     });
     expect(result.edges.length).toBe(1);
     expect(result.edges[0]!.distanceM).toBe(5000);
-    expect(result.lossDb).toBeCloseTo(15.53, 2);
+    expect(result.edges[0]!.lossDb).toBeCloseTo(15.53, 2);
+    expect(result.lossDb).toBeCloseTo(25.15, 2);
+  });
+
+  // Terreno plano de 10 km a 11 GHz con antenas de 6 m y k = 4/3: libra el 55 % de F1 a mitad
+  // (v = −0,776, J = 0,03 dB). Las muestras vecinas quedan sobre la línea nueva (J ≈ 5,7 dB cada
+  // una), pero T = 1 − e^(−0,03/6) ≈ 0,005 las apaga: L ≈ 0,03 + 0,005·(5,7 + 5,7 + 10,4) ≈ 0,14 dB.
+  // Antes, sumando las tres aristas, daba 11,4 dB.
+  it('terreno plano con el 55 % de F1 libre: la difracción es casi cero (antes 11,4 dB)', () => {
+    const fine = Array.from({ length: 1001 }, (_, i) => i * 10);
+    const result = deygoutLoss({
+      profile: { distancesM: fine, elevationsM: fine.map(() => 0) },
+      heightAM: 6,
+      heightBM: 6,
+      frequencyMHz: 11000,
+      kFactor: 4 / 3,
+    });
+    expect(result.lossDb).toBeLessThan(0.3);
   });
 
   // Antenas de 30 m sobre terreno plano: a mitad, 30 − 1,4715 = 28,53 m de despeje, 2,55 zonas de Fresnel.
@@ -133,9 +152,17 @@ describe('antenas, gases y disponibilidad', () => {
     expect(gaseousAttenuationDbPerKm(23000)).toBeCloseTo(0.1853, 3);
   });
 
-  // 6·10⁻⁷ · 1 · 6 · 30³ · 10⁻³ = 9,72·10⁻⁵ → 99,9903 % de disponibilidad (~51 min al año).
-  it('6 GHz, 30 km, margen 30 dB, C = 1: P = 9,72·10⁻⁵', () => {
-    expect(multipathOutageProbability(6000, 30, 30, 1)).toBeCloseTo(9.72e-5, 9);
+  // Terreno promedio (a = 1) y clima templado (b = 1/4):
+  // 6·10⁻⁷ · 1 · 0,25 · 6 · 30³ · 10⁻³ = 2,43·10⁻⁵ → 99,99757 % (~12,8 min al año).
+  it('6 GHz, 30 km, margen 30 dB, a = 1, b = 1/4: P = 2,43·10⁻⁵', () => {
+    expect(multipathOutageProbability(6000, 30, 30, 1, 0.25)).toBeCloseTo(2.43e-5, 9);
+  });
+
+  // La original en millas: a·b·2,5·10⁻⁶·f·D³ con D = 30 km = 18,641 mi → 2,5·10⁻⁶·0,25·6·6477,4·10⁻³
+  // = 2,429·10⁻⁵, lo mismo que la forma en km.
+  it('la forma en km coincide con la original en millas', () => {
+    const miles = 30 / 1.609344;
+    expect(multipathOutageProbability(6000, 30, 30, 1, 0.25)).toBeCloseTo(2.5e-6 * 0.25 * 6 * miles ** 3 * 1e-3, 7);
   });
 
   // Caída por curvatura en 10 km con k = 4/3: 10⁸ / 16 989 333 = 5,886 m → atan(−5,886/10 000) = −0,0337°.

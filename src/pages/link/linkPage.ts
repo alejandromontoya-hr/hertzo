@@ -17,6 +17,7 @@ import { DEFAULT_ITM_PARAMETERS, loadItm, type ItmParameters } from '../../propa
 import { freeSpaceLossDb } from '../../rf/fieldStrength';
 import {
   CLIMATE_FACTORS,
+  TERRAIN_FACTORS,
   clearanceCriteria,
   clearanceProfile,
   deygoutLoss,
@@ -146,7 +147,9 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   let type: LinkType = params.get('tipo') === 'radio' ? 'radio' : 'microondas';
   let link: LinkParams = { ...PRESETS[type].params };
   let kFactor = 4 / 3;
-  let climate = CLIMATE_FACTORS[1]!;
+  let terrain = TERRAIN_FACTORS[1]!;
+  // Colombia es en buena parte cálida y húmeda: la clase de clima más exigente queda por omisión.
+  let climate = CLIMATE_FACTORS[0]!;
   let polarization: Polarization = 'vertical';
   let rainRate = DEFAULT_RAIN_RATE_MM_H;
   let lossModel: LossModel = type === 'radio' ? 'itm' : 'difraccion';
@@ -337,7 +340,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       createSelectField(
         'Pérdida para el balance',
         [
-          { id: 'difraccion', label: 'Espacio libre + difracción (Deygout) + gases' },
+          { id: 'difraccion', label: 'Espacio libre + difracción (aristas, UIT-R P.526) + gases' },
           { id: 'itm', label: 'ITM (Longley-Rice), hasta 20 GHz' },
         ],
         lossModel,
@@ -346,7 +349,11 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
           schedule();
         },
       ).element,
-      createSelectField('Terreno y clima (disponibilidad)', CLIMATE_FACTORS, climate.id, (id) => {
+      createSelectField('Terreno (multitrayecto)', TERRAIN_FACTORS, terrain.id, (id) => {
+        terrain = TERRAIN_FACTORS.find((t) => t.id === id)!;
+        schedule();
+      }).element,
+      createSelectField('Clima (multitrayecto)', CLIMATE_FACTORS, climate.id, (id) => {
         climate = CLIMATE_FACTORS.find((c) => c.id === id)!;
         schedule();
       }).element,
@@ -499,9 +506,9 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     const isMicro = type === 'microondas';
     // Probabilidades en % del año. El multitrayecto (Vigants-Barnett) y la lluvia (P.530-18) se
     // suman: casi nunca coinciden (el multitrayecto es de noches quietas, la lluvia de tormentas).
-    const multipathPercent = 100 * multipathOutageProbability(link.frequencyMHz, dKm, Math.max(0, margin), climate.c);
+    const multipathPercent = 100 * multipathOutageProbability(link.frequencyMHz, dKm, Math.max(0, margin), terrain.a, climate.b);
     const rainA001 = isMicro ? rainAttenuation001Db(link.frequencyMHz, dKm, rainRate, polarization) : 0;
-    const rain: RainOutage = isMicro ? rainOutagePercent(rainA001, margin) : { percent: 0, bound: null };
+    const rain: RainOutage = isMicro ? rainOutagePercent(rainA001, margin, link.frequencyMHz) : { percent: 0, bound: null };
     const availability = Math.max(0, 100 - (rain.percent + multipathPercent));
 
     const pct = (ratio: number) => `${integerFormat.format(ratio * 100)} %`;
@@ -578,7 +585,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       ],
     ];
     const note = isMicro
-      ? `Lluvia: ITU-R P.838-3 y P.530-18 para latitudes menores de 30°, con R0,01 = ${integerFormat.format(rainRate)} mm/h (95 mm/h es la zona N de la P.837-1, Andes colombianos; usa el valor de la P.837-7 para tu sitio). Multitrayecto: Vigants-Barnett. No incluye fallas de equipo.`
+      ? `Lluvia: ITU-R P.838-3 y P.530-18, con R0,01 = ${integerFormat.format(rainRate)} mm/h (95 mm/h es la zona N de la P.837-1, Andes colombianos; usa el valor de la P.837-7 para tu sitio). Multitrayecto: Vigants-Barnett. No incluye fallas de equipo.`
       : 'La disponibilidad es la de Vigants-Barnett por desvanecimiento multitrayecto; en VHF/UHF la lluvia no pesa. No incluye fallas de equipo.';
     results.innerHTML = `
       <table class="budget">

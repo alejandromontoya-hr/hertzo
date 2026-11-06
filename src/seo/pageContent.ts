@@ -105,7 +105,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de radioenlaces y microondas punto a punto',
     about: [
       'Traza el perfil del terreno entre dos puntos, revisa el despeje de la primera zona de Fresnel con la curvatura de la Tierra y calcula el nivel recibido, el margen de desvanecimiento y la disponibilidad de un radioenlace VHF/UHF o de microondas.',
-      'Por ejemplo, a 6 GHz y 20 km la primera zona de Fresnel mide 15,8 m de radio en la mitad del trayecto. El veredicto pide el 100 % de ella libre con k = 4/3 y el 60 % con k = 2/3, y la disponibilidad suma el corte por lluvia (UIT-R P.838-3 y P.530) al de multitrayecto: un enlace de 11 GHz y 11 km en los Andes corta unos 46 minutos al año por lluvia.',
+      'Por ejemplo, a 6 GHz y 20 km la primera zona de Fresnel mide 15,8 m de radio en la mitad del trayecto. El veredicto pide el 100 % de ella libre con k = 4/3 y el 60 % con k = 2/3, y la disponibilidad suma el corte por lluvia (UIT-R P.838-3 y P.530) al de multitrayecto: un enlace de 11 GHz y 11 km en los Andes corta unos 47 minutos al año por lluvia.',
     ],
     faq: [
       {
@@ -114,7 +114,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         q: '¿Qué modelos usa?',
-        a: 'Espacio libre, difracción por aristas (Deygout) e ITM sobre el perfil real; la lluvia con la UIT-R P.838-3 y la P.530-18, y el multitrayecto con Vigants-Barnett.',
+        a: 'Espacio libre, difracción por aristas de la UIT-R P.526 e ITM sobre el perfil real; la lluvia con la UIT-R P.838-3 y la P.530-18, y el multitrayecto con Vigants-Barnett.',
       },
       ...COMMON_FAQ,
     ],

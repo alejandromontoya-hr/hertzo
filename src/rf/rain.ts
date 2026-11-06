@@ -91,12 +91,24 @@ export function rainAttenuation001Db(frequencyMHz: number, distanceKm: number, r
   );
 }
 
+/** Coeficientes de la ITU-R P.530-18 (§2.4.1, ecuaciones 35 y 36) para pasar de A0,01 a otro p %. */
+export function rainTimeCoefficients(frequencyMHz: number): { c1: number; c2: number; c3: number } {
+  const f = frequencyMHz / 1000;
+  const c0 = f >= 10 ? 0.12 + 0.4 * Math.log10((f / 10) ** 0.8) : 0.12;
+  return {
+    c1: 0.07 ** c0 * 0.12 ** (1 - c0),
+    c2: 0.855 * c0 + 0.546 * (1 - c0),
+    c3: 0.139 * c0 + 0.043 * (1 - c0),
+  };
+}
+
 /**
- * Atenuación excedida el p % del año (0,001 ≤ p ≤ 1), latitudes menores de 30° (P.530-18, §2.4.1):
- *   Ap = A0,01 · 0,07 · p^−(0,855 + 0,139·log p).
+ * Atenuación excedida el p % del año (0,001 ≤ p ≤ 1), ITU-R P.530-18 (§2.4.1, ecuación 34),
+ * válida en todo el mundo: Ap = A0,01 · C1 · p^−(C2 + C3·log p), con C0 que depende de la frecuencia.
  */
-export function rainAttenuationDb(a001Db: number, percent: number): number {
-  return a001Db * 0.07 * percent ** -(0.855 + 0.139 * Math.log10(percent));
+export function rainAttenuationDb(a001Db: number, percent: number, frequencyMHz: number): number {
+  const { c1, c2, c3 } = rainTimeCoefficients(frequencyMHz);
+  return a001Db * c1 * percent ** -(c2 + c3 * Math.log10(percent));
 }
 
 export interface RainOutage {
@@ -115,14 +127,15 @@ const MAX_PERCENT = 1;
 
 /**
  * Porcentaje del año en que la lluvia se come un margen dado: se despeja p de Ap = margen.
- * Con L = log p: 0,139·L² + 0,855·L + log(margen / (0,07·A0,01)) = 0.
+ * Con L = log p: C3·L² + C2·L + log(margen / (C1·A0,01)) = 0.
  */
-export function rainOutagePercent(a001Db: number, fadeMarginDb: number): RainOutage {
+export function rainOutagePercent(a001Db: number, fadeMarginDb: number, frequencyMHz: number): RainOutage {
   if (fadeMarginDb <= 0 || a001Db <= 0) return fadeMarginDb <= 0 ? { percent: 100, bound: 'above' } : { percent: 0, bound: 'below' };
-  if (fadeMarginDb <= rainAttenuationDb(a001Db, MAX_PERCENT)) return { percent: MAX_PERCENT, bound: 'above' };
-  if (fadeMarginDb >= rainAttenuationDb(a001Db, MIN_PERCENT)) return { percent: MIN_PERCENT, bound: 'below' };
-  const y = Math.log10(fadeMarginDb / (0.07 * a001Db));
-  const L = (-0.855 + Math.sqrt(0.855 ** 2 - 4 * 0.139 * y)) / (2 * 0.139);
+  if (fadeMarginDb <= rainAttenuationDb(a001Db, MAX_PERCENT, frequencyMHz)) return { percent: MAX_PERCENT, bound: 'above' };
+  if (fadeMarginDb >= rainAttenuationDb(a001Db, MIN_PERCENT, frequencyMHz)) return { percent: MIN_PERCENT, bound: 'below' };
+  const { c1, c2, c3 } = rainTimeCoefficients(frequencyMHz);
+  const y = Math.log10(fadeMarginDb / (c1 * a001Db));
+  const L = (-c2 + Math.sqrt(c2 ** 2 - 4 * c3 * y)) / (2 * c3);
   return { percent: 10 ** L, bound: null };
 }
 

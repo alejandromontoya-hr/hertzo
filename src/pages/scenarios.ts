@@ -107,7 +107,7 @@ export const SCENARIOS: Scenario[] = [
       'Perfil del trayecto, despeje de la zona de Fresnel, nivel recibido, margen de desvanecimiento y disponibilidad de un enlace. Gratis, en tu navegador.',
     summary: 'Microondas y radioenlaces: perfil, zona de Fresnel y margen.',
     computes: 'Despeje de Fresnel, pérdidas, nivel recibido, margen de desvanecimiento y disponibilidad.',
-    model: 'Espacio libre + difracción por aristas (Deygout) e ITM; lluvia UIT-R P.838-3 y P.530-18; Vigants-Barnett',
+    model: 'Espacio libre + difracción por aristas (UIT-R P.526) e ITM; lluvia UIT-R P.838-3 y P.530-18; Vigants-Barnett',
     options: [
       { label: 'Microondas', href: '/enlace?tipo=microondas' },
       { label: 'Radioenlace VHF/UHF', href: '/enlace?tipo=radio' },
