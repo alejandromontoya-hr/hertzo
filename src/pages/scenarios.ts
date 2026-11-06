@@ -34,7 +34,7 @@ export const SCENARIOS: Scenario[] = [
     path: 'celular',
     group: 'datos',
     title: 'Celular (LTE / 5G)',
-    pageTitle: 'Cobertura celular LTE y 5G por sectores',
+    pageTitle: 'Simulador de cobertura celular LTE y 5G',
     description:
       'RSRP, mejor sector y SINR de un sitio con sectores de 700 a 3500 MHz, con Okumura-Hata, 3GPP 38.901 o ITM sobre el terreno. Gratis, en tu navegador.',
     summary: 'Un sitio con sectores: señal, mejor sector e interferencia entre sectores.',
@@ -53,7 +53,7 @@ export const SCENARIOS: Scenario[] = [
     path: 'interiores',
     group: 'datos',
     title: 'Interiores (WiFi)',
-    pageTitle: 'Cobertura WiFi en interiores con planos',
+    pageTitle: 'Simulador de cobertura WiFi en interiores',
     description:
       'Dibuja el plano con muros y materiales, ubica los access points y mira el mapa de calor de la señal a 2,4, 5 y 6 GHz. Gratis, en tu navegador.',
     summary: 'Dibuja el plano con muros y materiales, ubica los access points y mira la señal.',
@@ -69,12 +69,12 @@ export const SCENARIOS: Scenario[] = [
     path: 'lora',
     group: 'datos',
     title: 'LoRaWAN',
-    pageTitle: 'Cobertura LoRaWAN de un gateway sobre terreno',
+    pageTitle: 'Simulador de cobertura LoRaWAN sobre terreno',
     description:
       'Bajada y subida de un gateway LoRaWAN AU915, US915 o EU868 sobre el terreno real con ITM, y el SF más rápido en cada punto. Gratis, en tu navegador.',
     summary: 'Un gateway y sus sensores: bajada, subida y el SF que alcanza en cada punto.',
     computes: 'Bajada, subida, desbalance, SF mínimo y tiempo en el aire de cada mensaje.',
-    model: 'ITM (Longley-Rice) de NTIA sobre terreno SRTM; sensibilidad LoRa por SF',
+    model: 'ITM (Longley-Rice) de NTIA sobre terreno SRTM, entorno del equipo con la UIT-R P.2108; sensibilidad LoRa por SF',
     options: [
       { label: 'AU915', href: '/lora?banda=au915' },
       { label: 'US915', href: '/lora?banda=us915' },
@@ -85,12 +85,12 @@ export const SCENARIOS: Scenario[] = [
     path: 'terreno',
     group: 'radio',
     title: 'Radiocomunicaciones en terreno',
-    pageTitle: 'Cobertura de radio P25 y trunking sobre terreno',
+    pageTitle: 'Simulador de cobertura de radio P25 y trunking',
     description:
       'Bajada y subida de un sitio VHF, UHF, 700 u 800 MHz sobre el terreno real con ITM (Longley-Rice) y su balance de enlace. Gratis, en tu navegador.',
     summary: 'Trunking P25, SmartZone y convencional sobre el terreno real.',
     computes: 'Bajada, subida y desbalance de un sitio, con su balance de enlace.',
-    model: 'ITM (Longley-Rice) de NTIA sobre terreno SRTM',
+    model: 'ITM (Longley-Rice) de NTIA sobre terreno SRTM, entorno del equipo con la UIT-R P.2108',
     options: [
       { label: 'VHF', href: '/terreno?banda=vhf' },
       { label: 'UHF', href: '/terreno?banda=uhf' },
@@ -102,7 +102,7 @@ export const SCENARIOS: Scenario[] = [
     path: 'enlace',
     group: 'radio',
     title: 'Enlaces punto a punto',
-    pageTitle: 'Radioenlaces y microondas punto a punto',
+    pageTitle: 'Simulador de radioenlaces y microondas',
     description:
       'Perfil del trayecto, despeje de la zona de Fresnel, nivel recibido, margen de desvanecimiento y disponibilidad de un enlace. Gratis, en tu navegador.',
     summary: 'Microondas y radioenlaces: perfil, zona de Fresnel y margen.',
@@ -117,7 +117,7 @@ export const SCENARIOS: Scenario[] = [
     path: 'radiodifusion',
     group: 'radio',
     title: 'Radiodifusión FM y AM',
-    pageTitle: 'Cobertura de emisoras FM y AM',
+    pageTitle: 'Simulador de cobertura de emisoras FM y AM',
     description:
       'Intensidad de campo en dBµV/m y zonas de servicio de una emisora: FM con ITM sobre el terreno real y AM con onda de tierra. Gratis, en tu navegador.',
     summary: 'Emisoras sobre el terreno: intensidad de campo y zonas de servicio.',
@@ -132,7 +132,7 @@ export const SCENARIOS: Scenario[] = [
     path: 'cavernas',
     group: 'radio',
     title: 'Cavernas, túneles y minas',
-    pageTitle: 'Radio en túneles, minas y cavernas',
+    pageTitle: 'Simulador de radio en túneles, minas y cavernas',
     description:
       'Señal de radios, repetidores y cable radiante a lo largo de galerías, curvas y cruces bajo tierra. Gratis, en tu navegador.',
     summary: 'Dibuja las galerías y simula radios, repetidores y cable radiante bajo tierra.',

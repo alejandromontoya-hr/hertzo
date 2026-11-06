@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SCENARIOS } from '../pages/scenarios';
+import { CHOOSER_PATH, SCENARIOS } from '../pages/scenarios';
+import { PAGE_CONTENT, aboutHtml } from './pageContent';
 import { AI_BOTS, PAGES, headTags, llmsTxt, notFoundHeadTags, pageMeta, robotsTxt, sitemapXml, structuredData } from './seo';
 
 type Node = Record<string, unknown>;
@@ -20,8 +21,8 @@ describe('páginas', () => {
     ]);
   });
 
-  it('terreno → "Cobertura de radio P25 y trunking sobre terreno | Hertzo"', () => {
-    expect(pageMeta('terreno')!.title).toBe('Cobertura de radio P25 y trunking sobre terreno | Hertzo');
+  it('terreno → "Simulador de cobertura de radio P25 y trunking | Hertzo": con la palabra que la gente busca', () => {
+    expect(pageMeta('terreno')!.title).toBe('Simulador de cobertura de radio P25 y trunking | Hertzo');
   });
 
   it('la principal empieza por lo que hace y deja la marca al final', () => {
@@ -133,5 +134,31 @@ describe('llms.txt', () => {
       expect(text).toContain(`### [${s.title}](https://hertzo.site/${s.path})`);
       for (const o of s.options) expect(text).toContain(`(https://hertzo.site${o.href})`);
     }
+  });
+});
+
+describe('texto propio de cada simulación', () => {
+  it('cada escenario tiene h1 con "Simulador", al menos dos párrafos y preguntas frecuentes', () => {
+    for (const s of SCENARIOS) {
+      const c = PAGE_CONTENT[s.path]!;
+      expect(c.h1.startsWith('Simulador'), s.path).toBe(true);
+      expect(c.about.length, s.path).toBeGreaterThanOrEqual(2);
+      expect(c.faq.length, s.path).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('el HTML de /lora trae su h1 y sus preguntas, distintos de los de /terreno', () => {
+    expect(aboutHtml('lora')).toContain('<h1>Simulador de cobertura LoRaWAN de un gateway sobre terreno</h1>');
+    expect(aboutHtml('lora')).toContain('¿Qué plan de frecuencias usa Colombia para LoRaWAN?');
+    expect(aboutHtml('terreno')).not.toContain('LoRaWAN de un gateway');
+  });
+
+  it('los datos estructurados de /lora traen sus preguntas (FAQPage) y la aplicación', () => {
+    const graph = (structuredData('lora') as { '@graph': { '@type': string }[] })['@graph'];
+    expect(graph.map((n) => n['@type'])).toEqual(['WebPage', 'WebApplication', 'FAQPage']);
+  });
+
+  it('la página de escenarios no tiene texto propio aparte del suyo', () => {
+    expect(aboutHtml(CHOOSER_PATH)).toBe('');
   });
 });

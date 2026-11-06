@@ -40,16 +40,30 @@ const routes: Route[] = [
 ];
 
 const credits = document.getElementById('credits') as HTMLDialogElement;
-document.querySelector('[data-open-credits]')!.addEventListener('click', () => credits.showModal());
+/** Los créditos vienen en un <template>: así su texto legal en inglés no compite con el de la página en los buscadores. */
+const showCredits = () => {
+  const content = credits.querySelector<HTMLTemplateElement>('#credits-content');
+  if (content) content.replaceWith(content.content.cloneNode(true));
+  credits.showModal();
+};
+document.querySelector('[data-open-credits]')!.addEventListener('click', showCredits);
 // La página principal enlaza los créditos como /escenarios#creditos.
-if (location.hash === '#creditos') credits.showModal();
+if (location.hash === '#creditos') showCredits();
 
 const crumbCurrent = document.querySelector<HTMLElement>('[data-crumb-current]')!;
 
-void startRouter(document.getElementById('app')!, routes, CHOOSER_PATH, (route) => {
+// Texto propio de la página ("Acerca de esta simulación"): viene en el HTML para los
+// buscadores y, al montar la app, queda al final del panel.
+const about = document.querySelector<HTMLElement>('[data-page-about]');
+about?.remove();
+
+const app = document.getElementById('app')!;
+void startRouter(app, routes, CHOOSER_PATH, (route) => {
   const isChooser = route.path === CHOOSER_PATH;
   crumbCurrent.textContent = isChooser ? '' : route.title;
   crumbCurrent.hidden = isChooser;
   // El mismo título que trae el <head> de la página, por si la dirección cambió (una 404 lleva a escenarios).
   document.title = pageMeta(route.path)!.title;
+}).then(() => {
+  if (about) app.querySelector('.panel')?.append(about);
 });

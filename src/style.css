@@ -140,6 +140,13 @@ body {
   letter-spacing: -0.04em;
 }
 
+/* El antetítulo va dentro del h1 para que "Simulador ... de propagación RF" cuente como título; se ve igual que antes. */
+.home-hero h1 .eyebrow {
+  display: block;
+  font-weight: 400;
+  line-height: normal;
+}
+
 .home-hero-lead {
   max-width: 540px;
   margin: 0 0 28px;
@@ -2116,4 +2123,36 @@ body {
 /* Nombre que pisaría otro nombre u otro punto: guarda su espacio, pero no se ve. */
 .device-label-hidden {
   visibility: hidden;
+}
+
+/* "Acerca de esta simulación": el texto propio de la página al final del panel. El h1 va en el
+   resumen para que el título de la página sea el de la simulación, con la letra del panel. */
+.page-about summary h1 {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.page-about p,
+.page-about dd {
+  margin: 8px 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.page-about h2 {
+  margin: 14px 0 4px;
+  font-size: 0.85rem;
+}
+
+.page-about dt {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.page-about dd {
+  margin-left: 0;
+  color: var(--muted);
 }

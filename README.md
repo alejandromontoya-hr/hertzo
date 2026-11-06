@@ -8,7 +8,7 @@ Todo corre en tu navegador: sin servidores, sin cuentas y sin costo.
 
 **Estado:** radio profesional en terreno funcional y en validación con sitios reales; las demás páginas son primeras versiones funcionales. Detalle en [docs/ESCENARIOS.md](docs/ESCENARIOS.md).
 
-- Sitio: https://hertzo.site (próximamente)
+- Sitio: https://hertzo.site
 
 ## Escenarios
 

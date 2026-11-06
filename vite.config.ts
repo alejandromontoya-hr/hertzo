@@ -4,6 +4,7 @@ import type { Connect, Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { landingScenarioList } from './src/landingList';
 import { APP_PATHS, CHOOSER_PATH } from './src/pages/scenarios';
+import { aboutHtml } from './src/seo/pageContent';
 import { headTags, llmsTxt, notFoundHeadTags, robotsTxt, sitemapXml } from './src/seo/seo';
 
 /** Plantilla de la app; la raíz (index.html) queda libre para la página principal del sitio. */
@@ -11,6 +12,13 @@ const APP_HTML = 'simulador.html';
 
 /** Marca en el <head> de index.html y simulador.html donde van el título, la descripción y lo demás de src/seo/seo.ts. */
 const SEO_MARK = '<!--seo-->';
+
+/** <main> vacío de simulador.html: ahí va el texto propio de cada página (src/seo/pageContent.ts). */
+const MAIN_EMPTY = '<main id="app" class="app-main"></main>';
+
+/** La plantilla con el <head> y el texto de una página. */
+const pageHtml = (template: string, path: string) =>
+  template.replace(SEO_MARK, headTags(path)).replace(MAIN_EMPTY, MAIN_EMPTY.replace('></main>', `>${aboutHtml(path)}</main>`));
 
 /** "/interiores", "/interiores/" o "/interiores?plano=casa" → "interiores"; otra dirección → null. */
 function appPathOf(url: string): string | null {
@@ -53,9 +61,10 @@ function appRoutes(): Plugin {
       const built = join(outDir, APP_HTML);
       const template = readFileSync(built, 'utf8');
       if (!template.includes(SEO_MARK)) throw new Error(`Falta ${SEO_MARK} en ${APP_HTML}`);
+      if (!template.includes(MAIN_EMPTY)) throw new Error(`Falta ${MAIN_EMPTY} en ${APP_HTML}`);
       for (const path of APP_PATHS) {
         mkdirSync(join(outDir, path), { recursive: true });
-        writeFileSync(join(outDir, path, 'index.html'), template.replace(SEO_MARK, headTags(path)));
+        writeFileSync(join(outDir, path, 'index.html'), pageHtml(template, path));
       }
       writeFileSync(join(outDir, '404.html'), template.replace(SEO_MARK, notFoundHeadTags()));
       rmSync(built);
@@ -88,7 +97,7 @@ function seo(): Plugin {
       }
       // Al compilar no se sabe a qué dirección irá cada copia: la marca queda para appRoutes().
       if (!ctx.originalUrl) return html;
-      return html.replace(SEO_MARK, headTags(appPathOf(ctx.originalUrl) ?? CHOOSER_PATH));
+      return pageHtml(html, appPathOf(ctx.originalUrl) ?? CHOOSER_PATH);
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {

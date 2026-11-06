@@ -4,6 +4,7 @@
 // el título de la pestaña, así los dos dicen lo mismo.
 
 import { CHOOSER_PATH, SCENARIOS, type Scenario } from '../pages/scenarios';
+import { PAGE_CONTENT } from './pageContent';
 
 export const SITE = {
   name: 'Hertzo',
@@ -43,13 +44,13 @@ export interface PageMeta {
 const UPDATED: Record<string, string> = {
   '': '2026-11-05',
   [CHOOSER_PATH]: '2026-11-05',
-  terreno: '2026-10-25',
-  radiodifusion: '2026-10-25',
-  celular: '2026-10-25',
-  enlace: '2026-10-25',
-  interiores: '2026-10-25',
-  cavernas: '2026-10-25',
-  lora: '2026-11-05',
+  terreno: '2026-11-06',
+  radiodifusion: '2026-11-06',
+  celular: '2026-11-06',
+  enlace: '2026-11-06',
+  interiores: '2026-11-06',
+  cavernas: '2026-11-06',
+  lora: '2026-11-06',
 };
 
 const scenarioMeta = (s: Scenario): PageMeta => ({
@@ -152,6 +153,7 @@ export function structuredData(path: string): object {
   ];
   const scenario = SCENARIOS.find((s) => s.path === path);
   if (scenario) crumbs.push({ name: scenario.title, url: pageUrl(path) });
+  const content = PAGE_CONTENT[path];
 
   return {
     '@context': 'https://schema.org',
@@ -181,6 +183,40 @@ export function structuredData(path: string): object {
           },
         }),
       },
+      // Cada simulación también es una aplicación por sí sola, para que se pueda citar sin el resto del sitio.
+      ...(scenario
+        ? [
+            {
+              '@type': 'WebApplication',
+              '@id': `${pageUrl(path)}#app`,
+              name: content?.h1 ?? scenario.title,
+              url: pageUrl(path),
+              description: page.description,
+              applicationCategory: 'EngineeringApplication',
+              operatingSystem: 'Web',
+              inLanguage: 'es',
+              isAccessibleForFree: true,
+              offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+              license: 'https://opensource.org/licenses/MIT',
+              featureList: [scenario.computes, `Modelo: ${scenario.model}`],
+              isPartOf: { '@id': APP_ID },
+              author: { '@id': AUTHOR_ID },
+            },
+          ]
+        : []),
+      ...(content
+        ? [
+            {
+              '@type': 'FAQPage',
+              '@id': `${pageUrl(path)}#preguntas`,
+              mainEntity: content.faq.map((f) => ({
+                '@type': 'Question',
+                name: f.q,
+                acceptedAnswer: { '@type': 'Answer', text: f.a },
+              })),
+            },
+          ]
+        : []),
     ],
   };
 }
@@ -280,14 +316,17 @@ ${urls.join('\n')}
 
 /** Resumen del sitio para asistentes de IA, en el formato de llmstxt.org. */
 export function llmsTxt(): string {
-  const scenario = (s: Scenario) => `### [${s.title}](${pageUrl(s.path)})
+  const scenario = (s: Scenario) => {
+    const content = PAGE_CONTENT[s.path];
+    return `### [${s.title}](${pageUrl(s.path)})
 
-${s.summary}
+${content ? content.about.join('\n\n') : s.summary}
 
 - Calcula: ${s.computes}
 - Modelo: ${s.model}
 - Variantes: ${s.options.map((o) => `[${o.label}](${SITE.url}${o.href})`).join(', ')}
-`;
+${content ? `\nPreguntas frecuentes:\n\n${content.faq.map((f) => `- ${f.q} ${f.a}`).join('\n')}\n` : ''}`;
+  };
 
   return `# ${SITE.name}
 
