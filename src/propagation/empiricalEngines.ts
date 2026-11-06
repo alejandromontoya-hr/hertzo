@@ -1,6 +1,6 @@
 // Motores empíricos para celular: Okumura-Hata / COST-231 y 3GPP 38.901 UMa.
 
-import { hataInRange, hataLossDb, umaNlosLossDb, type HataEnvironment } from '../rf/cellular';
+import { HATA_MOBILE_HEIGHT_RANGE_M, hataInRange, hataLossDb, umaNlosLossDb, type HataEnvironment } from '../rf/cellular';
 import { freeSpaceLossDb } from '../rf/fieldStrength';
 import type { PropagationEngine, RadialRequest } from './engine';
 
@@ -51,8 +51,11 @@ export function createHataEngine(environment: HataEnvironment): PropagationEngin
         const dKm = ((k + 1) * r.stride * r.stepM) / 1000;
         // Cerca de la torre Hata da menos pérdida que el espacio libre, que es imposible: se usa el mayor.
         const freeSpace = freeSpaceLossDb(Math.hypot(dKm * 1000, r.txHeightM - r.rxHeightM) / 1000, r.frequencyMHz);
-        lossDb[k] = Math.max(hataLossDb(r.frequencyMHz, hb, r.rxHeightM, dKm, environment), freeSpace);
-        if (!hataInRange(r.frequencyMHz, hb, Math.max(1, dKm)) || dKm < HATA_MIN_DRAWN_KM) {
+        // Fuera de 1–10 m la corrección a(hm) de Hata crece sin límite (con el teléfono a 30 m quita
+        // ~24 dB de más): se usa el extremo del rango y el punto se raya como fuera de rango.
+        const hm = Math.min(HATA_MOBILE_HEIGHT_RANGE_M[1], Math.max(HATA_MOBILE_HEIGHT_RANGE_M[0], r.rxHeightM));
+        lossDb[k] = Math.max(hataLossDb(r.frequencyMHz, hb, hm, dKm, environment), freeSpace);
+        if (!hataInRange(r.frequencyMHz, hb, Math.max(1, dKm), r.rxHeightM) || dKm < HATA_MIN_DRAWN_KM) {
           warnings[k] = EMPIRICAL_WARN_OUT_OF_RANGE;
         }
       }
@@ -72,7 +75,8 @@ export function createUmaEngine(): PropagationEngine {
       for (let k = 0; k < count; k++) {
         const d = (k + 1) * r.stride * r.stepM;
         lossDb[k] = umaNlosLossDb(r.frequencyMHz, r.txHeightM, r.rxHeightM, Math.max(10, d));
-        if (d < 10 || d > 5000 || r.frequencyMHz < 500) warnings[k] = EMPIRICAL_WARN_OUT_OF_RANGE;
+        // 38.901 ajusta UMa con el teléfono entre 1,5 y 22,5 m.
+        if (d < 10 || d > 5000 || r.frequencyMHz < 500 || r.rxHeightM < 1.5 || r.rxHeightM > 22.5) warnings[k] = EMPIRICAL_WARN_OUT_OF_RANGE;
       }
       return { lossDb, warnings };
     },

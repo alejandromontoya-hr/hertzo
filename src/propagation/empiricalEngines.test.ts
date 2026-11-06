@@ -31,6 +31,20 @@ describe('altura efectiva', () => {
 });
 
 describe('motor Hata', () => {
+  // Teléfono a 30 m: Hata se ajustó de 1 a 10 m y a(30) quitaría ~24 dB de más a 5 km. Se calcula
+  // con 10 m (129,2 dB a 850 MHz en ciudad mediana, no los 105 dB del espacio libre) y se raya.
+  it('teléfono a 30 m: se calcula con 10 m y se marca fuera de rango', () => {
+    const r = { ...radial(() => 1500), rxHeightM: 30 };
+    const { lossDb, warnings } = createHataEngine('urbano').radialLoss(r);
+    // stride 10 con muestras cada 100 m: el punto 4 está a 5 km.
+    expect(lossDb[4]).toBeCloseTo(hataLossDb(900, 30, 10, 5, 'urbano'), 4);
+    expect(warnings[4]).toBe(EMPIRICAL_WARN_OUT_OF_RANGE);
+  });
+
+  it('teléfono a 1,5 m a 5 km: dentro de rango, sin rayar', () => {
+    expect(createHataEngine('urbano').radialLoss(radial(() => 1500)).warnings[4]).toBe(0);
+  });
+
   it('en terreno plano coincide con la fórmula urbana: 1 km → 126,40 dB', () => {
     const { lossDb } = createHataEngine('urbano').radialLoss(radial(() => 1500));
     // stride 10 con muestras cada 100 m: el punto 0 está a 1 km.

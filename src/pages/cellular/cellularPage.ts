@@ -140,7 +140,8 @@ const BASE_SITE: SiteParams = { antennaHeightM: 30, powerW: 40, cableLossDb: 2, 
 const BASE_ANTENNA: SectorAntenna = { gainDbi: 17, horizontalBeamwidthDeg: 65, verticalBeamwidthDeg: 7, downtiltDeg: 4 };
 
 /** Desviación del desvanecimiento lognormal (dB): 8 dB para Hata y 6 dB para 38.901 UMa NLOS. */
-const shadowSigmaDb = (model: string) => (model === 'uma' ? 6 : 8);
+/** σ del desvanecimiento lento según el motor que calculó el mapa: 6 dB en UMa, 8 dB en Hata. */
+const shadowSigmaDb = (engineId: string) => (engineId === 'uma' ? 6 : 8);
 
 export function mountCellularPage({ root, params }: PageContext): () => void {
   let band = BANDS.find((b) => b.id === params.get('banda')) ?? BANDS[0]!;
@@ -372,7 +373,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     // Señal mediana en el teléfono: pierde lo del edificio si está adentro (también la de los vecinos).
     const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(band.frequencyMHz, phone);
     // Con Hata o UMa la confiabilidad es un margen z·σ sobre la mediana; con ITM ya viene en la pérdida.
-    const margin = result.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(model));
+    const margin = result.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(result.request.engine.id));
     const dh = siteParams.antennaHeightM - siteParams.ueHeightM;
     const levels = new Array<number>(azimuths.length);
     const neighbors = neighborKm > 0 ? neighborOffsetsM(neighborKm * 1000) : [];
@@ -662,7 +663,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const below = (Math.atan2(siteParams.antennaHeightM - siteParams.ueHeightM, Math.max(1, d)) * 180) / Math.PI;
     const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(band.frequencyMHz, phone);
-    const margin = coverage.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(model));
+    const margin = coverage.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(coverage.request.engine.id));
     const median = azimuths.map((a) => base + sectorGainDbi(antenna, angleDiffDeg(bearing, a), below) - grid.lossDb[g]!);
     const levels = median.map((l) => l - margin);
     const best = levels.indexOf(Math.max(...levels));

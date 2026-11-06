@@ -50,9 +50,16 @@ export function hataLossDb(
   }
 }
 
-/** Si los datos están dentro del rango en que se ajustó Hata. */
-export function hataInRange(frequencyMHz: number, baseHeightM: number, distanceKm: number): boolean {
-  return frequencyMHz >= 150 && frequencyMHz <= 2000 && baseHeightM >= 30 && baseHeightM <= 200 && distanceKm >= 1 && distanceKm <= 20;
+/** Alturas del teléfono con las que se ajustó Hata (m). */
+export const HATA_MOBILE_HEIGHT_RANGE_M = [1, 10] as const;
+
+/** Si los datos están dentro del rango en que se ajustó Hata (teléfono de 1 a 10 m). */
+export function hataInRange(frequencyMHz: number, baseHeightM: number, distanceKm: number, mobileHeightM = 1.5): boolean {
+  const [minHm, maxHm] = HATA_MOBILE_HEIGHT_RANGE_M;
+  return (
+    frequencyMHz >= 150 && frequencyMHz <= 2000 && baseHeightM >= 30 && baseHeightM <= 200 &&
+    distanceKm >= 1 && distanceKm <= 20 && mobileHeightM >= minHm && mobileHeightM <= maxHm
+  );
 }
 
 const SPEED_OF_LIGHT = 299792458;
