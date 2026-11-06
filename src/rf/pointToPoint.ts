@@ -101,6 +101,35 @@ export function minClearance(points: readonly ClearancePoint[]): MinClearance {
   return best;
 }
 
+/** k mediano (atmósfera estándar) y k desfavorable con que se juzga el despeje. */
+export const MEDIAN_K = 4 / 3;
+export const WORST_K = 2 / 3;
+
+export interface ClearanceCriteria {
+  /** Despeje mínimo con k = 4/3; debe librar el 100 % de F1. */
+  median: MinClearance;
+  /** Despeje mínimo con k = 2/3; debe librar el 60 % de F1. */
+  worst: MinClearance;
+  medianOk: boolean;
+  worstOk: boolean;
+}
+
+/**
+ * Criterio clásico de despeje para enlaces fijos: 100 % de la primera zona de Fresnel con k = 4/3
+ * (condición mediana) y 60 % con k = 2/3 (subrefracción, que en trayectos largos o en clima
+ * tropical húmedo baja el rayo hacia el terreno). Se exigen las dos y manda la peor.
+ *
+ * La ITU-R P.530-18 (§2.2.2.1) permite bajar al 0–30 % de F1 con el k excedido el 99,9 % del
+ * tiempo cuando hay un solo obstáculo aislado, pero ese k sale de una curva que depende de la
+ * longitud y del gradiente de refractividad local; aquí se usa el 60 % con k = 2/3, más
+ * conservador y sin datos que el usuario no tiene.
+ */
+export function clearanceCriteria(input: Omit<LinkGeometryInput, 'kFactor'>): ClearanceCriteria {
+  const median = minClearance(clearanceProfile({ ...input, kFactor: MEDIAN_K }));
+  const worst = minClearance(clearanceProfile({ ...input, kFactor: WORST_K }));
+  return { median, worst, medianOk: median.ratio >= 1, worstOk: worst.ratio >= 0.6 };
+}
+
 export interface DiffractionEdge {
   distanceM: number;
   v: number;
@@ -152,6 +181,9 @@ export function parabolicGainDbi(diameterM: number, frequencyMHz: number, effici
 /**
  * Atenuación aproximada por gases atmosféricos (dB/km) a nivel del mar con 7,5 g/m³ de vapor,
  * interpolada de la ITU-R P.676. Pesa por encima de 10 GHz (pico del vapor de agua en 22 GHz).
+ * En sitios altos (Medellín a 1500 m, cerros a 2500 m o más) el aire es menos denso y lleva menos
+ * vapor, así que la atenuación real es algo menor: la tabla a nivel del mar queda del lado
+ * conservador y no se corrige por altitud.
  */
 const GASEOUS_TABLE: readonly [number, number][] = [
   [1, 0.006],

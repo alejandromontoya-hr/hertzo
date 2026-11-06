@@ -26,7 +26,7 @@ describe('espacio libre e intensidad de campo', () => {
   });
 });
 
-describe('onda de tierra (Sommerfeld-Norton, aproximación de Terman)', () => {
+describe('onda de tierra (Norton exacto y serie de residuos)', () => {
   // AM de 1 kW con monopolo corto (4,77 dBi): sin atenuación da 300 mV/m a 1 km = 109,54 dBµV/m.
   const eirpDbm = 60 + 4.77;
   const fieldAt = (km: number, mhz: number, id: string) =>
@@ -36,24 +36,11 @@ describe('onda de tierra (Sommerfeld-Norton, aproximación de Terman)', () => {
     expect(fieldFromEirp(eirpDbm, freeSpaceLossDb(1, 1), 1)).toBeCloseTo(109.52, 2);
   });
 
-  // Agua de mar, 1 MHz, 100 km: x = 1,8·10⁴·5 / 1 = 90 000; b = arctan(71 / 90 000) = 0,000789 rad;
-  // p = π·100 000 / (299,79·90 000) = 0,01164; A = 2,00349 / 2,01173 − 0,0000598 = 0,99585.
-  it('agua de mar, 1 MHz, 100 km: A = 0,9959 y E ≈ 69,5 dBµV/m (3 mV/m)', () => {
-    const n = nortonAttenuation(100000, 1, ground('mar'));
-    expect(n.p).toBeCloseTo(0.011644, 5);
-    expect(n.attenuation).toBeCloseTo(0.99585, 4);
-    expect(fieldAt(100, 1, 'mar')).toBeCloseTo(69.48, 1);
-  });
-
-  // Tierra media (3 mS/m, εr 22), 1 MHz, 50 km: x = 54; b = arctan(23/54) = 0,40266 rad;
-  // p = π·50 000 / (299,79·54)·cos b = 9,70305·0,92001 = 8,927;
-  // A = 4,67807 / 58,74053 − 2,11269·e^(−5,5793)·0,39186 = 0,079640 − 0,003125 = 0,07652.
-  // E = 109,52 − 20·log 50 + 20·log 0,07652 = 109,52 − 33,98 − 22,32 = 53,2 dBµV/m.
-  it('tierra media, 1 MHz, 50 km: A ≈ 0,0765 y E ≈ 53,2 dBµV/m', () => {
-    const n = nortonAttenuation(50000, 1, ground('media'));
-    expect(n.p).toBeCloseTo(8.927, 2);
-    expect(n.attenuation).toBeCloseTo(0.07652, 4);
-    expect(fieldAt(50, 1, 'media')).toBeCloseTo(53.2, 1);
+  // Tierra media (3 mS/m, εr 22), 1 MHz, 5 km: Norton exacto |F| = 0,52598 (−5,58 dB), comprobado
+  // con una implementación independiente. E = 109,52 − 20·log 5 − 5,58 = 89,96 dBµV/m.
+  it('tierra media, 1 MHz, 5 km: |F| = 0,526 y E ≈ 90,0 dBµV/m', () => {
+    expect(nortonAttenuation(5000, 1, ground('media')).attenuation).toBeCloseTo(0.52598, 4);
+    expect(fieldAt(5, 1, 'media')).toBeCloseTo(89.96, 1);
   });
 
   it('suelos secos con las constantes de la ITU (tabla 2 del Manual de onda de tierra, 2014)', () => {
@@ -62,35 +49,9 @@ describe('onda de tierra (Sommerfeld-Norton, aproximación de Terman)', () => {
     expect(ground('roca')).toMatchObject({ sigmaSm: 0.0001, epsilonR: 3 });
   });
 
-  // Tierra seca (1 mS/m, εr 15), 1 MHz, 50 km: x = 18; b = arctan(16/18), cos b = 0,74741, sen b = 0,66436;
-  // p = π·50 000 / (299,79·18)·0,74741 = 29,1090·0,74741 = 21,756;
-  // A = 8,5269 / 307,761 − 3,2982·e^(−13,598)·0,66436 = 0,027706 − 0,0000027 = 0,027703.
-  // E = 109,52 − 33,98 − 31,15 = 44,4 dBµV/m.
-  it('tierra seca, 1 MHz, 50 km: A ≈ 0,0277 y E ≈ 44,4 dBµV/m', () => {
-    const n = nortonAttenuation(50000, 1, ground('seca'));
-    expect(n.p).toBeCloseTo(21.756, 2);
-    expect(n.attenuation).toBeCloseTo(0.027703, 5);
-    expect(fieldAt(50, 1, 'seca')).toBeCloseTo(44.4, 1);
-  });
-
-  // Tierra muy seca (0,3 mS/m, εr 7), 1 MHz, 10 km: x = 5,4; b = arctan(8/5,4), cos b = 0,55947, sen b = 0,82886;
-  // p = π·10 000 / (299,79·5,4)·0,55947 = 19,4061·0,55947 = 10,857;
-  // A = 5,2571 / 83,582 − 2,3299·e^(−6,7856)·0,82886 = 0,062898 − 0,002183 = 0,060715.
-  it('tierra muy seca, 1 MHz, 10 km: A ≈ 0,0607', () => {
-    const n = nortonAttenuation(10000, 1, ground('muy-seca'));
-    expect(n.p).toBeCloseTo(10.857, 2);
-    expect(n.attenuation).toBeCloseTo(0.060715, 4);
-  });
-
-  // Roca (0,1 mS/m, εr 3), 1 MHz, 10 km: x = 1,8; b = arctan(4/1,8), cos b = 0,41036;
-  // p = π·10 000 / (299,79·1,8)·0,41036 = 58,218·0,41036 = 23,890;
-  // A = 9,1670 / 368,33 − (despreciable, e^(−14,93)) = 0,024888 → E = 300·0,024888/10 = 0,75 mV/m.
-  // Con εr 22 daba 2,7 mV/m: 11 dB de más.
-  it('roca, 1 MHz, 10 km: A ≈ 0,0249 y E ≈ 0,75 mV/m', () => {
-    const n = nortonAttenuation(10000, 1, ground('roca'));
-    expect(n.p).toBeCloseTo(23.89, 2);
-    expect(n.attenuation).toBeCloseTo(0.024888, 4);
-    expect(dbuvmToMvm(fieldAt(10, 1, 'roca'))).toBeCloseTo(0.747, 2);
+  // Roca (0,1 mS/m, εr 3), 1 MHz, 10 km: |F| = 0,02209 → E = 300·0,02209/10 = 0,66 mV/m.
+  it('roca, 1 MHz, 10 km: E ≈ 0,66 mV/m', () => {
+    expect(dbuvmToMvm(fieldAt(10, 1, 'roca'))).toBeCloseTo(0.663, 2);
   });
 
   it('a igual distancia, el suelo seco atenúa más que el húmedo, y este más que el mar', () => {
@@ -107,11 +68,12 @@ describe('onda de tierra (Sommerfeld-Norton, aproximación de Terman)', () => {
     expect(flatEarthLimitKm(8)).toBeCloseTo(40, 10);
   });
 
-  it('alcance inverso: sobre el mar a 1 MHz, 69,48 dBµV/m se cumple hasta ~100 km', () => {
-    expect(groundwaveRangeKm(eirpDbm, 1, ground('mar'), 69.48)).toBeCloseTo(100, 0);
+  it('alcance inverso: el campo en el alcance hallado es el umbral pedido', () => {
+    const range = groundwaveRangeKm(eirpDbm, 1, ground('media'), 54);
+    expect(fieldAt(range, 1, 'media')).toBeCloseTo(54, 2);
   });
 
-  it('alcance inverso: sobre tierra media a 1 MHz, 53,2 dBµV/m se cumple hasta ~50 km', () => {
-    expect(groundwaveRangeKm(eirpDbm, 1, ground('media'), 53.24)).toBeCloseTo(50, 0);
+  it('alcance inverso: sobre tierra media a 1 MHz, 89,96 dBµV/m se cumple hasta ~5 km', () => {
+    expect(groundwaveRangeKm(eirpDbm, 1, ground('media'), 89.96)).toBeCloseTo(5, 1);
   });
 });

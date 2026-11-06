@@ -1,5 +1,6 @@
 // Enlaces punto a punto: microondas y radioenlaces VHF/UHF. Perfil con la curvatura de la
-// Tierra, despeje de la zona de Fresnel, pérdidas, nivel recibido, margen y disponibilidad.
+// Tierra, despeje de la zona de Fresnel, pérdidas, nivel recibido, margen y disponibilidad
+// (lluvia según la ITU-R P.530-18 y multitrayecto según Vigants-Barnett).
 
 import { Marker, type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
@@ -12,10 +13,11 @@ import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
 import { addExportControl } from '../../map/exportControl';
 import { createPickBanner } from '../../map/pickBanner';
-import { loadItm } from '../../propagation/itm';
+import { DEFAULT_ITM_PARAMETERS, loadItm, type ItmParameters } from '../../propagation/itm';
 import { freeSpaceLossDb } from '../../rf/fieldStrength';
 import {
   CLIMATE_FACTORS,
+  clearanceCriteria,
   clearanceProfile,
   deygoutLoss,
   elevationAngleDeg,
@@ -25,10 +27,17 @@ import {
   parabolicGainDbi,
   type ClearancePoint,
 } from '../../rf/pointToPoint';
+import {
+  DEFAULT_RAIN_RATE_MM_H,
+  rainAttenuation001Db,
+  rainOutagePercent,
+  type Polarization,
+  type RainOutage,
+} from '../../rf/rain';
 import { dbmToWatts } from '../../rf/units';
 import { loadTerrain } from '../../terrain/elevation';
 import { profileBounds, sampleProfile, type TerrainProfile } from '../../terrain/profile';
-import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { createFieldGroup, createNumberField, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { infoButton } from '../../ui/infoTip';
 import { bindSiteFields, siteFieldsHtml } from '../../ui/siteFields';
 import { formatHeight, formatLonLat, formatMeters, formatWatts } from '../../ui/format';
@@ -70,6 +79,17 @@ const K_FACTORS = [
 
 type LossModel = 'difraccion' | 'itm';
 
+const POLARIZATIONS: { id: Polarization; label: string }[] = [
+  { id: 'vertical', label: 'Vertical' },
+  { id: 'horizontal', label: 'Horizontal (la lluvia atenúa más)' },
+];
+
+/**
+ * ITM para un enlace fijo: modo de variabilidad 1 (accidental), el de los trayectos punto a punto
+ * entre antenas fijas, en vez del 2 (móvil) de las coberturas. Al 50 % la mediana es la misma.
+ */
+const LINK_ITM_PARAMETERS: ItmParameters = { ...DEFAULT_ITM_PARAMETERS, variabilityMode: 1 };
+
 /** Ejemplo inicial: del cerro del Padre Amaya al cerro El Volador (Medellín). */
 const EXAMPLE_A: LonLat = { lon: -75.6853, lat: 6.2794 };
 const EXAMPLE_B: LonLat = { lon: -75.5828, lat: 6.2664 };
@@ -91,7 +111,13 @@ const twoDecimals = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, m
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 const percentFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 4 });
 
-const SECONDS_PER_YEAR = 365.25 * 24 * 3600;
+const MINUTES_PER_YEAR = (365.25 * 24 * 60) / 100; // minutos de un 1 % del año
+
+/** "124 min (0,0236 %)", o con "<" / ">" si la lluvia quedó fuera del rango de la P.530. */
+function outageText(percent: number, bound: RainOutage['bound'] = null): string {
+  const sign = bound === 'below' ? '< ' : bound === 'above' ? '> ' : '';
+  return `${sign}${integerFormat.format(percent * MINUTES_PER_YEAR)} min (${sign}${percentFormat.format(percent)} %)`;
+}
 
 /** "11 GHz" o "450 MHz". */
 const frequencyLabel = (mhz: number) => (mhz >= 1000 ? `${mhz / 1000} GHz` : `${mhz} MHz`);
@@ -121,6 +147,8 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   let link: LinkParams = { ...PRESETS[type].params };
   let kFactor = 4 / 3;
   let climate = CLIMATE_FACTORS[1]!;
+  let polarization: Polarization = 'vertical';
+  let rainRate = DEFAULT_RAIN_RATE_MM_H;
   let lossModel: LossModel = type === 'radio' ? 'itm' : 'difraccion';
   let endA: LonLat | null = EXAMPLE_A;
   let endB: LonLat | null = EXAMPLE_B;
@@ -323,6 +351,28 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
         schedule();
       }).element,
     );
+    if (!isMicro) return;
+    propagationForm.append(
+      createSelectField('Polarización', POLARIZATIONS, polarization, (id) => {
+        polarization = id as Polarization;
+        schedule();
+      }).element,
+      createNumberField(
+        {
+          key: 'rainRate',
+          label: 'Lluvia excedida el 0,01 % del año (R0,01)',
+          unit: 'mm/h',
+          min: 1,
+          max: 250,
+          hint: '95 mm/h es el valor de la zona N de la ITU-R P.837-1, la de los Andes colombianos. Para tu sitio, escribe el R0,01 del mapa de la ITU-R P.837-7.',
+        },
+        rainRate,
+        (value) => {
+          rainRate = value;
+          schedule();
+        },
+      ).element,
+    );
   }
 
   function antennaGainDbi(value: number): number {
@@ -414,6 +464,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     };
     const points = clearanceProfile(geometry);
     const clearance = minClearance(points);
+    const criteria = clearanceCriteria(geometry);
     const diffraction = deygoutLoss(geometry);
     const dKm = p.distanceM / 1000;
     const fspl = freeSpaceLossDb(dKm, link.frequencyMHz);
@@ -425,7 +476,13 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       const itm = await loadItm();
       if (current !== request) return;
       try {
-        itmLoss = itm.pointToPoint([p.elevationsM.length - 1, p.stepM, ...p.elevationsM], link.heightAM, link.heightBM, link.frequencyMHz).lossDb;
+        itmLoss = itm.pointToPoint(
+          [p.elevationsM.length - 1, p.stepM, ...p.elevationsM],
+          link.heightAM,
+          link.heightBM,
+          link.frequencyMHz,
+          LINK_ITM_PARAMETERS,
+        ).lossDb;
       } catch {
         itmLoss = null;
       }
@@ -439,14 +496,38 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     const eirp = link.txPowerDbm - link.lossAdb + gainA;
     const received = eirp - pathLoss + gainB - link.lossBdb;
     const margin = received - link.thresholdDbm;
-    const outage = multipathOutageProbability(link.frequencyMHz, dKm, Math.max(0, margin), climate.c);
+    const isMicro = type === 'microondas';
+    // Probabilidades en % del año. El multitrayecto (Vigants-Barnett) y la lluvia (P.530-18) se
+    // suman: casi nunca coinciden (el multitrayecto es de noches quietas, la lluvia de tormentas).
+    const multipathPercent = 100 * multipathOutageProbability(link.frequencyMHz, dKm, Math.max(0, margin), climate.c);
+    const rainA001 = isMicro ? rainAttenuation001Db(link.frequencyMHz, dKm, rainRate, polarization) : 0;
+    const rain: RainOutage = isMicro ? rainOutagePercent(rainA001, margin) : { percent: 0, bound: null };
+    const availability = Math.max(0, 100 - (rain.percent + multipathPercent));
 
+    const pct = (ratio: number) => `${integerFormat.format(ratio * 100)} %`;
+    const at = (m: { distanceM: number }) => `a ${twoDecimals.format(m.distanceM / 1000)} km de A`;
+    const { median, worst } = criteria;
+    const worstText = `con k = 2/3 (aire que curva el rayo hacia el suelo, típico de madrugadas húmedas y trayectos largos) libra el ${pct(worst.ratio)} de F1 ${at(worst)}; se pide el 60 %`;
     const verdict =
-      clearance.ratio >= 0.6
-        ? { color: '#1a7f37', label: 'Despejado', text: 'La línea libra el 60 % de la primera zona de Fresnel.' }
-        : clearance.ratio >= 0
-          ? { color: '#bf8700', label: 'Despeje parcial', text: 'Hay línea de vista, pero el terreno invade la zona de Fresnel.' }
-          : { color: '#cf222e', label: 'Obstruido', text: 'El terreno corta la línea entre antenas.' };
+      median.ratio < 0
+        ? { color: '#cf222e', label: 'Obstruido', text: `Con k = 4/3 el terreno corta la línea entre antenas ${at(median)}.` }
+        : !criteria.medianOk
+          ? {
+              color: '#bf8700',
+              label: 'Despeje parcial',
+              text: `Con k = 4/3 la línea libra el ${pct(median.ratio)} de la primera zona de Fresnel ${at(median)}; se pide el 100 %.${criteria.worstOk ? '' : ` Además, ${worstText}.`}`,
+            }
+          : !criteria.worstOk
+            ? {
+                color: '#bf8700',
+                label: 'Despeje parcial',
+                text: `Con k = 4/3 libra el ${pct(median.ratio)} de la primera zona de Fresnel, pero ${worstText}.`,
+              }
+            : {
+                color: '#1a7f37',
+                label: 'Despejado',
+                text: `Libra el 100 % de la primera zona de Fresnel con k = 4/3 (${pct(median.ratio)}) y el 60 % con k = 2/3 (${pct(worst.ratio)}).`,
+              };
     setLine(verdict.color, p.from, p.to);
 
     const elevA = p.elevationsM[0]!;
@@ -467,7 +548,9 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       ['Distancia', `${twoDecimals.format(dKm)} km`, false],
       ['Azimut A → B / B → A', `${oneDecimal.format(azAB)}° / ${oneDecimal.format(azBA)}°`, false],
       ['Inclinación en A / en B', `${twoDecimals.format(tiltA)}° / ${twoDecimals.format(tiltB)}°`, false],
-      ['Despeje mínimo', `${integerFormat.format(clearance.ratio * 100)} % de F1 a ${twoDecimals.format(clearance.distanceM / 1000)} km`, true],
+      ['Despeje con k = 4/3 (pide 100 % de F1)', `${pct(median.ratio)} de F1 a ${twoDecimals.format(median.distanceM / 1000)} km`, true],
+      ['Despeje con k = 2/3 (pide 60 % de F1)', `${pct(worst.ratio)} de F1 a ${twoDecimals.format(worst.distanceM / 1000)} km`, true],
+      ['Despeje mínimo con el k del perfil', `${pct(clearance.ratio)} de F1 a ${twoDecimals.format(clearance.distanceM / 1000)} km`, false],
       ['Pérdida en espacio libre', `${oneDecimal.format(fspl)} dB`, false],
       [`Difracción (${diffraction.edges.length} arista${diffraction.edges.length === 1 ? '' : 's'})`, `${oneDecimal.format(diffraction.lossDb)} dB`, false],
       ['Gases atmosféricos', `${oneDecimal.format(gases)} dB`, false],
@@ -477,13 +560,26 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
       ['PIRE', `${oneDecimal.format(eirp)} dBm`, false],
       ['Nivel recibido', `${oneDecimal.format(received)} dBm`, true],
       ['Margen de desvanecimiento', `${signed(margin)} dB`, true],
-      ['Disponibilidad (multitrayecto)', margin > 0 ? `${percentFormat.format(100 * (1 - outage))} %` : '—', false],
-      ['Corte esperado al año', margin > 0 ? `${integerFormat.format((outage * SECONDS_PER_YEAR) / 60)} min` : 'sin margen', false],
+      ...(isMicro
+        ? ([
+            [
+              'Lluvia excedida el 0,01 % del año',
+              `${oneDecimal.format(rainA001)} dB (R0,01 ${integerFormat.format(rainRate)} mm/h, ${polarization})`,
+              false,
+            ],
+            ['Corte por lluvia al año', margin > 0 ? outageText(rain.percent, rain.bound) : 'sin margen', false],
+          ] satisfies ReportRow[])
+        : []),
+      ['Corte por multitrayecto al año', margin > 0 ? outageText(multipathPercent) : 'sin margen', false],
+      [
+        isMicro ? 'Disponibilidad (lluvia + multitrayecto)' : 'Disponibilidad (multitrayecto)',
+        margin > 0 ? `${rain.bound === 'above' ? '< ' : ''}${percentFormat.format(availability)} %` : '—',
+        true,
+      ],
     ];
-    const note =
-      link.frequencyMHz > 10000
-        ? 'Sobre 10 GHz la lluvia es la causa principal de cortes y este cálculo no la incluye: deja margen adicional.'
-        : 'La disponibilidad es la de Vigants-Barnett por desvanecimiento multitrayecto; no incluye lluvia ni fallas de equipo.';
+    const note = isMicro
+      ? `Lluvia: ITU-R P.838-3 y P.530-18 para latitudes menores de 30°, con R0,01 = ${integerFormat.format(rainRate)} mm/h (95 mm/h es la zona N de la P.837-1, Andes colombianos; usa el valor de la P.837-7 para tu sitio). Multitrayecto: Vigants-Barnett. No incluye fallas de equipo.`
+      : 'La disponibilidad es la de Vigants-Barnett por desvanecimiento multitrayecto; en VHF/UHF la lluvia no pesa. No incluye fallas de equipo.';
     results.innerHTML = `
       <table class="budget">
         <tbody>

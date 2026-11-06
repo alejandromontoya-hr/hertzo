@@ -4,6 +4,7 @@
 
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import type { CoverageRequest, CoverageResult } from '../../coverage/computeCoverage';
+import { itmSpec } from '../../coverage/inputs';
 import { paintBands, bandLabels } from '../../coverage/paint';
 import { contourRing } from '../../coverage/contours';
 import { areaAboveKm2, gridValues, lowConfidencePixels, pixelAreaKm2 } from '../../coverage/pixelValues';
@@ -22,12 +23,14 @@ import {
   freeSpaceLossDb,
   kilowattsToDbm,
 } from '../../rf/fieldStrength';
-import { AM_ANTENNAS, GROUND_TYPES, flatEarthLimitKm, groundwaveRangeKm } from '../../rf/groundwave';
+import { AM_ANTENNAS, GROUND_TYPES, groundwaveRangeKm } from '../../rf/groundwave';
+import { clutterQuery, clutterSummary, createClutterControl, parseClutter } from '../../ui/clutterControl';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
 import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { setInfo } from '../../ui/infoTip';
 import { createHoverReadout } from '../../ui/hoverReadout';
+import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
@@ -66,7 +69,11 @@ const AM_FIELDS: readonly NumberFieldSpec<keyof AmStation>[] = [
   { key: 'powerKw', label: 'Potencia del transmisor', unit: 'kW', min: 0, max: 1000, minExclusive: true },
 ];
 
-/** Umbrales de campo de la ITU-R BS.412 (FM) y valores habituales de servicio diurno en AM. */
+/**
+ * Umbrales de campo de la ITU-R BS.412 (FM) y, en AM, los contornos del plan técnico de
+ * radiodifusión sonora en AM de Colombia (Decreto 1445 de 1995, numeral 4.21): 1250, 625, 500 y
+ * 250 µV/m = 20·log(µV/m) = 61,9, 55,9, 54,0 y 48,0 dBµV/m, redondeados a 62, 56, 54 y 48.
+ */
 const SERVICE = {
   fm: {
     thresholds: [74, 66, 54, 48],
@@ -74,14 +81,23 @@ const SERVICE = {
     radiusKm: 60,
   },
   am: {
-    thresholds: [74, 66, 54],
-    descriptions: ['5 mV/m, zona urbana densa', '2 mV/m, urbano', '0,5 mV/m, rural'],
+    thresholds: [62, 56, 54, 48],
+    descriptions: [
+      'contorno de 1250 µV/m (Decreto 1445 de 1995)',
+      'contorno de 625 µV/m (Decreto 1445 de 1995)',
+      'contorno de 500 µV/m (Decreto 1445 de 1995)',
+      'contorno de 250 µV/m (Decreto 1445 de 1995)',
+    ],
     radiusKm: 150,
   },
 } as const;
 
 /** FM: radio máximo del cálculo con ITM (más allá es lento y el horizonte ya cortó). */
 const FM_MAX_RADIUS_KM = 150;
+
+/** Nota de las zonas AM: el mapa es de día; de noche la onda de cielo lo reduce. */
+const AM_NIGHT_NOTE =
+  'Cobertura diurna (onda de tierra, Tierra esférica con k = 4/3). De noche la ionosfera refleja la onda de cielo: las emisoras lejanas en el mismo canal y en los adyacentes interfieren y el área útil se encoge, a veces a una fracción de la diurna. Los umbrales son los contornos del Decreto 1445 de 1995 (numeral 4.21).';
 
 const mvmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -94,6 +110,9 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   let amAntenna = AM_ANTENNAS[1]!;
   let ground = GROUND_TYPES.find((g) => g.id === 'media')!;
   let thresholds: number[] = [...SERVICE[service].thresholds];
+  /** FM: entorno del receptor (UIT-R P.2108) y confiabilidad; 50 % es la F(50,50) de la radiodifusión. */
+  let clutter = parseClutter(params);
+  let reliability = parseReliability(params, 50);
   let opacity = 0.7;
   let coverage: CoverageResult | null = null;
   let geometry: RasterGeometry | null = null;
@@ -115,6 +134,11 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       <div class="form" data-station-form></div>
       <p class="hint" data-station-summary></p>
     </section>
+    <details class="panel-section" open data-fm-receiver>
+      <summary>Receptor</summary>
+      <div class="form" data-reliability-form></div>
+      <div class="form" data-clutter-form></div>
+    </details>
     <section class="panel-section">
       <h2>Zonas de servicio</h2>
       <div data-zones><p class="hint">Ubica el transmisor y pulsa "Simular" para ver el alcance de cada zona.</p></div>
@@ -126,6 +150,19 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   const stationForm = page.find('[data-station-form]');
   const stationSummary = page.find('[data-station-summary]');
   const zones = page.find('[data-zones]');
+  const fmReceiver = page.find('[data-fm-receiver]');
+  createReliabilityControl(page.find('[data-reliability-form]'), reliability, (next) => {
+    reliability = next;
+    replaceQuery('confiabilidad', next === 50 ? null : String(next));
+    onChange();
+  });
+  createClutterControl(page.find('[data-clutter-form]'), clutter, (next) => {
+    clutter = next;
+    const query = clutterQuery(clutter);
+    replaceQuery('entorno', query.entorno);
+    replaceQuery('altura-entorno', query.altura);
+    onChange();
+  });
   const exporter = addExportControl(page.map, [
     { label: 'KMZ para Google Earth', description: 'Campo con su leyenda, contornos por umbral y el transmisor con su ficha.', run: exportKmz },
   ]);
@@ -160,6 +197,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
 
   function buildStationForm() {
     stationForm.replaceChildren();
+    fmReceiver.hidden = service !== 'fm';
     if (service === 'fm') {
       setInfo(
         serviceHint,
@@ -172,7 +210,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     } else {
       setInfo(
         serviceHint,
-        'Onda media de 530 a 1710 kHz. La señal viaja pegada al suelo (onda de tierra): manda la conductividad del terreno, no el relieve.',
+        'Onda media de 530 a 1710 kHz. De día la señal viaja pegada al suelo (onda de tierra): manda la conductividad del terreno, no el relieve. De noche la onda de cielo de emisoras lejanas en el mismo canal y en los adyacentes interfiere y la cobertura útil se encoge.',
       );
       createFieldGroup(stationForm, AM_FIELDS, am, (next) => {
         am = next;
@@ -199,7 +237,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       return {
         site: location,
         radiusM,
-        engine: { id: 'itm' },
+        engine: itmSpec(clutter, reliability),
         links: [{ siteHeightM: fm.antennaHeightM, radioHeightM: fm.receiverHeightM, frequencyMHz: fm.frequencyMHz }],
         // Hasta ~1700 muestras por radial: a 150 km el terreno va cada 88 m.
         plan: { stepM: Math.max(30, radiusM / 1700) },
@@ -250,8 +288,12 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       header: ['', ...(isAm ? ['Alcance'] : []), 'Área'],
       rows,
       note: isAm
-        ? `El modelo de Tierra plana vale hasta ~${integerFormat.format(flatEarthLimitKm(frequencyMHz()))} km a esta frecuencia; más allá aparece rayado porque la predicción es optimista.`
-        : 'Área dentro del radio de cálculo donde el campo supera cada umbral. El rayado marca laderas empinadas junto al transmisor, donde el ITM advierte baja confianza.',
+        ? AM_NIGHT_NOTE
+        : [
+            `Área dentro del radio de cálculo donde el campo supera cada umbral, con ${requestReliability(coverage.request)} % de confiabilidad.`,
+            clutterSummary(coverage.request) ? `${clutterSummary(coverage.request)} (receptor y transmisor).` : 'Sin entorno: el relieve no trae edificios ni árboles.',
+            'El rayado marca laderas empinadas junto al transmisor, donde el ITM advierte baja confianza.',
+          ].join(' '),
     };
   }
 
@@ -274,10 +316,10 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
   /** Título y textos de la leyenda, iguales en el mapa y en el KMZ. */
   function legendTexts() {
     return {
-      title: service === 'fm' ? 'Intensidad de campo FM (dBµV/m)' : 'Intensidad de campo AM, onda de tierra (dBµV/m)',
+      title: service === 'fm' ? 'Intensidad de campo FM (dBµV/m)' : 'AM: cobertura diurna (onda de tierra), dBµV/m',
       entries: legendEntries(),
       emptyLabel: 'por debajo del umbral más bajo',
-      hatchLabel: service === 'fm' ? 'baja confianza (ladera empinada junto al transmisor)' : 'más allá de la validez de Tierra plana',
+      hatchLabel: service === 'fm' ? 'baja confianza (ladera empinada junto al transmisor)' : '',
     };
   }
 
@@ -355,7 +397,13 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
           {
             rows: [
               ['Ubicación (lat, lon)', formatLonLat(position.lon, position.lat)],
-              ['Servicio', service === 'fm' ? 'FM (ITM sobre terreno)' : 'AM (onda de tierra)'],
+              ['Servicio', service === 'fm' ? 'FM (ITM sobre terreno)' : 'AM, cobertura diurna (onda de tierra)'],
+              ...(service === 'fm'
+                ? [
+                    ['Confiabilidad', `${requestReliability(result.request)} %`],
+                    ['Entorno del receptor', clutterSummary(result.request)?.replace(/^Entorno /, '') ?? 'Sin entorno (solo relieve)'],
+                  ]
+                : []),
               ...station,
               ['Radio de cálculo', `${integerFormat.format(result.plan.radiusM / 1000)} km`],
             ],
@@ -370,7 +418,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     stationSummary.textContent =
       service === 'fm'
         ? `PIRE ${oneDecimal.format(eirpDbm())} dBm (${mvmFormat.format(fm.erpKw * 1.64)} kW PIRE).`
-        : `Campo sin atenuación del suelo a 1 km: ${integerFormat.format(dbuvmToMvm(fieldFromEirp(eirpDbm(), freeSpaceLossDb(1, frequencyMHz()), frequencyMHz())))} mV/m.`;
+        : `Campo sin atenuación del suelo a 1 km: ${integerFormat.format(dbuvmToMvm(fieldFromEirp(eirpDbm(), freeSpaceLossDb(1, frequencyMHz()), frequencyMHz())))} mV/m. El mapa es la cobertura diurna (onda de tierra).`;
     if (!coverage || !geometry || !values || !lowConfidence || !pixels) return;
     const f = coverage.request.links[0]!.frequencyMHz;
     // Campo = PIRE − pérdida + 20·log f + 77,2 (ITU-R P.525).
@@ -382,6 +430,8 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       views: [{ id: 'campo', label: 'Campo' }],
       activeView: 'campo',
       ...legendTexts(),
+      // En AM no hay rayado: la serie de residuos vale a cualquier distancia.
+      ...(service === 'am' && { hatchLabel: undefined }),
       thresholds: { values: thresholds, unit: 'dBµV/m', min: 0, max: 140 },
       opacity,
     });
@@ -420,8 +470,8 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       `A ${oneDecimal.format(distanceM(coverage.plan.site, point) / 1000)} km del transmisor`,
       `Campo: ${oneDecimal.format(field)} dBµV/m (${mvmFormat.format(dbuvmToMvm(field))} mV/m)`,
     ];
-    if (coverage.grids[0]!.warnings[g]! & lowConfidenceMask(engineOf(coverage))) {
-      lines.push(service === 'fm' ? 'Baja confianza: ladera empinada junto al transmisor' : 'Más allá de la validez de Tierra plana: optimista');
+    if (service === 'fm' && coverage.grids[0]!.warnings[g]! & lowConfidenceMask(engineOf(coverage))) {
+      lines.push('Baja confianza: ladera empinada junto al transmisor');
     }
     readout.show(lines, event.point.x, event.point.y);
   });

@@ -1,27 +1,32 @@
 // Motor de onda de tierra para AM (onda media). No usa el relieve: solo distancia,
 // frecuencia y tipo de suelo.
 
-import { flatEarthLimitKm, groundwaveLossDb, type GroundType } from '../rf/groundwave';
+import { groundwaveLossDb, type GroundType } from '../rf/groundwave';
 import type { PropagationEngine } from './engine';
 
-/** Bandera: el punto está más allá de donde vale la Tierra plana (predicción optimista). */
+/**
+ * Bandera que marcaba los puntos más allá de la Tierra plana. Desde que el motor usa la serie de
+ * residuos de Wait (Tierra esférica) la predicción vale a cualquier distancia y ya no se marca.
+ */
 export const GROUNDWAVE_WARN_BEYOND_FLAT_EARTH = 0x1;
 
 export function createGroundwaveEngine(ground: GroundType): PropagationEngine {
+  // La pérdida solo depende de la distancia: todos los radiales con el mismo paso comparten el
+  // resultado, así que se calcula una vez y se copia.
+  const cache = new Map<string, Float32Array>();
   return {
     id: 'groundwave',
-    name: 'Onda de tierra (Sommerfeld-Norton)',
+    name: 'Onda de tierra (Norton y serie de residuos de Wait)',
     radialLoss(r) {
       const count = Math.floor((r.elevationsM.length - 1) / r.stride);
-      const lossDb = new Float32Array(count);
-      const warnings = new Int32Array(count);
-      const limitM = flatEarthLimitKm(r.frequencyMHz) * 1000;
-      for (let k = 0; k < count; k++) {
-        const d = (k + 1) * r.stride * r.stepM;
-        lossDb[k] = groundwaveLossDb(d, r.frequencyMHz, ground);
-        if (d > limitM) warnings[k] = GROUNDWAVE_WARN_BEYOND_FLAT_EARTH;
+      const key = `${count}|${r.stride}|${r.stepM}|${r.frequencyMHz}`;
+      let losses = cache.get(key);
+      if (!losses) {
+        losses = new Float32Array(count);
+        for (let k = 0; k < count; k++) losses[k] = groundwaveLossDb((k + 1) * r.stride * r.stepM, r.frequencyMHz, ground);
+        cache.set(key, losses);
       }
-      return { lossDb, warnings };
+      return { lossDb: losses.slice(), warnings: new Int32Array(count) };
     },
   };
 }

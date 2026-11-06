@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clearanceCriteria,
   clearanceProfile,
   deygoutLoss,
   earthBulgeM,
@@ -88,6 +89,36 @@ describe('perfil del enlace', () => {
     expect(min.distanceM).toBe(5000);
     expect(min.clearanceM).toBeCloseTo(28.5285, 3);
     expect(min.ratio).toBeCloseTo(2.5525, 3);
+  });
+});
+
+describe('criterio de despeje (100 % de F1 con k = 4/3 y 60 % con k = 2/3)', () => {
+  // 40 km planos a 0 m, 6 GHz, muestras cada 100 m. A mitad: F1 = √(0,049965·20 000·20 000 / 40 000) = 22,353 m;
+  // abultamiento con k = 4/3: 4·10⁸ / 16 989 333 = 23,544 m; con k = 2/3, el doble: 47,088 m.
+  const distances = Array.from({ length: 401 }, (_, i) => i * 100);
+  const geometry = (h: number) => ({
+    profile: { distancesM: distances, elevationsM: distances.map(() => 0) },
+    heightAM: h,
+    heightBM: h,
+    frequencyMHz: 6000,
+  });
+
+  // Antenas de 50 m: con k = 4/3, (50 − 23,544) / 22,353 = 118 % de F1 (cumple);
+  // con k = 2/3, (50 − 47,088) / 22,353 = 13 % de F1 (no llega al 60 %).
+  it('antenas de 50 m en 40 km: cumple con k = 4/3 (118 %) pero no con k = 2/3 (13 %)', () => {
+    const c = clearanceCriteria(geometry(50));
+    expect(c.median.distanceM).toBe(20000);
+    expect(c.median.ratio).toBeCloseTo(1.1836, 3);
+    expect(c.worst.ratio).toBeCloseTo(0.1303, 3);
+    expect(c.medianOk).toBe(true);
+    expect(c.worstOk).toBe(false);
+  });
+
+  // Antenas de 70 m: con k = 2/3, (70 − 47,088) / 22,353 = 102,5 % de F1.
+  it('antenas de 70 m en 40 km: cumple los dos', () => {
+    const c = clearanceCriteria(geometry(70));
+    expect(c.worst.ratio).toBeCloseTo(1.025, 2);
+    expect(c.medianOk && c.worstOk).toBe(true);
   });
 });
 

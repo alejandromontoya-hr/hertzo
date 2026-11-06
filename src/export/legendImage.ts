@@ -12,7 +12,7 @@ export interface LegendImageContent {
   entries: LegendEntry[];
   /** Qué significa un píxel sin color. */
   emptyLabel: string;
-  /** Texto del rayado de baja confianza. */
+  /** Texto del rayado de baja confianza; vacío si el modelo no marca nada (AM). */
   hatchLabel: string;
 }
 
@@ -46,7 +46,7 @@ export async function drawLegendImage(content: LegendImageContent): Promise<Lege
   const rows: { swatch?: string; hatch?: boolean; text: string }[] = [
     ...content.entries.map((e) => ({ swatch: e.color, text: e.label })),
     { text: `Sin color: ${content.emptyLabel}` },
-    { hatch: true, text: `Rayado: ${content.hatchLabel}` },
+    ...(content.hatchLabel ? [{ hatch: true, text: `Rayado: ${content.hatchLabel}` }] : []),
   ];
   const headingFont = `600 13px ${FONT}`;
   const textFont = `12px ${FONT}`;
