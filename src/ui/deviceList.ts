@@ -42,6 +42,8 @@ export interface DeviceListOptions {
   evaluate(device: Device): Promise<DeviceRow | null>;
   /** Nombre del archivo CSV, sin extensión. */
   fileName(): string;
+  /** Avisa cuántos equipos hay cada vez que se agregan o se quitan. */
+  onCountChange?(count: number): void;
 }
 
 export interface DeviceList {
@@ -175,7 +177,13 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     render();
   }
 
+  let lastCount = 0;
+
   function render() {
+    if (devices.length !== lastCount) {
+      lastCount = devices.length;
+      options.onCountChange?.(devices.length);
+    }
     table.hidden = devices.length === 0;
     footer.hidden = devices.length === 0;
     body.innerHTML = devices

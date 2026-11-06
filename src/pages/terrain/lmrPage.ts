@@ -25,6 +25,7 @@ import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPa
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createDeviceList, type Device, type DeviceList } from '../../ui/deviceList';
+import { createTrunkingCapacity } from '../../ui/trunkingCapacity';
 import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
@@ -75,6 +76,10 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     <details class="panel-section" open>
       <summary>Equipos${infoButton('Radios concretos, por ejemplo los 20 portátiles de una cuadrilla: agrégalos con clic en el mapa o pega su lista. Cada uno se calcula con el ITM punto a punto desde el sitio, a su propia altura y con su perfil.')}</summary>
       <div data-devices></div>
+    </details>
+    <details class="panel-section">
+      <summary>Capacidad${infoButton('Cuántas llamadas esperan canal en la hora pico, según los radios, cuánto hablan y los canales de voz del sitio.')}</summary>
+      <div data-capacity></div>
     </details>
     <details class="panel-section">
       <summary>Bajada (talk-out) · cadena de transmisión</summary>
@@ -157,8 +162,10 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   // sensibilidad no vuelve a correr el ITM; solo se recalcula si cambia la geometría.
   const lossCache = new Map<string, Promise<DeviceLoss>>();
   const radioOf = (d: Device) => RADIO_PROFILES.find((p) => p.id === d.profileId) ?? radio;
+  const capacity = createTrunkingCapacity(page.find('[data-capacity]'));
   let deviceList: DeviceList | undefined;
   deviceList = createDeviceList(page, page.find('[data-devices]'), {
+    onCountChange: (count) => capacity.setDeviceCount(count),
     columns: ['Bajada', 'Subida', 'Margen'],
     units: ['dBm', 'dBm', ''],
     noun: { one: 'radio', many: 'radios' },
