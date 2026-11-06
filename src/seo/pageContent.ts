@@ -33,7 +33,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de cobertura de radio P25, trunking y convencional sobre terreno',
     about: [
       'Calcula la cobertura de una repetidora o un sitio de trunking (P25, SmartZone, convencional) en VHF, UHF, 700 u 800 MHz sobre el relieve real, con el modelo ITM (Longley-Rice) de NTIA y el terreno SRTM. Dibuja por separado la bajada (de la repetidora al radio) y la subida (del radio a la repetidora), porque cada una tiene su potencia, sus ganancias y sus pérdidas.',
-      'En el sitio UHF de ejemplo la bajada aguanta 155,7 dB de pérdida y la subida solo 145,5 dB: la subida limita la cobertura por 10,2 dB, y hay zonas donde el radio oye la repetidora pero ella no lo oye a él. Por omisión calcula con 90 % de confiabilidad, como se diseña la radio profesional (TIA TSB-88), y puedes ver la mediana (50 %) o el 95 %. También ubica radios concretos, cuenta los edificios del entorno con la UIT-R P.2108 y estima cuántas llamadas esperan canal en la hora pico con Erlang C.',
+      'En el sitio UHF de ejemplo la bajada aguanta 151,7 dB de pérdida y la subida solo 136,5 dB: la subida limita la cobertura por 15,2 dB, y hay zonas donde el radio oye la repetidora pero ella no lo oye a él. Por omisión calcula con 90 % de confiabilidad y con la sensibilidad con desvanecimiento de los equipos P25 (−112 dBm el portátil y −110 dBm la repetidora), como se diseña la radio profesional (TIA TSB-88); puedes ver la mediana (50 %) o el 95 %. También ubica radios concretos, cuenta los edificios del entorno con la UIT-R P.2108 y estima cuántas llamadas esperan canal en la hora pico con Erlang C.',
     ],
     faq: [
       {

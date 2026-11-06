@@ -332,7 +332,7 @@ ${content ? `\nPreguntas frecuentes:\n\n${content.faq.map((f) => `- ${f.q} ${f.a
 
 > Simulador web de propagación RF, gratuito y de código abierto (licencia MIT), pensado primero para radio profesional: P25, trunking, convencional y punto a punto. Calcula la cobertura sobre el terreno real con la bajada y la subida por separado, y todo corre en el navegador: sin servidores, sin cuentas y sin costo.
 
-Hertzo predice la cobertura de un sitio de radio antes de instalarlo. En radio profesional dibuja por separado la bajada (de la repetidora a los radios) y la subida (de los radios a la repetidora), porque cada una tiene su potencia, sus ganancias y sus pérdidas: en un sitio UHF de ejemplo la bajada aguanta 155,7 dB de pérdida y la subida solo 145,5 dB, así que la subida limita la cobertura por 10,2 dB y hay zonas donde se oye la repetidora pero ella no oye al radio. Además simula radiodifusión FM y AM, celular LTE y 5G, LoRaWAN, enlaces punto a punto, WiFi en interiores y radio en túneles, minas y cavernas.
+Hertzo predice la cobertura de un sitio de radio antes de instalarlo. En radio profesional dibuja por separado la bajada (de la repetidora a los radios) y la subida (de los radios a la repetidora), porque cada una tiene su potencia, sus ganancias y sus pérdidas: en un sitio UHF de ejemplo la bajada aguanta 151,7 dB de pérdida y la subida solo 136,5 dB, así que la subida limita la cobertura por 15,2 dB y hay zonas donde se oye la repetidora pero ella no oye al radio. Además simula radiodifusión FM y AM, celular LTE y 5G, LoRaWAN, enlaces punto a punto, WiFi en interiores y radio en túneles, minas y cavernas.
 
 Es una herramienta de planificación: sus predicciones no reemplazan mediciones de campo ni estudios de ingeniería certificados.
 

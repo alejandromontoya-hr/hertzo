@@ -24,7 +24,10 @@ export const DEFAULT_RX_CHAIN: SiteRxChain = {
   lineLengthM: 60,
   lineLossDbPer100m: 3.9,
   multicouplerLossDb: 2,
-  receiverSensitivityDbm: -119,
+  // Sensibilidad con desvanecimiento (5 % BER, C4FM) de una repetidora P25 tipo Motorola GTR 8000:
+  // −110 dBm (estática −118 a −119 dBm). El ITM da la señal promedio del lugar sin el desvanecimiento
+  // rápido, así que se compara con la sensibilidad con desvanecimiento, como en la TIA TSB-88.
+  receiverSensitivityDbm: -110,
 };
 
 export type LmrBandId = 'vhf' | 'uhf' | '700' | '800';
@@ -72,6 +75,10 @@ export const DEFAULT_RADIUS_KM = 50;
 
 export const CUSTOM_PROFILE_ID = 'personalizado';
 
+/**
+ * Sensibilidad de los radios: la de 5 % BER con desvanecimiento de un portátil P25 tipo Motorola
+ * APX 8000 a 800 MHz, −112 dBm (estática −120,5 dBm), por la misma razón que la del sitio.
+ */
 export const RADIO_PROFILES: readonly RadioProfile[] = [
   {
     id: 'portatil-cintura',
@@ -80,7 +87,7 @@ export const RADIO_PROFILES: readonly RadioProfile[] = [
     antennaGainDbd: -3,
     heightM: 1,
     bodyLossDb: 12,
-    sensitivityDbm: -116,
+    sensitivityDbm: -112,
   },
   {
     id: 'portatil-cara',
@@ -89,7 +96,7 @@ export const RADIO_PROFILES: readonly RadioProfile[] = [
     antennaGainDbd: -3,
     heightM: 1.5,
     bodyLossDb: 6,
-    sensitivityDbm: -116,
+    sensitivityDbm: -112,
   },
   {
     id: 'movil-techo',
@@ -98,7 +105,7 @@ export const RADIO_PROFILES: readonly RadioProfile[] = [
     antennaGainDbd: 3,
     heightM: 1.5,
     bodyLossDb: 1,
-    sensitivityDbm: -116,
+    sensitivityDbm: -112,
   },
 ];
 

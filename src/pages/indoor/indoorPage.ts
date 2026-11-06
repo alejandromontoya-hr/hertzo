@@ -721,7 +721,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
     const clientLimit = eirpLimitDbm(band, width, 'client');
     if (apLimit !== null && clientLimit !== null) {
       parts.push(
-        `En 6 GHz solo se permite el uso en interiores, con PIRE máxima de ${oneDecimal.format(apLimit)} dBm en el AP y ${oneDecimal.format(clientLimit)} dBm en el cliente a ${width} MHz (FCC; la ANE de Colombia sigue el mismo esquema, su valor exacto no está verificado aquí). Si se pasa, el mapa usa el límite.`,
+        `En 6 GHz solo se permite el uso en interiores, con PIRE máxima de ${oneDecimal.format(apLimit)} dBm en el AP y ${oneDecimal.format(clientLimit)} dBm en el cliente a ${width} MHz (ANE, Resolución 737 de 2022: 5 dBm/MHz en el AP y −1 dBm/MHz en el cliente). Si se pasa, el mapa usa el límite.`,
       );
     }
     radioNote.textContent = parts.join(' ');

@@ -183,17 +183,17 @@ export const DEFAULT_CLIENT_POWER_DBM: Record<WifiBand, number> = { '2.4': 15, '
 export const MCS0_SENSITIVITY_DBM: Record<ChannelWidth, number> = { 20: -82, 40: -79, 80: -76, 160: -73 };
 
 /**
- * Límite de PIRE (dBm) en 6 GHz, uso en interiores de baja potencia (LPI, FCC 47 CFR 15.407):
- * densidad de 5 dBm/MHz para el AP y de −1 dBm/MHz para el cliente (6 dB menos).
- * PIRE máxima = densidad + 10·log10(ancho en MHz): AP 18 dBm a 20 MHz, 21 a 40, 24 a 80 y 27 a 160.
- * En Colombia la ANE (Resolución 737 de 2022) abrió 5925–7125 MHz solo para interiores siguiendo
- * LPI/VLP; la densidad exacta de la ANE no se verificó, se usa la de la FCC.
- * En 2,4 y 5 GHz no se revisa límite (null).
+ * Límite de PIRE (dBm) en 6 GHz, solo interiores. ANE, Resolución 737 de 2022 (anexo 1, literal
+ * 3.8.3): densidad de PIRE de 5 dBm/MHz para el AP y −1 dBm/MHz para el cliente, y PIRE máxima de
+ * 30 dBm y 24 dBm; igual que el LPI de la FCC (47 CFR 15.407).
+ * PIRE máxima = densidad + 10·log10(ancho en MHz), sin pasar del tope: AP 18 dBm a 20 MHz, 21 a 40,
+ * 24 a 80 y 27 a 160. En 2,4 y 5 GHz no se revisa límite (null).
  */
 export function eirpLimitDbm(band: WifiBand, widthMHz: ChannelWidth, device: 'ap' | 'client'): number | null {
   if (band !== '6') return null;
   const psdDbmPerMHz = device === 'ap' ? 5 : -1;
-  return psdDbmPerMHz + 10 * Math.log10(widthMHz);
+  const capDbm = device === 'ap' ? 30 : 24;
+  return Math.min(capDbm, psdDbmPerMHz + 10 * Math.log10(widthMHz));
 }
 
 /** PIRE con que se calcula (dBm): la del equipo, recortada al límite legal si lo hay. */
