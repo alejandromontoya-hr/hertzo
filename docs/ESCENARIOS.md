@@ -92,6 +92,7 @@ Son valores típicos de partida; conviene ajustarlos con los datos de los equipo
 | Celular | Potencia y antena por sector | 40 W, 17 dBi, 65° × 7°, inclinación 4°, cable 2 dB; en 3500 MHz antena activa de 200 W y 24 dBi sin cable, NR 80 MHz |
 | Celular | Umbrales de RSRP | −80, −90, −100 y −110 dBm |
 | Celular | Sitios vecinos | 1 km |
+| Celular | Subida | Teléfono de 23 dBm en 2 bloques, torre con 5 dB de figura de ruido, 3 dB de margen por interferencia; umbrales de SINR 20, 10, 0 y −5 dB |
 | Enlaces | Umbral del receptor | −70 dBm (microondas), −110 dBm (VHF/UHF) |
 | Enlaces | Lluvia | R0,01 de 95 mm/h, polarización vertical |
 | Interiores | Pérdida por material | Tabla de la página (por ejemplo ladrillo 8/12/14 dB a 2,4/5/6 GHz) |
@@ -100,3 +101,21 @@ Son valores típicos de partida; conviene ajustarlos con los datos de los equipo
 | Cavernas | Cable radiante | RFS RLKW12-50 (1/2"): de 3,1 dB/100 m y 64 dB de acople a 150 MHz a 21,6 dB/100 m y 62 dB a 1900 MHz |
 | Cavernas | Portátil | VHF 37 dBm, UHF 36, 800 MHz 34,8, WiFi 15; sensibilidad −112 dBm en VHF, UHF y 800 MHz |
 | Cavernas | Roca | εr de 4 a 8, rugosidad de 2 a 30 cm según el tipo e inclinación de 1° |
+
+## Validación con mediciones (6 de noviembre de 2026)
+
+Se comparó el cálculo de Hertzo (terreno de Terrain Tiles + ITM, sin entorno) con 538 mediciones de campo del banco de datos VHF/UHF de la UIT-R (DBSG3, 150 a 1000 MHz, de 1 a 100 km, receptor a 10 m). Error = predicho − medido:
+
+| Datos | Mediciones | Error medio | Mediana | Desviación | Dentro de ±10 dB |
+| --- | --- | --- | --- | --- | --- |
+| Alemania (Alpes, Grünten) | 49 | +5,4 dB | +3,8 dB | 15,2 dB | 51 % |
+| EBU (Francia, Alpes y llanura) | 169 | −8,3 dB | −3,1 dB | 23,8 dB | 46 % |
+| BBC (Reino Unido) | 200 | +18,7 dB | +19,0 dB | 13,2 dB | 24 % |
+| MRC (Reino Unido) | 120 | +19,6 dB | +19,1 dB | 16,2 dB | 24 % |
+
+- En montaña la mediana queda entre −3 y +4 dB.
+- En el Reino Unido, sin entorno, el cálculo da unos 19 dB de más: el relieve no trae casas ni árboles. Con el entorno "Urbano o arbolado" de la UIT-R P.2108, un receptor a 10 m pierde unos 13 dB, que explican la mayor parte. Por eso la página avisa cuando se elige "Sin entorno".
+- La desviación de 13 a 24 dB es la de comparar puntos sueltos: incluye el desvanecimiento de cada lugar, que ningún modelo predice punto a punto.
+- Las distancias calculadas coinciden con las del banco (diferencia media 0,1 km) y la cota del terreno en el transmisor coincide en la mediana (0 m).
+- Falta la validación con sitios reales de Antioquia que pide la fase 1.
+

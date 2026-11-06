@@ -63,13 +63,20 @@ export function createClutterControl(
     },
   );
   height.element.hidden = !clutter;
-  container.append(field, height.element);
+  // Sin entorno el resultado sale optimista donde hay casas o árboles: se dice a la vista, con el dato medido.
+  const noClutterHint = document.createElement('p');
+  noClutterHint.className = 'hint';
+  noClutterHint.textContent =
+    'Solo relieve: en ciudad o zonas arboladas la señal real suele ser menor. En 320 mediciones a 10 m del banco de la UIT (Reino Unido, 150 a 1000 MHz), este cálculo dio en promedio 19 dB más que lo medido. Si el equipo está entre casas o árboles, elige su entorno.';
+  noClutterHint.hidden = clutter !== null;
+  container.append(field, noClutterHint, height.element);
 
   select.addEventListener('change', () => {
     const info = CLUTTER_TYPES.find((t) => t.id === (select.value as ClutterType));
     clutter = info ? { type: info.id, heightM: info.heightM } : null;
     if (clutter) height.setValue(clutter.heightM);
     height.element.hidden = !clutter;
+    noClutterHint.hidden = clutter !== null;
     onChange(clutter);
   });
 }
