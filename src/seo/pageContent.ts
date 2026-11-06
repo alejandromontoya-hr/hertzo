@@ -33,7 +33,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de cobertura de radio P25, trunking y convencional sobre terreno',
     about: [
       'Calcula la cobertura de una repetidora o un sitio de trunking (P25, SmartZone, convencional) en VHF, UHF, 700 u 800 MHz sobre el relieve real, con el modelo ITM (Longley-Rice) de NTIA y el terreno SRTM. Dibuja por separado la bajada (de la repetidora al radio) y la subida (del radio a la repetidora), porque cada una tiene su potencia, sus ganancias y sus pérdidas.',
-      'En el sitio UHF de ejemplo la bajada aguanta 155,7 dB de pérdida y la subida solo 145,5 dB: la subida limita la cobertura por 10,2 dB, y hay zonas donde el radio oye la repetidora pero ella no lo oye a él. Puedes ubicar radios concretos, contar los edificios del entorno con la UIT-R P.2108 y estimar cuántas llamadas esperan canal en la hora pico con Erlang C.',
+      'En el sitio UHF de ejemplo la bajada aguanta 155,7 dB de pérdida y la subida solo 145,5 dB: la subida limita la cobertura por 10,2 dB, y hay zonas donde el radio oye la repetidora pero ella no lo oye a él. Por omisión calcula con 90 % de confiabilidad, como se diseña la radio profesional (TIA TSB-88), y puedes ver la mediana (50 %) o el 95 %. También ubica radios concretos, cuenta los edificios del entorno con la UIT-R P.2108 y estima cuántas llamadas esperan canal en la hora pico con Erlang C.',
     ],
     faq: [
       {
@@ -51,7 +51,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de cobertura LoRaWAN de un gateway sobre terreno',
     about: [
       'Calcula la cobertura de un gateway LoRaWAN en AU915 (Colombia), US915 o EU868 sobre el relieve real con el modelo ITM (Longley-Rice) de NTIA. Muestra la bajada, la subida, el desbalance entre las dos y el SF más rápido con el que llega cada punto, con su tiempo en el aire.',
-      'Con figura de ruido de 4 dB, el gateway oye SF12 en canales de 125 kHz hasta −139,0 dBm. En AU915, si la red limita cada mensaje a 400 ms, con 11 bytes la subida solo puede usar hasta SF10. Puedes pegar la lista de tus medidores, contar los edificios con la UIT-R P.2108 y ver qué parte de los mensajes choca en el aire (ALOHA).',
+      'Con figura de ruido de 4 dB, el gateway oye SF12 en canales de 125 kHz hasta −139,0 dBm. En AU915, si la red limita cada mensaje a 400 ms, con 11 bytes la subida solo puede usar hasta SF10. El SF de cada punto se elige como lo hace la red (ADR), con 10 dB de margen sobre la sensibilidad, y la cobertura sale con 90 % de confiabilidad. Puedes pegar la lista de tus medidores, contar los edificios con la UIT-R P.2108 y ver qué parte de los mensajes choca en el aire (ALOHA).',
     ],
     faq: [
       {
@@ -69,7 +69,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de cobertura celular LTE y 5G por sectores',
     about: [
       'Calcula la señal (RSRP), el mejor sector y la interferencia (SINR) de un sitio celular con varios sectores, de 700 a 3500 MHz, con el patrón de la antena y su inclinación. Puedes elegir el modelo: Okumura-Hata / COST-231 para entornos urbanos, suburbanos o rurales, 3GPP 38.901 para macroceldas urbanas, o ITM sobre el terreno real.',
-      'Sirve para ver hasta dónde llega un sitio, dónde se solapan los sectores y cómo cambia la cobertura al mover la inclinación o la altura de las antenas.',
+      'La SINR cuenta seis sitios vecinos a la distancia que elijas, transmitiendo a plena carga: con vecinos a 1 km, en el borde de celda da unos +3 dB, como en una red real. También puedes poner el teléfono dentro de un edificio (pérdida de 3GPP 38.901: unos 15 dB a 850 MHz) y elegir la confiabilidad. En 3500 MHz usa los valores de una antena activa 5G: 200 W y 24 dBi.',
     ],
     faq: [
       {
@@ -87,7 +87,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     h1: 'Simulador de cobertura WiFi en interiores con planos',
     about: [
       'Dibuja el plano de una casa, un apartamento o una oficina con sus muros y materiales, ubica los access points y mira el mapa de calor de la señal a 2,4, 5 y 6 GHz. Cada muro resta según su material y la frecuencia, con el modelo multipared COST-231.',
-      'Sirve para decidir cuántos access points hacen falta y dónde ponerlos antes de instalar, y para ver qué muros dejan zonas sin señal.',
+      'Calcula por separado la bajada (del access point al celular o portátil) y la subida (del cliente al access point, que transmite con menos potencia), cuenta que un muro atravesado de lado pierde más y suma la pérdida de muebles y personas. A 6 GHz limita la potencia al máximo para interiores según el ancho de canal.',
     ],
     faq: [
       {

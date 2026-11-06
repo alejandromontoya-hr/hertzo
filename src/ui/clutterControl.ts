@@ -39,7 +39,7 @@ export function createClutterControl(
   const field = document.createElement('div');
   field.className = 'field field-select';
   field.innerHTML = `<label for="entorno">Entorno del equipo${infoButton(
-    'El relieve (SRTM) no trae edificios ni árboles: sin entorno, Hertzo calcula como si la ciudad estuviera vacía. Con entorno, suma lo que pierde el equipo por estar por debajo de lo que lo rodea, según la UIT-R P.2108.',
+    'El relieve (SRTM) no trae edificios ni árboles: sin entorno, Hertzo calcula como si la ciudad estuviera vacía. Con entorno, suma lo que pierde el equipo por estar por debajo de lo que lo rodea, según la UIT-R P.2108. El relieve SRTM ya trae en parte los árboles y los edificios grandes: si el resultado se ve muy pesimista, baja la altura de lo que rodea al equipo.',
   )}</label><select id="entorno"><option value="${NONE}">Sin entorno (solo relieve)</option>${CLUTTER_TYPES.map(
     (t) => `<option value="${t.id}">${t.label}</option>`,
   ).join('')}</select>`;
