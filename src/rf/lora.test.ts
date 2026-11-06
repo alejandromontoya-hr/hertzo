@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LORA_SNR_LIMIT_DB, loraSensitivityDbm, loraTimeOnAirMs, minimumSpreadingFactor } from './lora';
+import { LORA_SNR_LIMIT_DB, loraSensitivityDbm, loraTimeOnAirMs, maxSpreadingFactorForDwell, minimumSpreadingFactor } from './lora';
 
 // Sensibilidad = −174 dBm/Hz + 10·log10(BW en Hz) + figura de ruido + SNR límite del SF.
 // Con 125 kHz: 10·log10(125 000) = 50,9691 dB; con 500 kHz: 56,9897 dB.
@@ -67,5 +67,24 @@ describe('minimumSpreadingFactor', () => {
 
   it('−138 dBm no alcanza ni con SF12: null', () => {
     expect(minimumSpreadingFactor(-138, 125)).toBeNull();
+  });
+});
+
+describe('límite de 400 ms (AU915)', () => {
+  it('−134 dBm necesita SF11 (SF10 −132,03 no alcanza; SF11 −134,53 sí); si el límite deja hasta SF10, no llega', () => {
+    expect(minimumSpreadingFactor(-134, 125)).toBe(11);
+    expect(minimumSpreadingFactor(-134, 125, 6, 10)).toBeNull();
+  });
+
+  it('24 bytes a 125 kHz: SF10 (370,688 ms) cabe en 400 ms y SF11 (823,296 ms) no', () => {
+    // SF11: Tsím 16,384 ms (> 16, optimización activa); (192 − 44 + 44) / 36 = 5,33 → 6; 6·5 + 8 = 38.
+    // 12,25·16,384 + 38·16,384 = 823,296 ms.
+    expect(loraTimeOnAirMs({ spreadingFactor: 11, bandwidthKHz: 125, payloadBytes: 24 })).toBeCloseTo(823.296, 6);
+    expect(maxSpreadingFactorForDwell(125, 24)).toBe(10);
+  });
+
+  it('60 bytes ya no caben en SF10: (480 − 40 + 44) / 40 = 12,1 → 13; 73·8,192 + 100,352 = 698,368 ms → SF9', () => {
+    expect(loraTimeOnAirMs({ spreadingFactor: 10, bandwidthKHz: 125, payloadBytes: 60 })).toBeCloseTo(698.368, 6);
+    expect(maxSpreadingFactorForDwell(125, 60)).toBe(9);
   });
 });

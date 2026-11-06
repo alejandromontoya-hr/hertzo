@@ -71,13 +71,33 @@ export function loraTimeOnAirMs({
 }
 
 /**
- * El SF más rápido (el menor) cuya sensibilidad alcanza el nivel recibido, o null si ni SF12
- * alcanza. A 125 kHz: −120 dBm → SF7; −130 dBm → SF10; −138 dBm → null.
+ * El SF más rápido (el menor) cuya sensibilidad alcanza el nivel recibido, o null si ni el SF
+ * más lento permitido (`maxSf`, SF12 si no hay límite) alcanza.
+ * A 125 kHz: −120 dBm → SF7; −130 dBm → SF10; −138 dBm → null.
  */
 export function minimumSpreadingFactor(
   receivedDbm: number,
   bandwidthKHz: number,
   noiseFigureDb: number = DEFAULT_LORA_NOISE_FIGURE_DB,
+  maxSf: SpreadingFactor = 12,
 ): SpreadingFactor | null {
-  return SPREADING_FACTORS.find((sf) => receivedDbm >= loraSensitivityDbm(sf, bandwidthKHz, noiseFigureDb)) ?? null;
+  return SPREADING_FACTORS.find((sf) => sf <= maxSf && receivedDbm >= loraSensitivityDbm(sf, bandwidthKHz, noiseFigureDb)) ?? null;
+}
+
+/** Límite de tiempo en el aire por mensaje de AU915 cuando la red lo exige (UplinkDwellTime = 1). */
+export const AU915_DWELL_TIME_MS = 400;
+
+/**
+ * El SF más lento cuyo mensaje cabe en el límite de tiempo en el aire, o null si ni SF7 cabe.
+ * Con 24 bytes a 125 kHz: SF10 tarda 370,7 ms y cabe en 400 ms; SF11 tarda 823,3 ms y no.
+ */
+export function maxSpreadingFactorForDwell(
+  bandwidthKHz: number,
+  payloadBytes: number,
+  dwellMs: number = AU915_DWELL_TIME_MS,
+): SpreadingFactor | null {
+  const fitting = SPREADING_FACTORS.filter(
+    (sf) => loraTimeOnAirMs({ spreadingFactor: sf, bandwidthKHz, payloadBytes }) <= dwellMs,
+  );
+  return fitting.length > 0 ? fitting[fitting.length - 1]! : null;
 }

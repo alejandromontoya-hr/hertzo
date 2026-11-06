@@ -27,6 +27,7 @@ export function renderSpreadingFactor(
   bandwidthKHz: number,
   noiseFigureDb: number,
   out: Uint8ClampedArray,
+  maxSf: SpreadingFactor = 12,
 ): void {
   for (let row = 0; row < geometry.height; row++) {
     for (let col = 0; col < geometry.width; col++) {
@@ -34,7 +35,7 @@ export function renderSpreadingFactor(
       const g = geometry.index[p]!;
       let rgb: [number, number, number] | undefined;
       if (g >= 0) {
-        const sf = minimumSpreadingFactor(receivedPowerDbm(talkIn, grid.lossDb[g]!), bandwidthKHz, noiseFigureDb);
+        const sf = minimumSpreadingFactor(receivedPowerDbm(talkIn, grid.lossDb[g]!), bandwidthKHz, noiseFigureDb, maxSf);
         if (sf !== null) rgb = SF_RGB.get(sf);
         if (isLowConfidence(grid.warnings[g]!) && (row + col) % HATCH_PERIOD < HATCH_WIDTH) rgb = HATCH_RGB;
       }

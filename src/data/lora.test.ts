@@ -61,3 +61,9 @@ describe('medidor en caja, AU915', () => {
     expect(caja.heightM).toBe(0.5);
   });
 });
+
+describe('subida con el límite de 400 ms', () => {
+  it('hasta SF10: el gateway oye hasta −174 + 50,9691 + 4 − 15 = −134,03 dBm, 5 dB menos que con SF12', () => {
+    expect(gatewayRxChain(au915, DEFAULT_LORA_GATEWAY, 10).receiverSensitivityDbm).toBeCloseTo(-134.0309, 4);
+  });
+});

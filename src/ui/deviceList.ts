@@ -44,6 +44,8 @@ export interface DeviceListOptions {
   fileName(): string;
   /** Avisa cuántos equipos hay cada vez que se agregan o se quitan. */
   onCountChange?(count: number): void;
+  /** Avisa cada vez que termina de evaluar un equipo. */
+  onRowsChange?(): void;
 }
 
 export interface DeviceList {
@@ -51,6 +53,8 @@ export interface DeviceList {
   refresh(): void;
   /** Un punto por equipo, con el color de su estado y su ficha, para el KMZ. */
   placemarks(): KmlPlacemark[];
+  /** Los equipos de la lista, en orden. */
+  devices(): Device[];
   destroy(): void;
 }
 
@@ -246,6 +250,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
         }
         rows.set(device.id, row);
         render();
+        options.onRowsChange?.();
       }
     }, 250);
   }
@@ -305,6 +310,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   return {
     refresh,
     placemarks,
+    devices: () => [...devices],
     destroy() {
       clearTimeout(timer);
       generation++;

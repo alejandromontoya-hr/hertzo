@@ -35,3 +35,16 @@ describe('renderSpreadingFactor', () => {
     expect(pixel(3)[3]).toBe(0);
   });
 });
+
+describe('renderSpreadingFactor con el límite de 400 ms (hasta SF10)', () => {
+  it('163 dB → −137,48 dBm: sin límite alcanza SF12 (−139,03), no SF11 (−136,53); con el límite hasta SF10, transparente', () => {
+    const one = { width: 1, height: 1, index: Int32Array.from([0]) } as RasterGeometry;
+    const g = { lossDb: Float32Array.from([163]), warnings: new Int32Array(1) };
+    const free = new Uint8ClampedArray(4);
+    const limited = new Uint8ClampedArray(4);
+    renderSpreadingFactor(one, g, budget, 125, DEFAULT_LORA_GATEWAY.noiseFigureDb, free);
+    renderSpreadingFactor(one, g, budget, 125, DEFAULT_LORA_GATEWAY.noiseFigureDb, limited, 10);
+    expect(Array.from(free)).toEqual([...hexToRgb(SF_COLORS[12]), 255]);
+    expect(limited[3]).toBe(0);
+  });
+});

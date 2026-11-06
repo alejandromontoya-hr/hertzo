@@ -2,7 +2,7 @@
 // y mediciones de cada red. Se traducen a las mismas cadenas del balance de enlace de radio
 // profesional, así la bajada (gateway → sensor) y la subida (sensor → gateway) usan el mismo cálculo.
 
-import { loraSensitivityDbm } from '../rf/lora';
+import { loraSensitivityDbm, type SpreadingFactor } from '../rf/lora';
 import type { RadioProfile, SiteRxChain, SiteTxChain } from '../rf/linkBudget';
 
 export type LoraBandId = 'au915' | 'us915' | 'eu868';
@@ -128,8 +128,11 @@ export function gatewayTxChain(band: LoraBand, gw: LoraGateway): SiteTxChain {
   };
 }
 
-/** Subida: cadena de recepción del gateway, con la sensibilidad de SF12 en el canal de subida. */
-export function gatewayRxChain(band: LoraBand, gw: LoraGateway): SiteRxChain {
+/**
+ * Subida: cadena de recepción del gateway, con la sensibilidad del SF más lento permitido en
+ * el canal de subida: SF12, o menos si la red limita el tiempo en el aire (400 ms en AU915).
+ */
+export function gatewayRxChain(band: LoraBand, gw: LoraGateway, maxSf: SpreadingFactor = 12): SiteRxChain {
   return {
     frequencyMHz: band.uplink.frequencyMHz,
     antennaGainDbd: gw.antennaGainDbd,
@@ -138,7 +141,7 @@ export function gatewayRxChain(band: LoraBand, gw: LoraGateway): SiteRxChain {
     lineLengthM: gw.lineLengthM,
     lineLossDbPer100m: gw.lineLossDbPer100m,
     multicouplerLossDb: gw.connectorLossDb,
-    receiverSensitivityDbm: loraSensitivityDbm(12, band.uplink.bandwidthKHz, gw.noiseFigureDb),
+    receiverSensitivityDbm: loraSensitivityDbm(maxSf, band.uplink.bandwidthKHz, gw.noiseFigureDb),
   };
 }
 

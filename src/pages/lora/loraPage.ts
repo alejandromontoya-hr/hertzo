@@ -28,10 +28,19 @@ import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
 import { receivedPowerDbm, talkInBudget, talkOutBudget } from '../../rf/linkBudget';
-import { SPREADING_FACTORS, loraSensitivityDbm, loraTimeOnAirMs, minimumSpreadingFactor } from '../../rf/lora';
+import {
+  AU915_DWELL_TIME_MS,
+  SPREADING_FACTORS,
+  loraSensitivityDbm,
+  loraTimeOnAirMs,
+  maxSpreadingFactorForDwell,
+  minimumSpreadingFactor,
+  type SpreadingFactor,
+} from '../../rf/lora';
 import { LORA_BUDGET_NAMES, balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createDeviceList, type Device, type DeviceList } from '../../ui/deviceList';
+import { createLoraCapacity } from '../../ui/loraCapacity';
 import { createFieldGroup, createNumberField, type NumberFieldSpec } from '../../ui/fields';
 import { formatDbm, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
@@ -114,6 +123,17 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     <section class="panel-section page-intro">
       <h2>LoRaWAN${infoButton('Un gateway y sus sensores sobre el terreno real. Bajada y subida por separado: en AU915 y US915 la subida va en canales de 125 kHz y la bajada en canales de 500 kHz.')}</h2>
       ${choiceHtml('banda', LORA_BANDS.map((b) => ({ id: b.id, label: `${b.label} (${b.range})` })), 'Plan de frecuencias', '')}
+      <div data-dwell-box>
+        ${choiceHtml(
+          'tiempo',
+          [
+            { id: 'libre', label: 'Sin límite' },
+            { id: '400', label: 'Hasta 400 ms (dwell time)' },
+          ],
+          'Tiempo máximo por mensaje',
+          'En AU915 la red puede limitar cada mensaje a 400 ms en el aire. Con 11 bytes, SF11 y SF12 tardan más, así que no se pueden usar y la subida llega hasta SF10.',
+        )}
+      </div>
     </section>
     ${siteSectionHtml('Gateway', 'el gateway')}
     ${coverageStatusHtml()}
@@ -124,6 +144,10 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     <details class="panel-section" open>
       <summary>Equipos${infoButton('Medidores o sensores concretos: agrégalos con clic en el mapa o pega su lista. Cada uno se calcula con el ITM punto a punto desde el gateway, a su propia altura.')}</summary>
       <div data-devices></div>
+    </details>
+    <details class="panel-section">
+      <summary>Capacidad${infoButton('Qué parte de los mensajes choca en el aire, según cuántos medidores hay, cada cuánto envían y con qué SF.')}</summary>
+      <div data-capacity></div>
     </details>
     <details class="panel-section">
       <summary>Gateway · antena y cable</summary>
@@ -145,6 +169,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   let gateway: LoraGateway = { ...DEFAULT_LORA_GATEWAY };
   let sensor: LoraSensor = LORA_SENSORS.find((s) => s.id === DEFAULT_LORA_SENSOR_ID)!;
   let payloadBytes = DEFAULT_PAYLOAD_BYTES;
+  let dwellLimit = params.get('tiempo') === '400';
   let view: LoraView = 'talkIn';
   let thresholds = [...DEFAULT_LEVEL_THRESHOLDS_DBM];
   let opacity = 0.7;
@@ -153,7 +178,12 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   let pixels: Uint8ClampedArray<ArrayBuffer> | null = null;
 
   const tx = () => gatewayTxChain(band, gateway);
-  const rx = () => gatewayRxChain(band, gateway);
+  /** SF más lento permitido: SF12, o el que cabe en 400 ms si la red de AU915 lo exige. */
+  const maxSf = (): SpreadingFactor =>
+    dwellLimit && band.id === 'au915'
+      ? (maxSpreadingFactorForDwell(band.uplink.bandwidthKHz, payloadBytes + LORAWAN_OVERHEAD_BYTES) ?? 7)
+      : 12;
+  const rx = () => gatewayRxChain(band, gateway, maxSf());
   const radio = () => sensorRadioProfile(band, sensor);
   const budgets = () => ({ down: talkOutBudget(tx(), radio()), up: talkInBudget(rx(), radio()) });
   const timeOnAir = (sf: (typeof SPREADING_FACTORS)[number]) =>
@@ -240,7 +270,8 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     payloadBytes,
     (value) => {
       payloadBytes = Math.round(value);
-      showSfTable();
+      // Con el límite de 400 ms, el tamaño del mensaje cambia el SF más lento permitido.
+      onParametersChange();
       redraw();
     },
   );
@@ -250,7 +281,9 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   function showSfTable() {
     const rows = SPREADING_FACTORS.map(
       (sf) =>
-        `<tr><th scope="row">SF${sf}</th><td>${formatDbm(loraSensitivityDbm(sf, band.uplink.bandwidthKHz, gateway.noiseFigureDb))}</td><td>${msFormat.format(timeOnAir(sf))} ms</td></tr>`,
+        sf > maxSf()
+          ? `<tr><th scope="row">SF${sf}</th><td>no permitido</td><td>${msFormat.format(timeOnAir(sf))} ms &gt; ${AU915_DWELL_TIME_MS}</td></tr>`
+          : `<tr><th scope="row">SF${sf}</th><td>${formatDbm(loraSensitivityDbm(sf, band.uplink.bandwidthKHz, gateway.noiseFigureDb))}</td><td>${msFormat.format(timeOnAir(sf))} ms</td></tr>`,
     ).join('');
     sfTable.innerHTML = `
       <table class="budget">
@@ -263,8 +296,17 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   // figura de ruido no vuelve a correr el ITM; solo se recalcula si cambia la geometría.
   const lossCache = new Map<string, Promise<DeviceLoss>>();
   const sensorOf = (d: Device) => LORA_SENSORS.find((s) => s.id === d.profileId) ?? sensor;
+  /** SF de subida de cada equipo evaluado, para la capacidad. */
+  const sfById = new Map<number, SpreadingFactor | null>();
+  const capacity = createLoraCapacity(page.find('[data-capacity]'), {
+    deviceSfs: () => deviceList?.devices().map((d) => sfById.get(d.id) ?? null) ?? [],
+    timeOnAirMs: (sf) => timeOnAir(sf),
+    maxSf,
+  });
   let deviceList: DeviceList | undefined;
   deviceList = createDeviceList(page, page.find('[data-devices]'), {
+    onCountChange: (count) => capacity.setDeviceCount(count),
+    onRowsChange: () => capacity.update(),
     columns: ['Bajada', 'Subida', 'SF'],
     units: ['dBm', 'dBm', ''],
     noun: { one: 'medidor', many: 'medidores' },
@@ -289,7 +331,8 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
       const loss = await lossCache.get(key)!;
       const profile = sensorRadioProfile(band, s);
       const r = evaluateDevice(talkOutBudget(tx(), profile), talkInBudget(rx(), profile), loss.downDb, loss.upDb);
-      const sf = Number.isNaN(r.upDbm) ? null : minimumSpreadingFactor(r.upDbm, band.uplink.bandwidthKHz, gateway.noiseFigureDb);
+      const sf = Number.isNaN(r.upDbm) ? null : minimumSpreadingFactor(r.upDbm, band.uplink.bandwidthKHz, gateway.noiseFigureDb, maxSf());
+      sfById.set(device.id, sf);
       const dbm = (v: number) => (Number.isNaN(v) ? '—' : integerDbm.format(v));
       return {
         cells: [dbm(r.downDbm), dbm(r.upDbm), sf === null ? '—' : `SF${sf}`],
@@ -300,9 +343,22 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     fileName: () => exportFileName('lora-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
   });
 
+  /** "no llega ni con SF12", o "ni con SF10" si el límite de 400 ms deja hasta SF10. */
+  const emptyLabel = () => `no llega ni con SF${maxSf()}`;
+
+  const dwellBox = page.find('[data-dwell-box]');
+  const showDwellBox = () => (dwellBox.hidden = band.id !== 'au915');
+  showDwellBox();
+  bindChoice(page.panel, 'tiempo', dwellLimit ? '400' : 'libre', (id) => {
+    dwellLimit = id === '400';
+    replaceQuery('tiempo', dwellLimit ? '400' : null);
+    onParametersChange();
+  });
+
   bindChoice(page.panel, 'banda', band.id, (id) => {
     band = LORA_BANDS.find((b) => b.id === (id as LoraBandId))!;
     showBandInfo();
+    showDwellBox();
     replaceQuery('banda', band.id);
     onParametersChange();
   });
@@ -313,7 +369,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     const { down, up } = budgets();
     const grids = gridsOf(coverage);
     if (view === 'sf') {
-      renderSpreadingFactor(geometry, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, pixels);
+      renderSpreadingFactor(geometry, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, pixels, maxSf());
     } else {
       renderCoverage(geometry, grids, view, down, up, thresholds, pixels);
     }
@@ -332,8 +388,11 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     const { down, up } = budgets();
     if (v === 'sf') {
       return {
-        entries: SPREADING_FACTORS.map((sf) => ({ color: SF_COLORS[sf], label: `SF${sf} · ${msFormat.format(timeOnAir(sf))} ms en el aire` })),
-        emptyLabel: LEVEL_EMPTY_LABEL,
+        entries: SPREADING_FACTORS.filter((sf) => sf <= maxSf()).map((sf) => ({
+          color: SF_COLORS[sf],
+          label: `SF${sf} · ${msFormat.format(timeOnAir(sf))} ms en el aire`,
+        })),
+        emptyLabel: emptyLabel(),
         thresholds: undefined,
       };
     }
@@ -342,7 +401,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     }
     return {
       entries: levelEntries(v === 'talkIn' ? up.sensitivityDbm : down.sensitivityDbm, thresholds),
-      emptyLabel: LEVEL_EMPTY_LABEL,
+      emptyLabel: v === 'talkIn' ? emptyLabel() : LEVEL_EMPTY_LABEL,
       thresholds: { values: thresholds, unit: 'dBm', min: -150, max: -20 },
     };
   }
@@ -360,7 +419,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
         file: v === 'talkOut' ? 'bajada' : v === 'talkIn' ? 'subida' : 'sf',
         paint: (g: RasterGeometry, out: Uint8ClampedArray<ArrayBuffer>) =>
           v === 'sf'
-            ? renderSpreadingFactor(g, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, out)
+            ? renderSpreadingFactor(g, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, out, maxSf())
             : renderCoverage(g, grids, v, down, up, thresholds, out),
         legend: { title: viewTitle(v), entries: legendData.entries, emptyLabel: legendData.emptyLabel, hatchLabel: HATCH_LABEL },
       };
@@ -414,6 +473,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     const location = site.getSite();
     controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio()));
     deviceList?.refresh();
+    capacity.update();
   }
 
   const readout = createHoverReadout(page.readoutRoot);
@@ -425,7 +485,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     if (!lines) return readout.hide();
     const loss = coverage.grids[TALK_IN]!.lossDb[gridIndexAt(coverage.plan, point)]!;
     if (!Number.isNaN(loss)) {
-      const sf = minimumSpreadingFactor(receivedPowerDbm(up, loss), band.uplink.bandwidthKHz, gateway.noiseFigureDb);
+      const sf = minimumSpreadingFactor(receivedPowerDbm(up, loss), band.uplink.bandwidthKHz, gateway.noiseFigureDb, maxSf());
       lines.splice(3, 0, sf === null ? 'SF de subida: no llega ni con SF12' : `SF de subida: SF${sf} (${msFormat.format(timeOnAir(sf))} ms)`);
     }
     readout.show(lines, event.point.x, event.point.y);
