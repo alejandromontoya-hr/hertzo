@@ -11,13 +11,6 @@ import { infoButton } from './infoTip';
 const NONE = 'ninguno';
 
 /**
- * Entorno por omisión de Terreno y LoRa: urbano o arbolado, 15 m. Sin entorno, contra 320
- * mediciones a 10 m de la UIT (DBSG3, Reino Unido) el cálculo dio 19 dB de más; con este entorno
- * un equipo a 10 m suma unos 13 dB. En campo abierto o montaña despejada conviene cambiarlo.
- */
-export const DEFAULT_CLUTTER: Clutter = { type: 'urbano', heightM: 15 };
-
-/**
  * Lee el entorno de la dirección: "ninguno" es solo relieve (null); sin parámetro o con uno que
  * no se reconoce, `fallback`.
  */
@@ -31,19 +24,33 @@ export function parseClutter(params: URLSearchParams, fallback: Clutter | null =
 }
 
 /**
- * Lo que va en la dirección: nada si es el entorno por omisión de la página, "ninguno" si se
- * quitó uno que venía por omisión, y la altura solo si no es la de la norma.
+ * Entorno de Terreno y LoRa, que el usuario tiene que elegir antes de simular: undefined si la
+ * dirección no trae ninguno. Ningún valor sirve para todo: solo con el relieve, contra 320
+ * mediciones a 10 m de la UIT (DBSG3, Reino Unido), el cálculo dio 19 dB de más en zonas pobladas;
+ * con "Urbano o arbolado", en montaña despejada quedaría de 7 a 21 dB por debajo.
+ */
+export function parseRequiredClutter(params: URLSearchParams): Clutter | null | undefined {
+  const id = params.get('entorno');
+  if (id === NONE) return null;
+  return CLUTTER_TYPES.some((t) => t.id === id) ? parseClutter(params) : undefined;
+}
+
+/**
+ * Lo que va en la dirección: la altura solo si no es la de la norma. Con `explicitNone`, "Sin
+ * entorno" se escribe como "ninguno", porque sin parámetro la página pide elegirlo.
  */
 export function clutterQuery(
   clutter: Clutter | null,
-  fallback: Clutter | null = null,
+  explicitNone = false,
 ): { entorno: string | null; altura: string | null } {
-  if (!clutter) return { entorno: fallback ? NONE : null, altura: null };
+  if (!clutter) return { entorno: explicitNone ? NONE : null, altura: null };
   const standard = CLUTTER_TYPES.find((t) => t.id === clutter.type)!.heightM;
-  const altura = clutter.heightM === standard ? null : String(clutter.heightM);
-  if (fallback && clutter.type === fallback.type && altura === null) return { entorno: null, altura: null };
-  return { entorno: clutter.type, altura };
+  return { entorno: clutter.type, altura: clutter.heightM === standard ? null : String(clutter.heightM) };
 }
+
+/** Por qué no se puede simular todavía en Terreno y LoRa. */
+export const CHOOSE_CLUTTER_REASON =
+  'Para simular, elige el "Entorno del equipo": el resultado cambia unos 20 dB entre "Sin entorno" (campo despejado) y los entornos con casas o árboles.';
 
 /** Nombre corto del entorno para la lectura y el KMZ: "urbano de 15 m". */
 export function clutterLabel(clutter: Clutter): string {
@@ -51,21 +58,26 @@ export function clutterLabel(clutter: Clutter): string {
   return `${label.charAt(0).toLowerCase()}${label.slice(1)}, ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(clutter.heightM)} m`;
 }
 
+/**
+ * `initial` undefined: el entorno todavía no se ha elegido (Terreno y LoRa). El menú arranca en
+ * "Elige el entorno…" y avisa; después de elegir, ya no se puede volver a "sin elegir".
+ */
 export function createClutterControl(
   container: HTMLElement,
-  initial: Clutter | null,
+  initial: Clutter | null | undefined,
   onChange: (clutter: Clutter | null) => void,
 ): void {
-  let clutter = initial;
+  let clutter = initial ?? null;
+  let chosen = initial !== undefined;
   const field = document.createElement('div');
   field.className = 'field field-select';
   field.innerHTML = `<label for="entorno">Entorno del equipo${infoButton(
     'El relieve (SRTM) no trae edificios ni árboles: sin entorno, Hertzo calcula como si la ciudad estuviera vacía. Con entorno, suma lo que pierde el equipo por estar por debajo de lo que lo rodea, según la UIT-R P.2108. El relieve SRTM ya trae en parte los árboles y los edificios grandes: si el resultado se ve muy pesimista, baja la altura de lo que rodea al equipo.',
-  )}</label><select id="entorno"><option value="${NONE}">Sin entorno (solo relieve)</option>${CLUTTER_TYPES.map(
+  )}</label><select id="entorno">${chosen ? '' : '<option value="" disabled>Elige el entorno…</option>'}<option value="${NONE}">Sin entorno (solo relieve)</option>${CLUTTER_TYPES.map(
     (t) => `<option value="${t.id}">${t.label}</option>`,
   ).join('')}</select>`;
   const select = field.querySelector('select')!;
-  select.value = clutter?.type ?? NONE;
+  select.value = chosen ? (clutter?.type ?? NONE) : '';
 
   const height = createNumberField(
     {
@@ -89,8 +101,13 @@ export function createClutterControl(
   noClutterHint.className = 'hint';
   noClutterHint.textContent =
     'Solo relieve: en ciudad o zonas arboladas la señal real suele ser menor. En 320 mediciones a 10 m del banco de la UIT (Reino Unido, 150 a 1000 MHz), este cálculo dio en promedio 19 dB más que lo medido. Si el equipo está entre casas o árboles, elige su entorno.';
-  noClutterHint.hidden = clutter !== null;
-  container.append(field, noClutterHint, height.element);
+  noClutterHint.hidden = !chosen || clutter !== null;
+  const chooseHint = document.createElement('p');
+  chooseHint.className = 'notice';
+  chooseHint.textContent =
+    'Elige dónde está el equipo. "Sin entorno" sirve en campo despejado y montaña; entre casas o árboles elige el entorno que corresponda: con el equipo a 1 m suma unos 20 dB.';
+  chooseHint.hidden = chosen;
+  container.append(field, chooseHint, noClutterHint, height.element);
 
   select.addEventListener('change', () => {
     const info = CLUTTER_TYPES.find((t) => t.id === (select.value as ClutterType));
@@ -98,6 +115,9 @@ export function createClutterControl(
     if (clutter) height.setValue(clutter.heightM);
     height.element.hidden = !clutter;
     noClutterHint.hidden = clutter !== null;
+    chosen = true;
+    chooseHint.hidden = true;
+    select.querySelector('option[value=""]')?.remove();
     onChange(clutter);
   });
 }

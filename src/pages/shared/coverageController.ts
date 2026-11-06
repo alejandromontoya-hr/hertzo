@@ -16,6 +16,11 @@ export interface CoverageController {
   setRequest(request: CoverageRequest | null): void;
   /** La página borró el mapa (por ejemplo al pasar de FM a AM): el botón vuelve a "Simular". */
   forgetResult(): void;
+  /**
+   * Falta un dato que el usuario tiene que elegir: el botón se ve desactivado con el motivo debajo.
+   * null lo desbloquea.
+   */
+  setBlocked(reason: string | null): void;
   destroy(): void;
 }
 
@@ -36,10 +41,19 @@ export function createCoverageController(
   /** Datos del cálculo que muestra el mapa. */
   let shown: CoverageRequest | null = null;
   let running = false;
+  let blocked: string | null = null;
   let abort: AbortController | null = null;
   let destroyed = false;
 
   function refresh() {
+    if (blocked && !running) {
+      button.hidden = false;
+      button.disabled = true;
+      button.textContent = shown ? 'Simular de nuevo' : 'Simular';
+      hint.hidden = false;
+      hint.textContent = blocked;
+      return;
+    }
     const upToDate = pending !== null && shown !== null && sameRequest(shown, pending);
     button.hidden = !running && (!pending || upToDate);
     button.disabled = running;
@@ -79,6 +93,10 @@ export function createCoverageController(
   return {
     setRequest(request) {
       pending = request;
+      refresh();
+    },
+    setBlocked(reason) {
+      blocked = reason;
       refresh();
     },
     forgetResult() {

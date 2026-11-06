@@ -42,7 +42,7 @@ import {
 import { LORA_BUDGET_NAMES, balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
-import { DEFAULT_CLUTTER, clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseClutter } from '../../ui/clutterControl';
+import { CHOOSE_CLUTTER_REASON, clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseRequiredClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createLoraCapacity } from '../../ui/loraCapacity';
 import { createFieldGroup, createNumberField, type NumberFieldSpec } from '../../ui/fields';
@@ -188,8 +188,8 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   let sensor: LoraSensor = LORA_SENSORS.find((s) => s.id === DEFAULT_LORA_SENSOR_ID)!;
   let payloadBytes = DEFAULT_PAYLOAD_BYTES;
   let dwellLimit = params.get('tiempo') === '400';
-  // Por omisión urbano o arbolado: sin entorno el relieve solo da cobertura de más donde hay casas o árboles.
-  let clutter = parseClutter(params, DEFAULT_CLUTTER);
+  // Sin valor por omisión: el usuario elige el entorno antes de simular (undefined = sin elegir).
+  let clutter = parseRequiredClutter(params);
   let view: LoraView = 'talkIn';
   let thresholds = [...DEFAULT_LEVEL_THRESHOLDS_DBM];
   let opacity = 0.7;
@@ -287,7 +287,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   });
   createClutterControl(page.find('[data-clutter-form]'), clutter, (next) => {
     clutter = next;
-    const query = clutterQuery(clutter, DEFAULT_CLUTTER);
+    const query = clutterQuery(clutter, true);
     replaceQuery('entorno', query.entorno);
     replaceQuery('altura-entorno', query.altura);
     onParametersChange();
@@ -377,7 +377,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     matchProfile: (text) => matchProfileId(text, LORA_SENSORS),
     async evaluate(device) {
       const location = site.getSite();
-      if (!location) return null;
+      if (!location || clutter === undefined) return null;
       const s = sensorOf(device);
       const path: DevicePath = {
         site: location,
@@ -555,10 +555,11 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     showLegalWarning(down, up);
     showSfTable();
     const location = site.getSite();
-    const request = location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio(), itmSpec(clutter, reliability));
+    const request = location && clutter !== undefined ? lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio(), itmSpec(clutter ?? null, reliability)) : null;
     budgetMemo.remember(request, { down, up });
     redraw();
     controller.setRequest(request);
+    controller.setBlocked(location && clutter === undefined ? CHOOSE_CLUTTER_REASON : null);
     deviceList?.refresh();
     capacity.update();
   }

@@ -25,7 +25,7 @@ import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPa
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
-import { DEFAULT_CLUTTER, clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseClutter } from '../../ui/clutterControl';
+import { CHOOSE_CLUTTER_REASON, clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseRequiredClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createTrunkingCapacity } from '../../ui/trunkingCapacity';
 import { formatDistance, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
@@ -155,8 +155,8 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     radio = next;
     onParametersChange();
   });
-  // Por omisión urbano o arbolado: sin entorno el relieve solo da cobertura de más donde hay casas o árboles.
-  let clutter = parseClutter(params, DEFAULT_CLUTTER);
+  // Sin valor por omisión: el usuario elige el entorno antes de simular (undefined = sin elegir).
+  let clutter = parseRequiredClutter(params);
   let reliability = parseReliability(params, 90);
   createReliabilityControl(page.find('[data-reliability-form]'), reliability, (next) => {
     reliability = next;
@@ -165,7 +165,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   });
   createClutterControl(page.find('[data-clutter-form]'), clutter, (next) => {
     clutter = next;
-    const query = clutterQuery(clutter, DEFAULT_CLUTTER);
+    const query = clutterQuery(clutter, true);
     replaceQuery('entorno', query.entorno);
     replaceQuery('altura-entorno', query.altura);
     onParametersChange();
@@ -194,7 +194,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     matchProfile: (text) => matchProfileId(text, RADIO_PROFILES),
     async evaluate(device) {
       const location = site.getSite();
-      if (!location) return null;
+      if (!location || clutter === undefined) return null;
       const r = radioOf(device);
       const path: DevicePath = {
         site: location,
@@ -336,10 +336,11 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   function onParametersChange() {
     showBudget(talkOutBudget(tx, radio), talkInBudget(rx, radio));
     const location = site.getSite();
-    const request = location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio, itmSpec(clutter, reliability));
+    const request = location && clutter !== undefined ? lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio, itmSpec(clutter ?? null, reliability)) : null;
     chainMemo.remember(request, { tx, rx, radio });
     redraw();
     controller.setRequest(request);
+    controller.setBlocked(location && clutter === undefined ? CHOOSE_CLUTTER_REASON : null);
     deviceList?.refresh();
   }
 
