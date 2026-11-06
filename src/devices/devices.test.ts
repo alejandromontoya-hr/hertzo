@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LinkBudget } from '../rf/linkBudget';
-import { evaluateDevice, parseDeviceList } from './devices';
+import { closeRangeLossDb, evaluateDevice, parseDeviceList } from './devices';
 
 describe('parseDeviceList', () => {
   it('lista pegada de Excel (tabulador y coma decimal), con encabezado', () => {
@@ -84,5 +84,25 @@ describe('evaluateDevice', () => {
 
   it('sin cálculo (NaN): estado "sin cálculo"', () => {
     expect(evaluateDevice(down, up, Number.NaN, Number.NaN).status).toBe('unknown');
+  });
+});
+
+describe('closeRangeLossDb', () => {
+  // Caseta 9 de la Central Ganadera: 11 m del gateway, antena a 15 m, medidor a 0,5 m.
+  // Distancia real √(11² + 14,5²) = 18,2003 m; 32,45 + 20·log 916,8 + 20·log 0,0182003 = 56,897 dB.
+  it('subida en 916,8 MHz: 56,897 dB', () => {
+    expect(closeRangeLossDb(11, 15, 0.5, 916.8)).toBeCloseTo(56.897, 3);
+  });
+
+  it('bajada en 923,3 MHz: 56,958 dB, un poco más por ser más alta', () => {
+    expect(closeRangeLossDb(11, 15, 0.5, 923.3)).toBeCloseTo(56.958, 3);
+  });
+
+  it('a 42 m: √(42² + 14,5²) = 44,43 m y 64,650 dB', () => {
+    expect(closeRangeLossDb(42, 15, 0.5, 916.8)).toBeCloseTo(64.65, 2);
+  });
+
+  it('justo debajo y a la misma altura cuenta 1 m, no da una pérdida infinita', () => {
+    expect(closeRangeLossDb(0, 2, 2, 916.8)).toBeCloseTo(32.45 + 59.2459 - 60, 3);
   });
 });

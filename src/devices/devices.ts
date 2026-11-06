@@ -4,6 +4,7 @@
 import { balanceClass, type BalanceClass } from '../coverage/colorScale';
 import type { LonLat } from '../geo/geodesy';
 import { receivedPowerDbm, type LinkBudget } from '../rf/linkBudget';
+import { freeSpaceLossDb } from '../rf/fieldStrength';
 
 export interface DeviceInput {
   name: string;
@@ -90,4 +91,16 @@ export function evaluateDevice(down: LinkBudget, up: LinkBudget, lossDownDb: num
   const upMarginDb = upDbm - up.sensitivityDbm;
   const status = Number.isNaN(downMarginDb) || Number.isNaN(upMarginDb) ? 'unknown' : balanceClass(downMarginDb, upMarginDb);
   return { downDbm, upDbm, downMarginDb, upMarginDb, status };
+}
+
+/**
+ * Pérdida (dB) de un equipo muy cerca del sitio, donde el ITM no aplica: espacio libre con la
+ * distancia real entre las dos antenas, contando la diferencia de altura. A 11 m de la torre,
+ * con la antena del sitio a 15 m y el equipo a 0,5 m, la distancia es √(11² + 14,5²) = 18,2 m.
+ * Supone el terreno plano entre los dos, que a menos de 50 m casi siempre se cumple.
+ */
+export function closeRangeLossDb(horizontalM: number, siteHeightM: number, deviceHeightM: number, frequencyMHz: number): number {
+  // Nunca menos de 1 m, para no dar pérdidas negativas con el equipo debajo de la antena.
+  const slantM = Math.max(1, Math.hypot(horizontalM, siteHeightM - deviceHeightM));
+  return freeSpaceLossDb(slantM / 1000, frequencyMHz);
 }

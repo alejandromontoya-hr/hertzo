@@ -4,12 +4,13 @@
 
 import { distanceM, type LonLat } from '../geo/geodesy';
 import { loadItm } from '../propagation/itm';
+import { closeRangeLossDb } from './devices';
 import { loadTerrain } from '../terrain/elevation';
 import { profileBounds, sampleProfile } from '../terrain/profile';
 
 /** Paso del perfil (m), el mismo de Enlaces punto a punto. */
 const PROFILE_STEP_M = 30;
-/** Más cerca que esto el ITM no aplica: el equipo queda "sin cálculo". */
+/** Más cerca que esto el ITM no aplica: se usa espacio libre con la distancia real a la antena. */
 const MIN_DISTANCE_M = 50;
 
 export interface DevicePath {
@@ -29,7 +30,13 @@ export interface DeviceLoss {
 
 export async function deviceLoss(path: DevicePath): Promise<DeviceLoss> {
   const d = distanceM(path.site, path.device);
-  if (d < MIN_DISTANCE_M) return { distanceM: d, downDb: Number.NaN, upDb: Number.NaN };
+  if (d < MIN_DISTANCE_M) {
+    return {
+      distanceM: d,
+      downDb: closeRangeLossDb(d, path.down.siteHeightM, path.deviceHeightM, path.down.frequencyMHz),
+      upDb: closeRangeLossDb(d, path.up.siteHeightM, path.deviceHeightM, path.up.frequencyMHz),
+    };
+  }
   const [sampler, itm] = await Promise.all([loadTerrain(profileBounds(path.site, path.device)), loadItm()]);
   const profile = sampleProfile(sampler, path.site, path.device, PROFILE_STEP_M);
   const pfl = [profile.elevationsM.length - 1, profile.stepM, ...profile.elevationsM];
