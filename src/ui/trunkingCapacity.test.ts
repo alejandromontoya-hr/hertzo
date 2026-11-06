@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatShare, formatWait } from './trunkingCapacity';
+import { formatShare, formatWait, sharePhrase } from './trunkingCapacity';
 
 describe('formatShare', () => {
   it('0,1 → "10,0 %"; 0,5 → "50,0 %"', () => {
@@ -25,5 +25,12 @@ describe('formatWait', () => {
   it('0,02 s (alguien espera un poco) → "< 0,1 s"; 0 → "0,0 s"', () => {
     expect(formatWait(0.02)).toBe('< 0,1 s');
     expect(formatWait(0)).toBe('0,0 s');
+  });
+});
+
+describe('sharePhrase', () => {
+  it('0,1 → "el 10,0 %"; 0,0002 → "menos del 0,1 %", no "el < 0,1 %"', () => {
+    expect(sharePhrase(0.1)).toBe('el 10,0 %');
+    expect(sharePhrase(0.0002)).toBe('menos del 0,1 %');
   });
 });

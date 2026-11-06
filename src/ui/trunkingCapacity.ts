@@ -35,6 +35,12 @@ export function formatShare(fraction: number): string {
 }
 
 /** 1 → "1,0 s"; menos de 0,05 s → "< 0,1 s"; sistema saturado → "sin límite". */
+/** Para una frase: "el 10,0 %", o "menos del 0,1 %" cuando es casi nada (no "el < 0,1 %"). */
+export function sharePhrase(fraction: number): string {
+  const share = formatShare(fraction);
+  return share.startsWith('<') ? `menos del ${share.slice(2)}` : `el ${share}`;
+}
+
 export function formatWait(seconds: number): string {
   if (!Number.isFinite(seconds)) return 'sin límite';
   if (seconds > 0 && seconds < 0.05) return '< 0,1 s';
@@ -79,7 +85,7 @@ export function createTrunkingCapacity(container: HTMLElement): TrunkingCapacity
     const saturated = traffic >= channels;
     const summary = saturated
       ? `Con ${channels} ${channels === 1 ? 'canal' : 'canales'} el sistema se satura: hay más tráfico (${erlangFormat.format(traffic)} Erl) que canales, y la fila crece sin parar.`
-      : `${erlangFormat.format(traffic)} Erl en la hora pico. Con ${channels} ${channels === 1 ? 'canal' : 'canales'}, espera el ${formatShare(erlangC(channels, traffic))} de las llamadas y el ${formatShare(
+      : `${erlangFormat.format(traffic)} Erl en la hora pico. Con ${channels} ${channels === 1 ? 'canal' : 'canales'}, espera ${sharePhrase(erlangC(channels, traffic))} de las llamadas y ${sharePhrase(
           probabilityWaitLongerThan(channels, traffic, holdSeconds, waitLimitSeconds),
         )} espera más de ${limitFormat.format(waitLimitSeconds)} s.`;
     result.innerHTML = `
