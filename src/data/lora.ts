@@ -21,6 +21,21 @@ export interface LoraBand {
   /** Gateway → sensor. */
   downlink: LoraChannel;
   description: string;
+  /** SF más lento de la subida a 125 kHz que define el plan (DR0 de RP002-1.0.3): SF10 en US915, SF12 en los demás. */
+  maxUplinkSf: SpreadingFactor;
+  /** La norma limita siempre cada mensaje de subida a 400 ms en el aire (FCC 15.247 en US915). */
+  alwaysDwellLimited: boolean;
+  regulation: LoraRegulation;
+}
+
+/** Topes legales de la banda: ERP máxima (dBm) en el canal de subida y en el de bajada. */
+export interface LoraRegulation {
+  uplinkMaxErpDbm: number;
+  downlinkMaxErpDbm: number;
+  /** Ciclo de trabajo máximo de cada sensor en el canal de subida (%), si la norma lo pide. */
+  uplinkDutyCyclePct?: number;
+  /** Norma que fija los topes, para citarla en el aviso. */
+  source: string;
 }
 
 /**
@@ -36,6 +51,10 @@ export const LORA_BANDS: readonly LoraBand[] = [
     uplink: { frequencyMHz: 916.8, bandwidthKHz: 125 },
     downlink: { frequencyMHz: 923.3, bandwidthKHz: 500 },
     description: 'Plan de Colombia, Australia y gran parte de Latinoamérica.',
+    maxUplinkSf: 12,
+    alwaysDwellLimited: false,
+    // 1 W conducido con antena de hasta 6 dBi: 36 dBm PIRE = 33,85 dBm ERP.
+    regulation: { uplinkMaxErpDbm: 33.85, downlinkMaxErpDbm: 33.85, source: 'ANE, Resolución 105 de 2020: 1 W con antena de hasta 6 dBi' },
   },
   {
     id: 'us915',
@@ -43,7 +62,10 @@ export const LORA_BANDS: readonly LoraBand[] = [
     range: '902–928 MHz',
     uplink: { frequencyMHz: 903.9, bandwidthKHz: 125 },
     downlink: { frequencyMHz: 923.3, bandwidthKHz: 500 },
-    description: 'Plan de Estados Unidos, Canadá y México.',
+    description: 'Plan de Estados Unidos, Canadá y México. La subida llega hasta SF10 (DR0) y cada mensaje dura como máximo 400 ms.',
+    maxUplinkSf: 10,
+    alwaysDwellLimited: true,
+    regulation: { uplinkMaxErpDbm: 33.85, downlinkMaxErpDbm: 33.85, source: 'FCC 15.247: 1 W con antena de hasta 6 dBi' },
   },
   {
     id: 'eu868',
@@ -52,6 +74,15 @@ export const LORA_BANDS: readonly LoraBand[] = [
     uplink: { frequencyMHz: 868.1, bandwidthKHz: 125 },
     downlink: { frequencyMHz: 869.525, bandwidthKHz: 125 },
     description: 'Plan de Europa: la bajada usa el canal de 869,525 MHz.',
+    maxUplinkSf: 12,
+    alwaysDwellLimited: false,
+    // 868,0–868,6 MHz: 25 mW ERP y 1 % del tiempo; 869,4–869,65 MHz: 500 mW ERP.
+    regulation: {
+      uplinkMaxErpDbm: 14,
+      downlinkMaxErpDbm: 27,
+      uplinkDutyCyclePct: 1,
+      source: 'ERC 70-03 y EN 300 220: 25 mW ERP en 868,0–868,6 MHz y 500 mW ERP en 869,4–869,65 MHz',
+    },
   },
 ];
 

@@ -15,12 +15,12 @@ import {
   type LmrBandId,
 } from '../../data/defaults';
 import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/deviceLoss';
-import { evaluateDevice } from '../../devices/devices';
+import { evaluateDevice, matchProfileId } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
-import { talkInBudget, talkOutBudget } from '../../rf/linkBudget';
+import { talkInBudget, talkOutBudget, type RadioProfile, type SiteRxChain, type SiteTxChain } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
 import { createMapLegend } from '../../ui/coverageLegend';
@@ -34,6 +34,7 @@ import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
+import { createRequestMemo } from '../shared/requestMemo';
 import { createSiteControls } from '../shared/siteControls';
 
 const VIEWS: { id: CoverageView; label: string; title: string }[] = [
@@ -52,7 +53,7 @@ const viewTitle = (id: CoverageView) => VIEWS.find((v) => v.id === id)!.title;
 
 /** Franjas de nivel de una dirección, de la más fuerte a la sensibilidad. */
 const levelEntries = (sensitivityDbm: number, thresholds: readonly number[]) =>
-  levelBandLabels(sensitivityDbm, thresholds).map((label, i) => ({ color: LEVEL_COLORS[i]!, label }));
+  levelBandLabels(sensitivityDbm, thresholds).flatMap((label, i) => (label ? [{ color: LEVEL_COLORS[i]!, label }] : []));
 
 const gridsOf = (result: CoverageResult): CoverageGrids => ({
   talkOut: result.grids[TALK_OUT]!,
@@ -189,10 +190,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     noun: { one: 'radio', many: 'radios' },
     profiles: RADIO_PROFILES,
     profileName: (id) => RADIO_PROFILES.find((p) => p.id === id)?.name ?? radio.name,
-    matchProfile(text) {
-      const t = text.trim().toLowerCase();
-      return RADIO_PROFILES.find((p) => p.id === t || p.name.toLowerCase() === t || p.name.toLowerCase().includes(t))?.id ?? null;
-    },
+    matchProfile: (text) => matchProfileId(text, RADIO_PROFILES),
     async evaluate(device) {
       const location = site.getSite();
       if (!location) return null;
@@ -237,8 +235,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   /** Vuelve a pintar el mapa visible con el último cálculo y el balance actual (sin recalcular). */
   function redraw() {
     if (!coverage || !geometry || !pixels) return;
-    const down = talkOutBudget(tx, radio);
-    const up = talkInBudget(rx, radio);
+    const { down, up } = mapBudgets(coverage);
     renderCoverage(geometry, gridsOf(coverage), view, down, up, thresholds, pixels);
     coverageLayer.draw(geometry, pixels);
     const isLevel = view !== 'balance';
@@ -264,8 +261,10 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   async function exportKmz() {
     if (!coverage) return;
     const grids = gridsOf(coverage);
-    const down = talkOutBudget(tx, radio);
-    const up = talkInBudget(rx, radio);
+    // Con los datos del cálculo que muestra el mapa, aunque el formulario ya tenga otros.
+    const shown = mapChain(coverage);
+    const { tx, rx, radio } = shown;
+    const { down, up } = mapBudgets(coverage);
     const directions = [
       { view: 'talkOut', label: 'Bajada', file: 'bajada', frequencyMHz: tx.frequencyMHz, sensitivityDbm: down.sensitivityDbm },
       { view: 'talkIn', label: 'Subida', file: 'subida', frequencyMHz: rx.frequencyMHz, sensitivityDbm: up.sensitivityDbm },
@@ -325,11 +324,21 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     });
   }
 
+  /** Cadenas con que se calculó el mapa visible (las de ahora si no hay que volver a simular). */
+  const chainMemo = createRequestMemo<{ tx: SiteTxChain; rx: SiteRxChain; radio: RadioProfile }>();
+  const mapChain = (result: CoverageResult) => chainMemo.forResult(result, { tx, rx, radio });
+  const mapBudgets = (result: CoverageResult) => {
+    const c = mapChain(result);
+    return { down: talkOutBudget(c.tx, c.radio), up: talkInBudget(c.rx, c.radio) };
+  };
+
   function onParametersChange() {
     showBudget(talkOutBudget(tx, radio), talkInBudget(rx, radio));
-    redraw();
     const location = site.getSite();
-    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio, itmSpec(clutter, reliability)));
+    const request = location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx, rx, radio, itmSpec(clutter, reliability));
+    chainMemo.remember(request, { tx, rx, radio });
+    redraw();
+    controller.setRequest(request);
     deviceList?.refresh();
   }
 
@@ -339,7 +348,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     if (isOverDevice(event.originalEvent)) return;
     const lines =
       coverage &&
-      readoutLines(coverage, talkOutBudget(tx, radio), talkInBudget(rx, radio), {
+      readoutLines(coverage, mapBudgets(coverage).down, mapBudgets(coverage).up, {
         lon: event.lngLat.lng,
         lat: event.lngLat.lat,
       });

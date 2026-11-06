@@ -139,9 +139,15 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   });
   q('[data-device-load]').addEventListener('click', () => {
     const parsed = parseDeviceList(textarea.value);
-    errorsBox.hidden = parsed.errors.length === 0;
-    errorsBox.textContent = parsed.errors.join(' ');
-    add(parsed.devices.map((d) => ({ name: d.name, position: d.position, profileId: d.profile ? options.matchProfile(d.profile) : null })));
+    const items = parsed.devices.map((d) => ({ name: d.name, position: d.position, profileId: d.profile ? options.matchProfile(d.profile) : null }));
+    // Un tipo que no coincide con ningún perfil no se cambia en silencio por el de arriba: se avisa.
+    const unknown = parsed.devices
+      .filter((d, i) => d.profile && items[i]!.profileId === null)
+      .map((d) => `"${d.name}": el tipo "${d.profile}" no coincide con ningún perfil (${options.profiles.map((p) => p.name).join(', ')}); se calcula como el de arriba.`);
+    const messages = [...parsed.errors, ...unknown];
+    errorsBox.hidden = messages.length === 0;
+    errorsBox.textContent = messages.join(' ');
+    add(items);
     if (parsed.devices.length > 0 && parsed.errors.length === 0) {
       textarea.value = '';
       pasteBox.hidden = true;

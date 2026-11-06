@@ -104,3 +104,19 @@ export function closeRangeLossDb(horizontalM: number, siteHeightM: number, devic
   const slantM = Math.max(1, Math.hypot(horizontalM, siteHeightM - deviceHeightM));
   return freeSpaceLossDb(slantM / 1000, frequencyMHz);
 }
+
+/** Minúsculas y sin tildes: "Móvil" y "movil" se comparan igual. */
+function plain(text: string): string {
+  return text.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * Perfil que corresponde al tipo escrito en una lista pegada: por id, por nombre completo o por
+ * parte del nombre, sin importar tildes ni mayúsculas ("movil" → "Móvil con antena en el techo").
+ * null si no coincide ninguno.
+ */
+export function matchProfileId(text: string, profiles: readonly { id: string; name: string }[]): string | null {
+  const t = plain(text);
+  if (t === '') return null;
+  return profiles.find((p) => p.id === t || plain(p.name) === t || plain(p.name).includes(t))?.id ?? null;
+}

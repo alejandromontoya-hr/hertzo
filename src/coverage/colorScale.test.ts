@@ -34,6 +34,16 @@ describe('levelBandLabels', () => {
     ]);
   });
 });
+describe('levelBandLabels con la sensibilidad por encima de un umbral', () => {
+  // Sensibilidad −100 con umbrales −80, −95, −105: el mapa pinta amarillo de −100 a −95 y nunca rojo.
+  it('la franja que cruza la sensibilidad empieza en ella y la de debajo no sale', () => {
+    expect(levelBandLabels(-100, [-80, -95, -105])).toEqual(['≥ -80 dBm', '-95 a -80 dBm', '-100 a -95 dBm', null]);
+  });
+  it('sensibilidad por encima del umbral más alto: una sola franja desde la sensibilidad', () => {
+    expect(levelBandLabels(-70, [-80, -95, -105])).toEqual(['≥ -70 dBm', null, null, null]);
+  });
+});
+
 
 describe('balanceClass', () => {
   it('+10,9 dB de bajada y +2 dB de subida: llegan ambas', () => expect(balanceClass(10.9, 2)).toBe('both'));

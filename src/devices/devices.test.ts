@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LinkBudget } from '../rf/linkBudget';
-import { closeRangeLossDb, evaluateDevice, parseDeviceList } from './devices';
+import { closeRangeLossDb, evaluateDevice, matchProfileId, parseDeviceList } from './devices';
 
 describe('parseDeviceList', () => {
   it('lista pegada de Excel (tabulador y coma decimal), con encabezado', () => {
@@ -104,5 +104,20 @@ describe('closeRangeLossDb', () => {
 
   it('justo debajo y a la misma altura cuenta 1 m, no da una pérdida infinita', () => {
     expect(closeRangeLossDb(0, 2, 2, 916.8)).toBeCloseTo(32.45 + 59.2459 - 60, 3);
+  });
+});
+
+describe('matchProfileId', () => {
+  const profiles = [
+    { id: 'portatil-cintura', name: 'Portátil en la cintura' },
+    { id: 'movil-techo', name: 'Móvil con antena en el techo' },
+  ];
+  it('compara sin tildes ni mayúsculas', () => {
+    expect(matchProfileId('movil', profiles)).toBe('movil-techo');
+    expect(matchProfileId('MÓVIL', profiles)).toBe('movil-techo');
+    expect(matchProfileId('portatil en la cintura', profiles)).toBe('portatil-cintura');
+  });
+  it('un tipo que no existe da null', () => {
+    expect(matchProfileId('camión', profiles)).toBeNull();
   });
 });

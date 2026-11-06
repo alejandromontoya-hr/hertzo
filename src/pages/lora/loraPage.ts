@@ -22,12 +22,13 @@ import {
   type LoraSensor,
 } from '../../data/lora';
 import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/deviceLoss';
-import { evaluateDevice } from '../../devices/devices';
+import { evaluateDevice, matchProfileId } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
-import { receivedPowerDbm, talkInBudget, talkOutBudget } from '../../rf/linkBudget';
+import { receivedPowerDbm, talkInBudget, talkOutBudget, type LinkBudget } from '../../rf/linkBudget';
+import { DIPOLE_GAIN_DBI } from '../../rf/units';
 import {
   AU915_DWELL_TIME_MS,
   DEFAULT_ADR_MARGIN_DB,
@@ -51,6 +52,7 @@ import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
+import { createRequestMemo } from '../shared/requestMemo';
 import { createSiteControls } from '../shared/siteControls';
 
 type LoraView = CoverageView | 'sf';
@@ -71,13 +73,15 @@ const CUSTOM_SENSOR_ID = 'personalizado';
 const kmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 const integerDbm = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 const msFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const erpFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
+const wattsFormat = new Intl.NumberFormat('es-CO', { maximumSignificantDigits: 2 });
 const LEVEL_EMPTY_LABEL = 'no llega ni con SF12';
 const HATCH_LABEL = 'baja confianza (ladera empinada junto al gateway)';
 
 const viewTitle = (id: LoraView) => VIEWS.find((v) => v.id === id)!.title;
 
 const levelEntries = (sensitivityDbm: number, thresholds: readonly number[]) =>
-  levelBandLabels(sensitivityDbm, thresholds).map((label, i) => ({ color: LEVEL_COLORS[i]!, label }));
+  levelBandLabels(sensitivityDbm, thresholds).flatMap((label, i) => (label ? [{ color: LEVEL_COLORS[i]!, label }] : []));
 
 const gridsOf = (result: CoverageResult): CoverageGrids => ({
   talkOut: result.grids[TALK_OUT]!,
@@ -169,6 +173,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     <section class="panel-section">
       <h2>Balance de enlace</h2>
       <div data-budget></div>
+      <p class="notice" data-legal-warning hidden></p>
     </section>
     <section class="panel-section">
       <h2>SF y tiempo en el aire${infoButton('Cuánto aguanta el gateway con cada SF y cuánto dura cada mensaje. Más tiempo en el aire es más batería gastada y más ocupación del canal.')}</h2>
@@ -192,11 +197,17 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   let pixels: Uint8ClampedArray<ArrayBuffer> | null = null;
 
   const tx = () => gatewayTxChain(band, gateway);
-  /** SF más lento permitido: SF12, o el que cabe en 400 ms si la red de AU915 lo exige. */
-  const maxSf = (): SpreadingFactor =>
-    dwellLimit && band.id === 'au915'
+  /**
+   * SF más lento permitido: el DR0 del plan (SF12, o SF10 en US915), y además el que cabe en
+   * 400 ms cuando la norma lo exige siempre (US915) o la red de AU915 lo pide.
+   */
+  const maxSf = (): SpreadingFactor => {
+    const limited = band.alwaysDwellLimited || (dwellLimit && band.id === 'au915');
+    const dwellSf = limited
       ? (maxSpreadingFactorForDwell(band.uplink.bandwidthKHz, payloadBytes + LORAWAN_OVERHEAD_BYTES) ?? 7)
       : 12;
+    return Math.min(band.maxUplinkSf, dwellSf) as SpreadingFactor;
+  };
   const rx = () => gatewayRxChain(band, gateway, maxSf());
   const radio = () => sensorRadioProfile(band, sensor);
   const budgets = () => ({ down: talkOutBudget(tx(), radio()), up: talkInBudget(rx(), radio()) });
@@ -350,6 +361,8 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     deviceSfs: () => deviceList?.devices().map((d) => sfById.get(d.id) ?? null) ?? [],
     timeOnAirMs: (sf) => timeOnAir(sf),
     maxSf,
+    dutyCyclePct: () => band.regulation.uplinkDutyCyclePct,
+    bandLabel: () => band.label,
   });
   let deviceList: DeviceList | undefined;
   deviceList = createDeviceList(page, page.find('[data-devices]'), {
@@ -360,10 +373,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     noun: { one: 'medidor', many: 'medidores' },
     profiles: LORA_SENSORS,
     profileName: (id) => LORA_SENSORS.find((s) => s.id === id)?.name ?? sensor.name,
-    matchProfile(text) {
-      const t = text.trim().toLowerCase();
-      return LORA_SENSORS.find((s) => s.id === t || s.name.toLowerCase() === t || s.name.toLowerCase().includes(t))?.id ?? null;
-    },
+    matchProfile: (text) => matchProfileId(text, LORA_SENSORS),
     async evaluate(device) {
       const location = site.getSite();
       if (!location) return null;
@@ -417,7 +427,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   /** Vuelve a pintar el mapa visible con el último cálculo y el balance actual (sin recalcular). */
   function redraw() {
     if (!coverage || !geometry || !pixels) return;
-    const { down, up } = budgets();
+    const { down, up } = mapBudgets(coverage);
     const grids = gridsOf(coverage);
     if (view === 'sf') {
       renderSpreadingFactor(geometry, grids.talkIn, up, band.uplink.bandwidthKHz, gateway.noiseFigureDb, pixels, maxSf(), adrMarginDb);
@@ -436,7 +446,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   }
 
   function legendFor(v: LoraView) {
-    const { down, up } = budgets();
+    const { down, up } = coverage ? mapBudgets(coverage) : budgets();
     if (v === 'sf') {
       return {
         entries: SPREADING_FACTORS.filter((sf) => sf <= maxSf()).map((sf) => ({
@@ -461,7 +471,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   async function exportKmz() {
     if (!coverage) return;
     const grids = gridsOf(coverage);
-    const { down, up } = budgets();
+    const { down, up } = mapBudgets(coverage);
     const layers = (['talkOut', 'talkIn', 'sf'] as const).map((v) => {
       const legendData = legendFor(v);
       const frequencyMHz = v === 'talkOut' ? band.downlink.frequencyMHz : band.uplink.frequencyMHz;
@@ -517,13 +527,37 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     });
   }
 
+  const legalWarning = page.find('[data-legal-warning]');
+  /** Avisa si la bajada o la subida radian más ERP de la que permite la norma de la banda. */
+  function showLegalWarning(down: LinkBudget, up: LinkBudget) {
+    const rule = band.regulation;
+    const over = [
+      { who: 'El gateway', erp: down.erpDbm, max: rule.downlinkMaxErpDbm, txLosses: down.txLossesDb, gainDbi: down.txAntennaGainDbi, field: 'del gateway' },
+      { who: 'El sensor', erp: up.erpDbm, max: rule.uplinkMaxErpDbm, txLosses: up.txLossesDb, gainDbi: up.txAntennaGainDbi, field: 'del sensor' },
+    ].filter((o) => o.erp > o.max + 0.05);
+    legalWarning.hidden = over.length === 0;
+    const sentences = over.map((o) => {
+      // Potencia del transmisor que deja la ERP justo en el tope, con las mismas pérdidas y antena.
+      const maxW = 10 ** ((o.max + DIPOLE_GAIN_DBI + o.txLosses - o.gainDbi - 30) / 10);
+      return `${o.who} radia ${erpFormat.format(o.erp)} dBm ERP y en ${band.label} el tope es ${erpFormat.format(o.max)} dBm ERP: con esa antena y esas pérdidas, la potencia ${o.field} debe ser como máximo ${wattsFormat.format(maxW)} W.`;
+    });
+    legalWarning.textContent = over.length ? `${sentences.join(' ')} Norma: ${rule.source}.` : '';
+  }
+
+  /** Balance con que se calculó el mapa visible (el de ahora si no hay que volver a simular). */
+  const budgetMemo = createRequestMemo<ReturnType<typeof budgets>>();
+  const mapBudgets = (result: CoverageResult) => budgetMemo.forResult(result, budgets());
+
   function onParametersChange() {
     const { down, up } = budgets();
     showBudget(down, up);
+    showLegalWarning(down, up);
     showSfTable();
-    redraw();
     const location = site.getSite();
-    controller.setRequest(location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio(), itmSpec(clutter, reliability)));
+    const request = location && lmrCoverageRequest(location, site.getRadiusKm() * 1000, tx(), rx(), radio(), itmSpec(clutter, reliability));
+    budgetMemo.remember(request, { down, up });
+    redraw();
+    controller.setRequest(request);
     deviceList?.refresh();
     capacity.update();
   }
@@ -534,13 +568,13 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     if (isOverDevice(event.originalEvent)) return;
     const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
     if (!coverage) return readout.hide();
-    const { down, up } = budgets();
+    const { down, up } = mapBudgets(coverage);
     const lines = readoutLines(coverage, down, up, point)?.map((l) => l.replace(' del sitio', ' del gateway'));
     if (!lines) return readout.hide();
     const loss = coverage.grids[TALK_IN]!.lossDb[gridIndexAt(coverage.plan, point)]!;
     if (!Number.isNaN(loss)) {
       const sf = minimumSpreadingFactor(receivedPowerDbm(up, loss), band.uplink.bandwidthKHz, gateway.noiseFigureDb, maxSf(), adrMarginDb);
-      lines.splice(3, 0, sf === null ? 'SF de subida: no llega ni con SF12' : `SF de subida: SF${sf} (${msFormat.format(timeOnAir(sf))} ms)`);
+      lines.splice(3, 0, sf === null ? `SF de subida: ${emptyLabel()}` : `SF de subida: SF${sf} (${msFormat.format(timeOnAir(sf))} ms)`);
     }
     const entorno = clutterSummary(coverage.request);
     if (entorno) lines.push(entorno);

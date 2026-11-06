@@ -30,6 +30,9 @@ export interface LoraCapacityContext {
   timeOnAirMs(sf: SpreadingFactor): number;
   /** SF más lento permitido: SF12, o menos con el límite de 400 ms. */
   maxSf(): SpreadingFactor;
+  /** Ciclo de trabajo máximo de cada medidor (%), si la norma de la banda lo pide (1 % en EU868). */
+  dutyCyclePct?(): number | undefined;
+  bandLabel?(): string;
 }
 
 export interface LoraCapacity {
@@ -102,7 +105,19 @@ export function createLoraCapacity(container: HTMLElement, context: LoraCapacity
         <tbody>${rows}</tbody>
       </table>
       <p class="budget-summary">Se pierde ${lossPhrase(overallLoss)} de los mensajes por choques: ${source}, cada ${minutesFormat.format(values.intervalMinutes)} min, en ${values.channels} ${values.channels === 1 ? 'canal' : 'canales'}.</p>
+      ${dutyCycleNotice(list, values.intervalMinutes)}
       <p class="hint">ALOHA puro: dos mensajes del mismo SF que se cruzan en el mismo canal se pierden; con SF distinto no chocan. No cuenta el efecto captura, así que la pérdida real es algo menor.</p>`;
+  }
+
+  /** Aviso si el medidor más lento ocupa el canal más tiempo del que permite la norma (1 % en EU868). */
+  function dutyCycleNotice(list: LoraTransmitter[], intervalMinutes: number): string {
+    const limitPct = context.dutyCyclePct?.();
+    if (!limitPct || list.length === 0) return '';
+    const slowest = list.reduce((a, b) => (b.timeOnAirMs > a.timeOnAirMs ? b : a));
+    const usedPct = (slowest.timeOnAirMs / (intervalMinutes * 60000)) * 100;
+    if (usedPct <= limitPct) return '';
+    const minIntervalS = slowest.timeOnAirMs / 1000 / (limitPct / 100);
+    return `<p class="notice">En ${context.bandLabel?.() ?? 'esta banda'} cada medidor puede ocupar el canal como máximo el ${minutesFormat.format(limitPct)} % del tiempo. Con SF${slowest.spreadingFactor} (${minutesFormat.format(slowest.timeOnAirMs)} ms por mensaje) ocupa el ${minutesFormat.format(usedPct)} %: debe enviar cada ${integerFormat.format(Math.ceil(minIntervalS))} s o más.</p>`;
   }
 
   update();

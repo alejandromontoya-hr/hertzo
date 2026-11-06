@@ -29,11 +29,21 @@ const edgeFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1, us
 /** −139,03089 → "-139"; −131,5 → "-131,5": a lo sumo un decimal, con el guion corto de los campos. */
 const formatEdge = (dbm: number) => edgeFormat.format(dbm).replace('−', '-');
 
-/** Texto de cada franja para la leyenda: "≥ -80 dBm", "-95 a -80 dBm", …, "-116 a -105 dBm". */
-export function levelBandLabels(sensitivityDbm: number, thresholdsDbm: readonly number[]): string[] {
+/**
+ * Texto de cada franja para la leyenda: "≥ -80 dBm", "-95 a -80 dBm", …, "-116 a -105 dBm".
+ * Igual que `levelBand`, por debajo de la sensibilidad no se pinta: una franja que queda entera
+ * bajo la sensibilidad sale null y la que la cruza empieza en ella. Con sensibilidad −100:
+ * "≥ -80", "-95 a -80", "-100 a -95" y null.
+ */
+export function levelBandLabels(sensitivityDbm: number, thresholdsDbm: readonly number[]): (string | null)[] {
   const sorted = [...thresholdsDbm].sort((a, b) => b - a);
-  const edges = [...sorted, sensitivityDbm].map(formatEdge);
-  return edges.map((low, i) => (i === 0 ? `≥ ${low} dBm` : `${low} a ${edges[i - 1]} dBm`));
+  const lows = [...sorted, sensitivityDbm];
+  return lows.map((low, i) => {
+    const bottom = formatEdge(Math.max(low, sensitivityDbm));
+    if (i === 0) return `≥ ${bottom} dBm`;
+    const top = sorted[i - 1]!;
+    return sensitivityDbm >= top ? null : `${bottom} a ${formatEdge(top)} dBm`;
+  });
 }
 
 export type BalanceClass = 'both' | 'talkOutOnly' | 'talkInOnly' | 'none';
