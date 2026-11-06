@@ -85,7 +85,15 @@ type GatewayValues = Omit<LoraGateway, never>;
 type SensorValues = Omit<LoraSensor, 'id' | 'name'>;
 
 const GATEWAY_FIELDS: readonly NumberFieldSpec<keyof GatewayValues>[] = [
-  { key: 'powerW', label: 'Potencia', unit: 'W', min: 0, max: 10, minExclusive: true },
+  {
+    key: 'powerW',
+    label: 'Potencia',
+    unit: 'W',
+    min: 0,
+    max: 10,
+    minExclusive: true,
+    hint: 'En Colombia (915–928 MHz), máximo 1 W a la salida del equipo con antena de hasta 6 dBi; con más ganancia, la potencia baja lo mismo que sobra (ANE, Resolución 105 de 2020, anexo 3.6.1.1).',
+  },
   { key: 'lineLengthM', label: 'Longitud del cable', unit: 'm', min: 0, max: 200 },
   { key: 'lineLossDbPer100m', label: 'Pérdida del cable', unit: 'dB/100 m', min: 0, max: 50 },
   { key: 'connectorLossDb', label: 'Pérdida de conectores', unit: 'dB', min: 0, max: 10 },

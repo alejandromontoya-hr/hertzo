@@ -68,7 +68,11 @@ export interface LoraGateway {
   noiseFigureDb: number;
 }
 
-/** Gateway de 27 dBm (0,5 W), 10 m de LMR-400 (~12,8 dB/100 m a 900 MHz) y omni de 3 dBd a 30 m. */
+/**
+ * Gateway de 27 dBm (0,5 W), 10 m de LMR-400 (~12,8 dB/100 m a 900 MHz) y omni de 3 dBd a 30 m.
+ * Cumple el límite de Colombia en 915–928 MHz: hasta 1 W conducido con antena de hasta 6 dBi
+ * (ANE, Resolución 105 de 2020, anexo 3.6.1.1); aquí 0,5 W con 5,15 dBi.
+ */
 export const DEFAULT_LORA_GATEWAY: LoraGateway = {
   powerW: 0.5,
   lineLengthM: 10,
