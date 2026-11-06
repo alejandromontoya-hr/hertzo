@@ -1,6 +1,6 @@
 // Radiodifusión FM y AM: intensidad de campo y zonas de servicio de una emisora.
 // FM se propaga por línea de vista y difracción sobre el relieve (ITM); AM viaja como onda
-// de tierra y depende sobre todo de la conductividad del suelo (Sommerfeld-Norton).
+// de tierra y depende sobre todo de la conductividad del suelo (Norton cerca y Tierra esférica lejos).
 
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import type { CoverageRequest, CoverageResult } from '../../coverage/computeCoverage';

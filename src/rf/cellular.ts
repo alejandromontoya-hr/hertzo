@@ -146,7 +146,7 @@ export function noisePerResourceElementDbm(subcarrierKHz: number, noiseFigureDb:
   return -174 + 10 * Math.log10(subcarrierKHz * 1000) + noiseFigureDb;
 }
 
-/** SINR (dB) del sector servidor frente a los demás, con todos transmitiendo (carga 100 %). */
+/** SINR (dB) del sector servidor frente a los interferentes (otros sectores y sitios vecinos), todos a plena carga. */
 export function sinrDb(servingDbm: number, interferersDbm: readonly number[], noiseDbm: number): number {
   let interferenceMw = 10 ** (noiseDbm / 10);
   for (const i of interferersDbm) interferenceMw += 10 ** (i / 10);

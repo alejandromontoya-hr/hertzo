@@ -99,7 +99,12 @@ export interface CaveBand {
   frequencyMHz: number;
   /** Potencia típica del equipo que transmite (dBm). */
   txPowerDbm: number;
-  /** Sensibilidad típica del receptor (dBm); por defecto la misma en el portátil y en el repetidor. */
+  /**
+   * Sensibilidad típica del receptor (dBm); por defecto la misma en el portátil y en el repetidor.
+   * En VHF, UHF y 800 MHz es la de 5 % BER con desvanecimiento de un portátil P25 (−112 dBm,
+   * Motorola APX 8000), igual que en /terreno: el modelo da la señal promedio, sin el
+   * desvanecimiento rápido.
+   */
   sensitivityDbm: number;
   /**
    * Potencia típica del portátil en la subida (dBm): 5 W en VHF, 4 W en UHF, 3 W en 800 MHz y
@@ -112,8 +117,8 @@ export interface CaveBand {
 export const CAVE_BANDS: readonly CaveBand[] = [
   { id: 'am', label: 'AM', frequencyMHz: 1, txPowerDbm: 40, sensitivityDbm: -90, portablePowerDbm: null, description: 'Radio AM (1 MHz): muy por debajo del corte de cualquier galería.' },
   { id: 'fm', label: 'FM', frequencyMHz: 100, txPowerDbm: 30, sensitivityDbm: -95, portablePowerDbm: null, description: 'Radio FM (100 MHz): por eso los túneles viales la retransmiten por cable radiante.' },
-  { id: 'vhf', label: 'VHF', frequencyMHz: 155, txPowerDbm: 37, sensitivityDbm: -116, portablePowerDbm: 37, description: 'Radio portátil VHF (155 MHz), convencional o trunking.' },
-  { id: 'uhf', label: 'UHF', frequencyMHz: 460, txPowerDbm: 37, sensitivityDbm: -116, portablePowerDbm: 36, description: 'Radio portátil UHF (460 MHz), la más usada en minería.' },
-  { id: '800', label: '800', frequencyMHz: 860, txPowerDbm: 35, sensitivityDbm: -116, portablePowerDbm: 34.8, description: 'Trunking P25 o SmartZone en 800 MHz.' },
+  { id: 'vhf', label: 'VHF', frequencyMHz: 155, txPowerDbm: 37, sensitivityDbm: -112, portablePowerDbm: 37, description: 'Radio portátil VHF (155 MHz), convencional o trunking.' },
+  { id: 'uhf', label: 'UHF', frequencyMHz: 460, txPowerDbm: 37, sensitivityDbm: -112, portablePowerDbm: 36, description: 'Radio portátil UHF (460 MHz), la más usada en minería.' },
+  { id: '800', label: '800', frequencyMHz: 860, txPowerDbm: 35, sensitivityDbm: -112, portablePowerDbm: 34.8, description: 'Trunking P25 o SmartZone en 800 MHz.' },
   { id: 'wifi', label: '2,4 GHz', frequencyMHz: 2437, txPowerDbm: 20, sensitivityDbm: -80, portablePowerDbm: 15, description: 'WiFi de 2,4 GHz para datos y telemetría.' },
 ];
