@@ -46,7 +46,10 @@ const showCredits = () => {
   if (content) content.replaceWith(content.content.cloneNode(true));
   credits.showModal();
 };
-document.querySelector('[data-open-credits]')!.addEventListener('click', showCredits);
+// Abren los créditos el enlace del pie y el del menú de capas del mapa (que se crea con cada página).
+document.addEventListener('click', (event) => {
+  if ((event.target as HTMLElement).closest('[data-open-credits]')) showCredits();
+});
 // La página principal enlaza los créditos como /escenarios#creditos.
 if (location.hash === '#creditos') showCredits();
 

@@ -160,7 +160,7 @@ class MapMenuControl implements IControl {
           ).join('')}
         </div>
         <p class="map-menu-title">Información</p>
-        <button type="button" class="map-menu-link" data-map-credits>Créditos y licencias</button>
+        <button type="button" class="map-menu-link" data-open-credits>Créditos y licencias</button>
         <a class="map-menu-link" href="https://github.com/alejandromontoya-hr/hertzo" target="_blank" rel="noopener">Código abierto (MIT) ↗</a>
       </div>
       <button type="button" class="map-menu-toggle" aria-expanded="false" aria-controls="map-menu-panel" aria-label="Mapa base e información">${LAYERS_ICON}</button>`;
@@ -181,9 +181,9 @@ class MapMenuControl implements IControl {
     });
     panel.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
-      if (target.closest('[data-map-credits]')) {
+      // El diálogo lo abre main.ts, que primero le pone el texto de los créditos.
+      if (target.closest('[data-open-credits]')) {
         setOpen(false);
-        document.querySelector<HTMLDialogElement>('#credits')?.showModal();
         return;
       }
       const option = target.closest<HTMLButtonElement>('[data-basemap]');
