@@ -6,7 +6,7 @@ import { Marker, type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
 import { saveFile } from '../../export/download';
 import { exportFileName, linkKml, type KmlPlacemark } from '../../export/kml';
-import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { linkRayPath } from '../../export/linkPath';
 import { drawProfileReport } from '../../export/profileImage';
@@ -14,6 +14,7 @@ import { reportDate, type ReportRow } from '../../export/reportImage';
 import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
 import { addExportControl } from '../../map/exportControl';
+import { addShareControl } from '../../map/shareControl';
 import { createPickBanner } from '../../map/pickBanner';
 import { DEFAULT_ITM_PARAMETERS, loadItm, type ItmParameters } from '../../propagation/itm';
 import { freeSpaceLossDb } from '../../rf/fieldStrength';
@@ -148,7 +149,7 @@ export function mountLinkPage({ root, params, shared }: PageContext): () => void
     <section class="panel-section page-intro">
       <h2>Enlace punto a punto</h2>
       ${choiceHtml('tipo', [{ id: 'microondas', label: 'Microondas' }, { id: 'radio', label: 'Radioenlace VHF/UHF' }], 'Tipo de enlace')}
-      ${SHARE_BUTTON_HTML}
+      ${SHARE_NOTICE_HTML}
     </section>
     <section class="panel-section">
       <h2>Extremos${infoButton('Escribe las coordenadas (puedes pegar las de Google Maps en Latitud), pulsa el ícono de ubicación de A o de B y haz clic donde va, o arrastra los marcadores A y B.')}</h2>
@@ -210,30 +211,27 @@ export function mountLinkPage({ root, params, shared }: PageContext): () => void
   if (endA) fields.A.show(endA);
   if (endB) fields.B.show(endB);
 
-  bindShareButton(
-    page.panel,
-    {
-      title: () => `Hertzo · Enlace ${frequencyLabel(link.frequencyMHz)} · ${fields.A.getName() || 'A'} → ${fields.B.getName() || 'B'}`,
-      data: () =>
-        linkShareData(
-          {
-            endA,
-            endB,
-            nameA: fields.A.getName(),
-            nameB: fields.B.getName(),
-            params: link,
-            kFactorId: kFactorId(kFactor),
-            lossModel,
-            terrainId: terrain.id,
-            climateId: climate.id,
-            polarization,
-            rainRate,
-          },
-          type,
-        ),
-    },
-    opened,
-  );
+  showSharedNotice(page.panel, opened);
+  addShareControl(page.map, {
+    title: () => `Hertzo · Enlace ${frequencyLabel(link.frequencyMHz)} · ${fields.A.getName() || 'A'} → ${fields.B.getName() || 'B'}`,
+    data: () =>
+      linkShareData(
+        {
+          endA,
+          endB,
+          nameA: fields.A.getName(),
+          nameB: fields.B.getName(),
+          params: link,
+          kFactorId: kFactorId(kFactor),
+          lossModel,
+          terrainId: terrain.id,
+          climateId: climate.id,
+          polarization,
+          rainRate,
+        },
+        type,
+      ),
+  });
 
   /** Un extremo cambió: escrito en los campos (`fromMap` falso), elegido en el mapa o arrastrado. */
   function setEnd(label: EndLabel, point: LonLat | null, fromMap: boolean) {
