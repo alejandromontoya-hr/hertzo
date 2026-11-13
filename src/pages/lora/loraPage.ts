@@ -45,7 +45,7 @@ import {
 import { LORA_BUDGET_NAMES, balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
-import { METER_ICON, POLE_ICON } from '../../ui/icons';
+import { METER_ICON, ROUTER_ICON } from '../../ui/icons';
 import { CHOOSE_CLUTTER_REASON, clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseRequiredClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createLoraCapacity } from '../../ui/loraCapacity';
@@ -350,8 +350,8 @@ export function mountLoraPage({ root, params: urlParams, shared }: PageContext):
     noun: { one: 'medidor', many: 'medidores' },
     profiles: LORA_SENSORS,
     profileName: (id) => LORA_SENSORS.find((s) => s.id === id)?.name ?? sensor.name,
-    // El medidor en caja se ve como un medidor; el sensor en poste (y el personalizado), como un poste.
-    profileIcon: (id) => ((LORA_SENSORS.find((s) => s.id === id) ?? sensor).id === 'medidor-caja' ? METER_ICON : POLE_ICON),
+    // El medidor en caja se ve como un medidor; el sensor en poste (y el personalizado), como una caja con antena.
+    profileIcon: (id) => ((LORA_SENSORS.find((s) => s.id === id) ?? sensor).id === 'medidor-caja' ? METER_ICON : ROUTER_ICON),
     matchProfile: (text) => matchProfileId(text, LORA_SENSORS),
     async evaluate(device) {
       const location = site.getSite();

@@ -16,7 +16,6 @@ import satelliteDish from 'lucide-static/icons/satellite-dish.svg?raw';
 import share2 from 'lucide-static/icons/share-2.svg?raw';
 import signal from 'lucide-static/icons/signal.svg?raw';
 import smartphone from 'lucide-static/icons/smartphone.svg?raw';
-import utilityPole from 'lucide-static/icons/utility-pole.svg?raw';
 
 /** Quita el comentario de licencia del archivo y marca el ícono como decorativo. */
 const decorative = (raw: string) => raw.replace(/<!--[\s\S]*?-->/, '').trim().replace('<svg', '<svg aria-hidden="true"');
@@ -40,9 +39,6 @@ export const WALKIE_ICON =
 /** Radio móvil, instalado en un carro. */
 export const CAR_ICON = decorative(carFront);
 
-/** Sensor LoRaWAN montado en un poste. */
-export const POLE_ICON = decorative(utilityPole);
-
 /** Medidor (agua, gas, energía) en su caja. */
 export const METER_ICON = decorative(gauge);
 
@@ -52,7 +48,7 @@ export const RADIO_RECEIVER_ICON = decorative(boomBox);
 /** Teléfono celular, en Celular. */
 export const PHONE_ICON = decorative(smartphone);
 
-/** Punto de acceso WiFi (router), para el plano de Interiores. */
+/** Caja con antena: el punto de acceso WiFi de Interiores y el sensor LoRaWAN en poste. */
 export const ROUTER_ICON = decorative(router);
 
 /** Antena, para el plano de Cavernas. */
