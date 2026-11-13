@@ -14,3 +14,7 @@ data/terrain/
 
 # Salidas de compilación de WebAssembly
 engine/build/
+
+# Configuración local del editor y del despliegue (no se suben)
+.claude/
+.vercel/
