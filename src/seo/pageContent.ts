@@ -89,6 +89,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         q: '¿Cuándo usar Hata, 38.901 o ITM?',
         a: 'Hata vale hasta 2 GHz y de 1 a 20 km; 38.901 cubre las bandas altas como 3500 MHz; ITM usa el relieve real y sirve donde manda el terreno, como en los valles de Antioquia.',
       },
+      {
+        q: '¿Puedo compartir la simulación?',
+        a: 'Sí: "Compartir" copia un enlace con la torre, el modelo, los sectores con su azimut, la antena, la portadora y dónde está el teléfono. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
+      },
       ...COMMON_FAQ,
     ],
   },

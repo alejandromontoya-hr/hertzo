@@ -10,6 +10,7 @@ import type { RadioProfile, SiteRxChain, SiteTxChain } from '../../rf/linkBudget
 import { RADIO_FIELDS, RX_FIELDS, TX_FIELDS, type RadioValues } from '../../ui/chainForms';
 import { CAPACITY_FIELDS, type CapacityValues } from '../../ui/trunkingCapacity';
 import {
+  LEVEL_THRESHOLDS,
   mapShareData,
   profileShareData,
   readMapShare,
@@ -32,6 +33,7 @@ export interface TerrainShare extends MapShareCommon {
 const MAP_OPTIONS: MapShareOptions = {
   defaultRadiusKm: DEFAULT_RADIUS_KM,
   maxRadiusKm: 100,
+  thresholds: LEVEL_THRESHOLDS,
   profileIds: RADIO_PROFILES.map((p) => p.id),
 };
 

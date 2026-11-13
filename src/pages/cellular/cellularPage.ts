@@ -10,13 +10,14 @@ import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../cov
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
+import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { destinationPoint, distanceM, initialBearingDeg } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
 import {
   CARRIERS,
-  HATA_ENVIRONMENTS,
   PHONE_LOCATIONS,
   angleDiffDeg,
   buildingEntryLossDb,
@@ -37,7 +38,7 @@ import { clutterQuery, clutterSummary, createClutterControl, parseClutter } from
 import { createReliabilityControl, parseReliability } from '../../ui/reliabilityControl';
 import { wattsToDbm } from '../../rf/units';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { createFieldGroup, createSelectField } from '../../ui/fields';
 import { formatDb, formatDbi, formatHeight, formatLonLat, formatWatts } from '../../ui/format';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
@@ -45,112 +46,30 @@ import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createSiteControls } from '../shared/siteControls';
-
-interface Band {
-  id: string;
-  label: string;
-  /** Frecuencia central de bajada (MHz). */
-  frequencyMHz: number;
-  /** Frecuencia central de subida (MHz); en TDD (n78) es la misma. */
-  uplinkMHz: number;
-  carrier: string;
-  description: string;
-  /** Valores típicos del sitio y la antena en esta banda, si son distintos de los de LTE macro. */
-  site?: Partial<SiteParams>;
-  antenna?: Partial<SectorAntenna>;
-}
-
-const BANDS: readonly Band[] = [
-  { id: '700', label: '700', frequencyMHz: 780, uplinkMHz: 725.5, carrier: 'lte10', description: 'Banda 28 (APT 700): bajada 758–803 MHz y subida 703–748 MHz.' },
-  { id: '850', label: '850', frequencyMHz: 880, uplinkMHz: 836.5, carrier: 'lte10', description: 'Banda 5: bajada 869–894 MHz y subida 824–849 MHz.' },
-  { id: '1900', label: '1900', frequencyMHz: 1960, uplinkMHz: 1880, carrier: 'lte15', description: 'Banda 2 (PCS): bajada 1930–1990 MHz y subida 1850–1910 MHz.' },
-  { id: 'aws', label: 'AWS', frequencyMHz: 2130, uplinkMHz: 1745, carrier: 'lte20', description: 'Bandas 4 y 66 (AWS): bajada 2110–2200 MHz y subida 1710–1780 MHz.' },
-  { id: '2600', label: '2600', frequencyMHz: 2650, uplinkMHz: 2535, carrier: 'lte20', description: 'Banda 7: bajada 2620–2690 MHz y subida 2500–2570 MHz.' },
-  {
-    id: '3500',
-    label: '3500',
-    frequencyMHz: 3500,
-    uplinkMHz: 3500,
-    carrier: 'nr80',
-    description: 'Banda n78 (5G NR): 3300–3800 MHz. Antena activa (AAU 64T64R): unos 200 W, 24 dBi y sin cable, como la Ericsson AIR 6449.',
-    site: { powerW: 200, cableLossDb: 0 },
-    antenna: { gainDbi: 24, verticalBeamwidthDeg: 10 },
-  },
-];
-
-type ModelId = `hata-${HataEnvironment}` | 'uma' | 'itm';
-
-const MODELS: readonly { id: ModelId; label: string }[] = [
-  ...HATA_ENVIRONMENTS.map((e) => ({ id: `hata-${e.id}` as ModelId, label: `Hata / COST-231 · ${e.label}` })),
-  { id: 'uma', label: '3GPP 38.901 · macrocelda urbana (sin línea de vista)' },
-  { id: 'itm', label: 'ITM con terreno (rural y montaña)' },
-];
-
-interface SiteParams {
-  antennaHeightM: number;
-  powerW: number;
-  cableLossDb: number;
-  ueHeightM: number;
-  noiseFigureDb: number;
-  /** Subida: potencia del teléfono (W), bloques asignados, ruido de la torre y margen de interferencia. */
-  uePowerW: number;
-  uplinkResourceBlocks: number;
-  siteNoiseFigureDb: number;
-  uplinkInterferenceDb: number;
-}
-
-const SITE_FIELDS: readonly NumberFieldSpec<keyof SiteParams>[] = [
-  { key: 'antennaHeightM', label: 'Altura de las antenas', unit: 'm', min: 1, max: 300 },
-  { key: 'powerW', label: 'Potencia por sector', unit: 'W', min: 0, max: 400, minExclusive: true },
-  { key: 'cableLossDb', label: 'Pérdida de cable y conectores', unit: 'dB', min: 0, max: 20 },
-  { key: 'ueHeightM', label: 'Altura del teléfono', unit: 'm', min: 0.5, max: 30 },
-  { key: 'noiseFigureDb', label: 'Figura de ruido del teléfono', unit: 'dB', min: 0, max: 15 },
-  {
-    key: 'uePowerW',
-    label: 'Potencia del teléfono (subida)',
-    unit: 'W',
-    min: 0,
-    max: 2,
-    minExclusive: true,
-    hint: '0,2 W (23 dBm) es la clase 3 de 3GPP, la de casi todos los teléfonos.',
-  },
-  {
-    key: 'uplinkResourceBlocks',
-    label: 'Bloques de subida en el borde',
-    unit: 'bloques',
-    min: 1,
-    max: 273,
-    hint: 'En el borde la torre le da pocos bloques al teléfono para que concentre su potencia: con 2 bloques (360 kHz en LTE) alcanza para voz y datos lentos. Más bloques es más caudal, pero menos SINR en cada uno.',
-  },
-  {
-    key: 'siteNoiseFigureDb',
-    label: 'Figura de ruido de la torre',
-    unit: 'dB',
-    min: 0,
-    max: 15,
-    hint: '5 dB es el valor de las simulaciones de 3GPP (TR 36.814).',
-  },
-  {
-    key: 'uplinkInterferenceDb',
-    label: 'Margen por interferencia de subida',
-    unit: 'dB',
-    min: 0,
-    max: 20,
-    hint: 'Lo que sube el ruido en la torre por los teléfonos de las celdas vecinas: 3 dB es un valor típico de diseño; con mucha carga, 5 a 6 dB.',
-  },
-];
-
-const ANTENNA_FIELDS: readonly NumberFieldSpec<keyof SectorAntenna>[] = [
-  { key: 'gainDbi', label: 'Ganancia', unit: 'dBi', min: -5, max: 30 },
-  { key: 'horizontalBeamwidthDeg', label: 'Ancho de haz horizontal', unit: '°', min: 10, max: 360 },
-  { key: 'verticalBeamwidthDeg', label: 'Ancho de haz vertical', unit: '°', min: 2, max: 90 },
-  { key: 'downtiltDeg', label: 'Inclinación hacia abajo', unit: '°', min: -10, max: 30 },
-];
+import {
+  ANTENNA_FIELDS,
+  BANDS,
+  BASE_ANTENNA,
+  BASE_SITE,
+  CELL_THRESHOLDS,
+  DEFAULT_AZIMUTHS,
+  DEFAULT_NEIGHBOR_KM,
+  DEFAULT_RADIUS_KM,
+  MAX_RADIUS_KM,
+  MAX_SECTORS,
+  MODELS,
+  NEIGHBOR_FIELD,
+  SITE_FIELDS,
+  defaultModel,
+  type BandView,
+  type ModelId,
+  type SiteParams,
+} from './cellularFields';
+import { cellularShareData, readCellularShare } from './cellularShare';
 
 const SECTOR_COLORS = ['#1f5c8c', '#d95f0e', '#6b8e23', '#8c2d4a'];
 
 type View = 'rsrp' | 'best' | 'sinr' | 'up' | 'balance';
-type BandView = 'rsrp' | 'sinr' | 'up';
 const VIEWS: { id: View; label: string; title: string }[] = [
   { id: 'rsrp', label: 'RSRP', title: 'Señal de referencia del mejor sector (dBm)' },
   { id: 'best', label: 'Sector', title: 'Sector que atiende cada punto' },
@@ -192,39 +111,31 @@ const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 
 /** 1745 → "1.745"; 725,5 → "725,5". */
 const mhzFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 
-/** Sitio LTE macro típico: 40 W por sector, 2 dB de cable, teléfono a 1,5 m. */
-const BASE_SITE: SiteParams = {
-  antennaHeightM: 30,
-  powerW: 40,
-  cableLossDb: 2,
-  ueHeightM: 1.5,
-  noiseFigureDb: 7,
-  uePowerW: 0.2,
-  uplinkResourceBlocks: 2,
-  siteNoiseFigureDb: 5,
-  uplinkInterferenceDb: 3,
-};
-const BASE_ANTENNA: SectorAntenna = { gainDbi: 17, horizontalBeamwidthDeg: 65, verticalBeamwidthDeg: 7, downtiltDeg: 4 };
-
 /** Desviación del desvanecimiento lognormal (dB): 8 dB para Hata y 6 dB para 38.901 UMa NLOS. */
 /** σ del desvanecimiento lento según el motor que calculó el mapa: 6 dB en UMa, 8 dB en Hata. */
 const shadowSigmaDb = (engineId: string) => (engineId === 'uma' ? 6 : 8);
 
-export function mountCellularPage({ root, params }: PageContext): () => void {
+export function mountCellularPage({ root, params, shared }: PageContext): () => void {
   let band = BANDS.find((b) => b.id === params.get('banda')) ?? BANDS[0]!;
-  let carrier = CARRIERS.find((c) => c.id === band.carrier)!;
-  let model: ModelId = band.frequencyMHz > 2000 ? 'uma' : 'hata-urbano';
-  let siteParams: SiteParams = { ...BASE_SITE, ...band.site };
-  let antenna: SectorAntenna = { ...BASE_ANTENNA, ...band.antenna };
-  let phone: PhoneLocation = 'exterior';
+  // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con los de siempre.
+  const fromLink = shared?.ok ? readCellularShare(shared.data, band) : null;
+  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  let carrier = CARRIERS.find((c) => c.id === (fromLink?.carrierId ?? band.carrier))!;
+  let model: ModelId = fromLink?.model ?? defaultModel(band);
+  let siteParams: SiteParams = fromLink?.siteParams ?? { ...BASE_SITE, ...band.site };
+  let antenna: SectorAntenna = fromLink?.antenna ?? { ...BASE_ANTENNA, ...band.antenna };
+  let phone: PhoneLocation = fromLink?.phone ?? 'exterior';
   let reliability = parseReliability(params, 50);
   let clutter = parseClutter(params);
   /** Distancia a los seis sitios vecinos (km); 0 = sin vecinos. */
-  let neighborKm = 1;
-  let azimuths = [0, 120, 240];
+  let neighborKm = fromLink?.neighborKm ?? DEFAULT_NEIGHBOR_KM;
+  let azimuths = fromLink?.azimuths ?? [...DEFAULT_AZIMUTHS];
   let view: View = 'rsrp';
-  // Subida: −5 dB por bloque es más o menos lo mínimo con que decodifica la modulación más robusta (QPSK).
-  let thresholds: Record<BandView, number[]> = { rsrp: [-80, -90, -100, -110], sinr: [20, 13, 5, 0], up: [20, 10, 0, -5] };
+  let thresholds: Record<BandView, number[]> = {
+    rsrp: fromLink?.thresholds ?? [...CELL_THRESHOLDS.rsrp.defaults],
+    sinr: fromLink?.sinrThresholds ?? [...CELL_THRESHOLDS.sinr.defaults],
+    up: fromLink?.upThresholds ?? [...CELL_THRESHOLDS.up.defaults],
+  };
   let opacity = 0.7;
 
   let coverage: CoverageResult | null = null;
@@ -240,6 +151,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       ${choiceHtml('banda', BANDS.map((b) => ({ id: b.id, label: b.id === 'aws' ? 'AWS (2100 MHz)' : `${b.label} MHz` })), 'Banda', '')}
       <div class="form" data-model></div>
       <p class="notice" data-model-warning hidden></p>
+      ${SHARE_BUTTON_HTML}
     </section>
     ${siteSectionHtml('Sitio celular', 'la torre')}
     ${coverageStatusHtml()}
@@ -284,7 +196,12 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     },
   });
 
-  const site = createSiteControls(page, { radiusKm: 5, maxRadiusKm: 40, onChange: onGeometryChange });
+  const site = createSiteControls(page, {
+    radiusKm: fromLink?.radiusKm ?? DEFAULT_RADIUS_KM,
+    maxRadiusKm: MAX_RADIUS_KM,
+    initial: fromLink ?? undefined,
+    onChange: onGeometryChange,
+  });
   const controller = createCoverageController(page.find('[data-coverage-status]'), page.find('[data-simulate-box]'), (result) => {
     coverage = result;
     geometry = buildRasterGeometry(result.plan);
@@ -317,16 +234,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
   );
   createFieldGroup(
     page.find('[data-site-params]'),
-    [
-      {
-        key: 'neighborKm',
-        label: 'Distancia a los sitios vecinos',
-        unit: 'km',
-        min: 0,
-        max: 20,
-        hint: 'Para la SINR: seis sitios iguales a esta distancia, transmitiendo a plena carga. En ciudad suelen estar a 0,5–1,5 km; escribe 0 para ver solo los sectores de este sitio.',
-      },
-    ],
+    [NEIGHBOR_FIELD],
     { neighborKm },
     (next) => {
       neighborKm = next.neighborKm;
@@ -364,7 +272,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     sectorsBox.append(
       createSelectField(
         'Número de sectores',
-        [1, 2, 3, 4].map((n) => ({ id: String(n), label: `${n} sector${n > 1 ? 'es' : ''}` })),
+        Array.from({ length: MAX_SECTORS }, (_, i) => i + 1).map((n) => ({ id: String(n), label: `${n} sector${n > 1 ? 'es' : ''}` })),
         String(azimuths.length),
         (id) => {
           const count = Number(id);
@@ -389,6 +297,33 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
     });
   }
   buildSectorFields();
+
+  bindShareButton(
+    page.panel,
+    {
+      title: () => `Hertzo · Celular ${band.id === 'aws' ? 'AWS' : `${band.label} MHz`}${site.getName() ? ` · ${site.getName()}` : ''}`,
+      data: () =>
+        cellularShareData(
+          {
+            site: site.getSite(),
+            name: site.getName(),
+            radiusKm: site.getRadiusKm(),
+            thresholds: thresholds.rsrp,
+            model,
+            siteParams,
+            antenna,
+            phone,
+            neighborKm,
+            azimuths,
+            carrierId: carrier.id,
+            sinrThresholds: thresholds.sinr,
+            upThresholds: thresholds.up,
+          },
+          band,
+        ),
+    },
+    opened,
+  );
 
   function showBand() {
     setInfo(bandDescription, `${band.description} Frecuencia de cálculo: ${band.frequencyMHz} MHz.`);
@@ -623,7 +558,7 @@ export function mountCellularPage({ root, params }: PageContext): () => void {
       activeView: view,
       ...legendTexts(view),
       thresholds: isBands
-        ? { values: thresholds[view as BandView], unit: view === 'rsrp' ? 'dBm' : 'dB', min: view === 'rsrp' ? -150 : -20, max: view === 'rsrp' ? -20 : 50 }
+        ? { values: thresholds[view as BandView], unit: view === 'rsrp' ? 'dBm' : 'dB', min: CELL_THRESHOLDS[view as BandView].min, max: CELL_THRESHOLDS[view as BandView].max }
         : undefined,
       opacity,
     });

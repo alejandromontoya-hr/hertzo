@@ -9,6 +9,7 @@ import { changedFields, inFieldRange, readFields } from '../../export/shareLink'
 import { DEFAULT_ADR_MARGIN_DB, SPREADING_FACTORS, type SpreadingFactor } from '../../rf/lora';
 import { LORA_CAPACITY_FIELDS, type LoraCapacityChanges } from '../../ui/loraCapacity';
 import {
+  LEVEL_THRESHOLDS,
   mapShareData,
   profileShareData,
   readMapShare,
@@ -40,6 +41,7 @@ export interface LoraShare extends MapShareCommon {
 const MAP_OPTIONS: MapShareOptions = {
   defaultRadiusKm: DEFAULT_RADIUS_KM,
   maxRadiusKm: 100,
+  thresholds: LEVEL_THRESHOLDS,
   profileIds: LORA_SENSORS.map((s) => s.id),
 };
 

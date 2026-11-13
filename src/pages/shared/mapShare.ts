@@ -24,10 +24,22 @@ export interface MapShareCommon {
   devices: SharedDevice[];
 }
 
+/** Umbrales de una vista de la leyenda: los de siempre y el rango que acepta. */
+export interface ThresholdSpec {
+  defaults: readonly number[];
+  min: number;
+  max: number;
+}
+
+/** Umbrales de nivel recibido de Terreno y LoRa (dBm). */
+export const LEVEL_THRESHOLDS: ThresholdSpec = { defaults: DEFAULT_LEVEL_THRESHOLDS_DBM, min: -150, max: -20 };
+
 export interface MapShareOptions {
   defaultRadiusKm: number;
   maxRadiusKm: number;
-  /** Perfiles que puede tener un equipo en su fila. */
+  /** Umbrales de la vista principal de la leyenda. */
+  thresholds: ThresholdSpec;
+  /** Perfiles que puede tener un equipo en su fila (vacío si la página no tiene equipos). */
   profileIds: readonly string[];
 }
 
@@ -36,10 +48,18 @@ const SITE_NAME_MAX = 60;
 const DEVICE_NAME_MAX = 100;
 /** El radio de cálculo más corto que admite el campo (km). */
 const MIN_RADIUS_KM = 1;
-/** Rango de los umbrales que admite la leyenda (dBm). */
-const THRESHOLD_RANGE = { min: -150, max: -20 };
-
 const sameList = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+/** Los umbrales para el enlace, o undefined si son los de siempre. */
+export const thresholdData = (list: readonly number[], spec: ThresholdSpec): number[] | undefined =>
+  sameList(list, spec.defaults) ? undefined : [...list];
+
+/** Umbrales del enlace (los de siempre si no trae); null si no son tantos como siempre o se salen del rango. */
+export function readThresholds(v: unknown, spec: ThresholdSpec): number[] | null {
+  if (v === undefined) return [...spec.defaults];
+  const list = readList(v, (n) => (isFiniteNumber(n) && n >= spec.min && n <= spec.max ? n : null));
+  return list && list.length === spec.defaults.length ? list : null;
+}
 
 /**
  * Claves cortas: s sitio [lat, lon], n nombre, r radio de cálculo, u umbrales y e los equipos
@@ -50,7 +70,8 @@ export function mapShareData(common: MapShareCommon, options: MapShareOptions): 
   if (common.site) data.s = positionData(common.site);
   if (common.name) data.n = common.name;
   if (common.radiusKm !== options.defaultRadiusKm) data.r = common.radiusKm;
-  if (!sameList(common.thresholds, DEFAULT_LEVEL_THRESHOLDS_DBM)) data.u = common.thresholds;
+  const thresholds = thresholdData(common.thresholds, options.thresholds);
+  if (thresholds) data.u = thresholds;
   if (common.devices.length > 0) {
     data.e = common.devices.map((d) => {
       const [lat, lon] = positionData(d.position);
@@ -60,18 +81,12 @@ export function mapShareData(common: MapShareCommon, options: MapShareOptions): 
   return data;
 }
 
-function readThresholds(v: unknown): number[] | null {
-  if (v === undefined) return [...DEFAULT_LEVEL_THRESHOLDS_DBM];
-  const list = readList(v, (n) => (isFiniteNumber(n) && n >= THRESHOLD_RANGE.min && n <= THRESHOLD_RANGE.max ? n : null));
-  return list && list.length === DEFAULT_LEVEL_THRESHOLDS_DBM.length ? list : null;
-}
-
 /** Lo común de un enlace; null si algo no sirve. */
 export function readMapShare(data: Record<string, unknown>, options: MapShareOptions): MapShareCommon | null {
   const site = data.s === undefined ? null : readPosition(data.s);
   const name = data.n === undefined ? '' : readText(data.n, SITE_NAME_MAX);
   const radiusKm = data.r ?? options.defaultRadiusKm;
-  const thresholds = readThresholds(data.u);
+  const thresholds = readThresholds(data.u, options.thresholds);
   const readDevice = (v: unknown): SharedDevice | null => {
     if (!Array.isArray(v) || v.length < 3 || v.length > 4) return null;
     const deviceName = readText(v[0], DEVICE_NAME_MAX);
