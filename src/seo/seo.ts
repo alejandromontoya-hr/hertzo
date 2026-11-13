@@ -48,7 +48,7 @@ const UPDATED: Record<string, string> = {
   radiodifusion: '2026-11-13',
   celular: '2026-11-13',
   enlace: '2026-11-13',
-  interiores: '2026-11-06',
+  interiores: '2026-11-13',
   cavernas: '2026-11-06',
   lora: '2026-11-13',
 };
