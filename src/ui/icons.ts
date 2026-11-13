@@ -3,18 +3,53 @@
 
 import antenna from 'lucide-static/icons/antenna.svg?raw';
 import boomBox from 'lucide-static/icons/boom-box.svg?raw';
+import carFront from 'lucide-static/icons/car-front.svg?raw';
 import download from 'lucide-static/icons/download.svg?raw';
+import gauge from 'lucide-static/icons/gauge.svg?raw';
 import houseWifi from 'lucide-static/icons/house-wifi.svg?raw';
 import locateFixed from 'lucide-static/icons/locate-fixed.svg?raw';
 import mapPin from 'lucide-static/icons/map-pin.svg?raw';
 import pickaxe from 'lucide-static/icons/pickaxe.svg?raw';
 import radioTower from 'lucide-static/icons/radio-tower.svg?raw';
+import router from 'lucide-static/icons/router.svg?raw';
 import satelliteDish from 'lucide-static/icons/satellite-dish.svg?raw';
 import share2 from 'lucide-static/icons/share-2.svg?raw';
 import signal from 'lucide-static/icons/signal.svg?raw';
+import utilityPole from 'lucide-static/icons/utility-pole.svg?raw';
 
 /** Quita el comentario de licencia del archivo y marca el ícono como decorativo. */
 const decorative = (raw: string) => raw.replace(/<!--[\s\S]*?-->/, '').trim().replace('<svg', '<svg aria-hidden="true"');
+
+// --- Equipos en el mapa: se dibujan como lo que el usuario tiene en la mano o ve en el cerro ---
+
+/** Sitio (repetidora, emisora, torre celular o gateway) en el mapa. */
+export const SITE_ICON = decorative(radioTower);
+
+/** Extremo de un enlace punto a punto: una antena parabólica. */
+export const DISH_ICON = decorative(satelliteDish);
+
+/**
+ * Radio portátil (walkie-talkie). Lucide no trae uno; este es propio, con su misma grilla de
+ * 24 × 24 y trazo de 2: cuerpo, antena a la izquierda, perilla y rejilla del parlante.
+ */
+export const WALKIE_ICON =
+  '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M9 7V2"/><path d="M15 7V5"/><rect width="10" height="15" x="7" y="7" rx="2"/><path d="M10 12h4"/><path d="M10 15h4"/><path d="M10 18h4"/></svg>';
+
+/** Radio móvil, instalado en un carro. */
+export const CAR_ICON = decorative(carFront);
+
+/** Sensor LoRaWAN montado en un poste. */
+export const POLE_ICON = decorative(utilityPole);
+
+/** Medidor (agua, gas, energía) en su caja. */
+export const METER_ICON = decorative(gauge);
+
+/** Punto de acceso WiFi (router), para el plano de Interiores. */
+export const ROUTER_ICON = decorative(router);
+
+/** Antena, para el plano de Cavernas. */
+export const ANTENNA_ICON = decorative(antenna);
 
 /** Ícono del botón "Exportar" sobre el mapa. */
 export const DOWNLOAD_ICON = decorative(download);

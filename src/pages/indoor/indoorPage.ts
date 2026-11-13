@@ -53,6 +53,8 @@ import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
 import { indoorShareData, readIndoorShare } from './indoorShare';
 import { bindChoice, bindSegmented, choiceHtml, segmentedHtml } from '../shared/mapPage';
+import { drawIcon } from '../../ui/canvasIcon';
+import { ROUTER_ICON } from '../../ui/icons';
 
 type Tool = 'select' | 'wall' | 'ap' | 'erase';
 type View = 'rssi' | 'best';
@@ -385,16 +387,7 @@ export function mountIndoorPage({ root, params, shared }: PageContext): () => vo
       ctx.arc(sx, sy, 11, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      ctx.lineWidth = 1.8;
-      for (const r of [3.5, 6.5]) {
-        ctx.beginPath();
-        ctx.arc(sx, sy + 3, r, -Math.PI * 0.8, -Math.PI * 0.2);
-        ctx.stroke();
-      }
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(sx, sy + 3, 1.6, 0, Math.PI * 2);
-      ctx.fill();
+      drawIcon(ctx, ROUTER_ICON, sx, sy, 15, color);
       ctx.font = '600 12px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.lineWidth = 3;

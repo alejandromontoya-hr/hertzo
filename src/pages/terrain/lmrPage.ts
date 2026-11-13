@@ -26,6 +26,7 @@ import { addShareControl } from '../../map/shareControl';
 import { talkInBudget, talkOutBudget, type RadioProfile, type SiteRxChain, type SiteTxChain } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
+import { CAR_ICON, WALKIE_ICON } from '../../ui/icons';
 import { createMapLegend } from '../../ui/coverageLegend';
 import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
 import { CHOOSE_CLUTTER_REASON, clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseRequiredClutter } from '../../ui/clutterControl';
@@ -210,6 +211,8 @@ export function mountLmrPage({ root, params: urlParams, shared }: PageContext): 
     noun: { one: 'radio', many: 'radios' },
     profiles: RADIO_PROFILES,
     profileName: (id) => RADIO_PROFILES.find((p) => p.id === id)?.name ?? radio.name,
+    // El móvil va en un carro; los portátiles (y el personalizado) se ven como un radio de mano.
+    profileIcon: (id) => ((RADIO_PROFILES.find((p) => p.id === id) ?? radio).id.startsWith('movil') ? CAR_ICON : WALKIE_ICON),
     matchProfile: (text) => matchProfileId(text, RADIO_PROFILES),
     async evaluate(device) {
       const location = site.getSite();

@@ -1,6 +1,6 @@
 // Sección "Equipos" del panel: equipos concretos (medidores, sensores, radios) ubicados con
-// clic en el mapa o pegados de una lista, con una fila por equipo y un punto en el mapa del
-// color de su estado. La página dice qué columnas muestra y cómo se evalúa cada equipo.
+// clic en el mapa o pegados de una lista, con una fila por equipo y en el mapa un círculo del
+// color de su estado con el ícono del equipo (radio portátil, carro, poste, medidor). La página dice qué columnas muestra y cómo se evalúa cada equipo.
 
 import { Marker } from 'maplibre-gl';
 import { BALANCE_LEGEND } from '../coverage/colorScale';
@@ -40,6 +40,8 @@ export interface DeviceListOptions {
   profiles: readonly { id: string; name: string }[];
   /** Nombre del perfil para mostrarlo en la fila. */
   profileName(profileId: string | null): string;
+  /** Ícono del equipo en el mapa según su perfil, por ejemplo un carro para el radio móvil. */
+  profileIcon(profileId: string | null): string;
   /** Busca el perfil escrito en la lista pegada (por id o por nombre); null si no lo reconoce. */
   matchProfile(text: string): string | null;
   /** Evalúa un equipo; null si todavía no se puede (por ejemplo, sin sitio). */
@@ -212,7 +214,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     for (const d of list) {
       const device: Device = { ...d, id: nextId++ };
       devices.push(device);
-      // Punto con el nombre al lado: el ancla queda en el centro del punto, no del conjunto.
+      // Ícono del equipo con el nombre al lado: el ancla queda en el centro del ícono, no del conjunto.
       const element = document.createElement('div');
       element.className = 'device-marker';
       element.innerHTML = '<span class="device-dot"></span><span class="device-label"></span>';
@@ -244,6 +246,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     rows.delete(id);
     markers.get(id)?.remove();
     markers.delete(id);
+    shownIcons.delete(id);
     rowElements.get(id)?.tr.remove();
     rowElements.delete(id);
     render();
@@ -300,6 +303,8 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   page.map.on('move', scheduleLabels);
 
   let lastCount = 0;
+  /** Ícono que tiene cada equipo en el mapa: solo se cambia si cambió su tipo. */
+  const shownIcons = new Map<number, string>();
 
   function render() {
     if (devices.length !== lastCount) {
@@ -318,7 +323,16 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
       elements.cells.forEach((cell, i) => (cell.innerHTML = row ? row.cells[i]! : '…'));
       const element = markers.get(d.id)?.getElement();
       if (!element) continue;
-      element.querySelector<HTMLElement>('.device-dot')!.style.background = row ? STATUS[row.status].color : STATUS.unknown.color;
+      const dot = element.querySelector<HTMLElement>('.device-dot')!;
+      const markerStatus = row?.status ?? 'unknown';
+      dot.style.background = STATUS[markerStatus].color;
+      // Sobre el verde claro de "Solo subida" el ícono va oscuro para que se lea.
+      dot.classList.toggle('device-dot-dark', markerStatus === 'talkInOnly');
+      const icon = options.profileIcon(d.profileId);
+      if (shownIcons.get(d.id) !== icon) {
+        shownIcons.set(d.id, icon);
+        dot.innerHTML = icon;
+      }
       element.querySelector('.device-label')!.textContent = d.name;
     }
     scheduleLabels();
@@ -448,8 +462,8 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   };
 }
 
-/** Radio del punto del equipo en el mapa (14 px de diámetro). */
-const DOT_RADIUS_PX = 7;
+/** Radio del círculo del equipo en el mapa (24 px de diámetro, con su ícono adentro). */
+const DOT_RADIUS_PX = 12;
 
 /** El cursor está sobre un equipo del mapa: la lectura de cobertura no debe tapar su globo. */
 export function isOverDevice(event: MouseEvent): boolean {

@@ -1,5 +1,6 @@
 import { Marker, type Map as MapLibreMap } from 'maplibre-gl';
 import type { LonLat } from '../geo/geodesy';
+import { SITE_ICON } from '../ui/icons';
 
 export interface SiteMarker {
   /** Pone (o mueve) el marcador en el sitio, por ejemplo al escribir las coordenadas. */
@@ -22,8 +23,11 @@ export function createSiteMarker(
 
   const place = (site: LonLat) => {
     if (!marker) {
-      // La punta del alfiler (anchor 'bottom') marca el punto exacto del sitio.
-      marker = new Marker({ draggable: true, color: '#1f5c8c', anchor: 'bottom' }).setLngLat([site.lon, site.lat]).addTo(map);
+      // Una torre dentro del alfiler; la punta (anchor 'bottom') marca el punto exacto del sitio.
+      const element = document.createElement('div');
+      element.className = 'site-pin';
+      element.innerHTML = `<span class="site-pin-head">${SITE_ICON}</span>`;
+      marker = new Marker({ element, draggable: true, anchor: 'bottom' }).setLngLat([site.lon, site.lat]).addTo(map);
       marker.on('dragend', () => {
         const { lng, lat } = marker!.getLngLat();
         onChange({ lon: lng, lat });

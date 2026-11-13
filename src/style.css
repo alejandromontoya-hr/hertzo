@@ -1293,17 +1293,79 @@ body {
 }
 
 .end-marker {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  width: 30px;
+  height: 30px;
   color: #ffffff;
   border: 2px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
   cursor: grab;
+}
+
+.end-marker svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Letra del extremo (A o B) en una esquina de la antena, como en el formulario. */
+.end-marker-letter {
+  position: absolute;
+  right: -7px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+/* Sitio en el mapa: una torre dentro de un alfiler; la punta de abajo es el punto exacto. Va en
+   tinta, no en azul, para no confundirse con el azul de "llegan las dos" de los equipos. */
+.site-pin {
+  position: relative;
+  width: 32px;
+  height: 41px;
+  cursor: grab;
+}
+
+.site-pin-head {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: #ffffff;
+  background: var(--ink);
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+
+.site-pin::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  border: 7px solid transparent;
+  border-top-width: 11px;
+  border-bottom: 0;
+  border-top-color: var(--ink);
+  transform: translateX(-50%);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+}
+
+.site-pin svg {
+  width: 19px;
+  height: 19px;
 }
 
 /* Frase que explica un resultado (veredicto de un enlace, aviso de corte), en texto normal. */
@@ -2153,11 +2215,23 @@ a.map-menu-option {
 
 .device-dot {
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: #ffffff;
   border: 2px solid #fff;
   border-radius: 50%;
   box-shadow: 0 0 0 1px var(--ink);
+}
+
+.device-dot svg {
+  width: 14px;
+  height: 14px;
+}
+
+.device-dot-dark {
+  color: var(--ink);
 }
 
 /* Nombre junto al punto, como las etiquetas del mapa: texto con halo claro, sin caja. */

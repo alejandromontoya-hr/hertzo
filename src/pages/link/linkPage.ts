@@ -47,6 +47,7 @@ import { infoButton } from '../../ui/infoTip';
 import { bindSiteFields, siteFieldsHtml } from '../../ui/siteFields';
 import { formatHeight, formatLonLat, formatMeters, formatWatts } from '../../ui/format';
 import { createLinkChart } from '../../ui/linkChart';
+import { DISH_ICON } from '../../ui/icons';
 import { replaceQuery, type PageContext } from '../router';
 import { bindChoice, choiceHtml, createMapPage, simulateBoxHtml } from '../shared/mapPage';
 import {
@@ -202,7 +203,9 @@ export function mountLinkPage({ root, params: urlParams, shared }: PageContext):
     const element = document.createElement('div');
     element.className = 'end-marker';
     element.style.background = END_COLORS[label];
-    element.textContent = label;
+    // Una antena parabólica con la letra del extremo, la misma del formulario.
+    element.innerHTML = `${DISH_ICON}<span class="end-marker-letter" style="color:${END_COLORS[label]}">${label}</span>`;
+    element.setAttribute('aria-label', `Extremo ${label}`);
     const marker = new Marker({ element, draggable: true }).setLngLat([at.lon, at.lat]).addTo(page.map);
     marker.on('dragend', () => {
       const { lng, lat } = marker.getLngLat();
