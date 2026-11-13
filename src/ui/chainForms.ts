@@ -7,7 +7,7 @@ const FREQUENCY: Omit<NumberFieldSpec, 'key'> = { label: 'Frecuencia', unit: 'MH
 const LINE_LENGTH: Omit<NumberFieldSpec, 'key'> = { label: 'Longitud de la línea', unit: 'm', min: 0, max: 1000 };
 const LINE_LOSS: Omit<NumberFieldSpec, 'key'> = { label: 'Pérdida de la línea', unit: 'dB/100 m', min: 0, max: 50 };
 
-const TX_FIELDS: readonly NumberFieldSpec<keyof SiteTxChain>[] = [
+export const TX_FIELDS: readonly NumberFieldSpec<keyof SiteTxChain>[] = [
   { key: 'frequencyMHz', ...FREQUENCY },
   { key: 'transmitterPowerW', label: 'Potencia del transmisor', unit: 'W', min: 0, max: 1000, minExclusive: true },
   { key: 'combinerLossDb', label: 'Pérdida del combinador o duplexor', unit: 'dB', min: 0, max: 30 },
@@ -18,7 +18,7 @@ const TX_FIELDS: readonly NumberFieldSpec<keyof SiteTxChain>[] = [
   { key: 'antennaHeightM', label: 'Altura de la antena TX', unit: 'm', min: 0.5, max: 1000 },
 ];
 
-const RX_FIELDS: readonly NumberFieldSpec<keyof SiteRxChain>[] = [
+export const RX_FIELDS: readonly NumberFieldSpec<keyof SiteRxChain>[] = [
   { key: 'frequencyMHz', ...FREQUENCY },
   { key: 'antennaGainDbd', label: 'Ganancia de la antena RX', unit: 'dBd', min: -10, max: 25 },
   { key: 'antennaHeightM', label: 'Altura de la antena RX', unit: 'm', min: 0.5, max: 1000 },
@@ -36,9 +36,9 @@ const RX_FIELDS: readonly NumberFieldSpec<keyof SiteRxChain>[] = [
   { key: 'receiverSensitivityDbm', label: 'Sensibilidad del receptor del sitio', unit: 'dBm', min: -150, max: -60 },
 ];
 
-type RadioValues = Omit<RadioProfile, 'id' | 'name'>;
+export type RadioValues = Omit<RadioProfile, 'id' | 'name'>;
 
-const RADIO_FIELDS: readonly NumberFieldSpec<keyof RadioValues>[] = [
+export const RADIO_FIELDS: readonly NumberFieldSpec<keyof RadioValues>[] = [
   { key: 'powerW', label: 'Potencia', unit: 'W', min: 0, max: 200, minExclusive: true },
   { key: 'antennaGainDbd', label: 'Ganancia de la antena', unit: 'dBd', min: -20, max: 15 },
   { key: 'heightM', label: 'Altura de la antena', unit: 'm', min: 0.5, max: 100 },

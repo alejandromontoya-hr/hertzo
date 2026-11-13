@@ -2,9 +2,10 @@
 // radios hablan, cuánto y con cuántos canales de voz. Erlang C, como una fila de trunking.
 
 import { averageWaitSeconds, erlangC, offeredTrafficErlang, probabilityWaitLongerThan } from '../rf/traffic';
+import { changedFields } from '../export/shareLink';
 import { createFieldGroup, type NumberFieldSpec } from './fields';
 
-interface CapacityValues {
+export interface CapacityValues {
   radios: number;
   callsPerHour: number;
   holdSeconds: number;
@@ -12,7 +13,7 @@ interface CapacityValues {
   waitLimitSeconds: number;
 }
 
-const FIELDS: readonly NumberFieldSpec<keyof CapacityValues>[] = [
+export const CAPACITY_FIELDS: readonly NumberFieldSpec<keyof CapacityValues>[] = [
   { key: 'radios', label: 'Radios', unit: 'radios', min: 1, max: 100000, hint: 'Si ubicaste equipos arriba, toma ese número; puedes cambiarlo.' },
   { key: 'callsPerHour', label: 'Llamadas por radio en la hora pico', unit: 'por hora', min: 0, max: 1000 },
   { key: 'holdSeconds', label: 'Duración de cada llamada', unit: 's', min: 1, max: 3600, hint: 'Desde que se asigna el canal hasta que se libera, con el tiempo de cola de la repetidora.' },
@@ -20,7 +21,7 @@ const FIELDS: readonly NumberFieldSpec<keyof CapacityValues>[] = [
   { key: 'waitLimitSeconds', label: 'Espera aceptable', unit: 's', min: 0, max: 600 },
 ];
 
-const DEFAULTS: CapacityValues = { radios: 20, callsPerHour: 6, holdSeconds: 15, channels: 4, waitLimitSeconds: 5 };
+export const CAPACITY_DEFAULTS: CapacityValues = { radios: 20, callsPerHour: 6, holdSeconds: 15, channels: 4, waitLimitSeconds: 5 };
 
 const erlangFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
 const percentFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
@@ -50,17 +51,20 @@ export function formatWait(seconds: number): string {
 export interface TrunkingCapacity {
   /** Número de radios ubicados en "Equipos": reemplaza el campo mientras el usuario no lo haya escrito. */
   setDeviceCount(count: number): void;
+  /** Los campos que cambió el usuario; "Radios" solo si lo escribió (no si salió de "Equipos"). */
+  changed(): Partial<CapacityValues>;
 }
 
-export function createTrunkingCapacity(container: HTMLElement): TrunkingCapacity {
-  let values = { ...DEFAULTS };
-  let radiosTyped = false;
+/** `initial`: los campos que escribió el usuario (los de un enlace compartido). */
+export function createTrunkingCapacity(container: HTMLElement, initial: Partial<CapacityValues> = {}): TrunkingCapacity {
+  let values = { ...CAPACITY_DEFAULTS, ...initial };
+  let radiosTyped = initial.radios !== undefined;
   const form = document.createElement('div');
   form.className = 'form';
   const result = document.createElement('div');
   container.append(form, result);
 
-  const fields = createFieldGroup<CapacityValues>(form, FIELDS, values, (next) => {
+  const fields = createFieldGroup<CapacityValues>(form, CAPACITY_FIELDS, values, (next) => {
     if (next.radios !== values.radios) radiosTyped = true;
     values = { ...next, channels: Math.round(next.channels), radios: Math.round(next.radios) };
     show();
@@ -105,6 +109,10 @@ export function createTrunkingCapacity(container: HTMLElement): TrunkingCapacity
       values = { ...values, radios: count };
       fields.setValues(values);
       show();
+    },
+    changed() {
+      const { radios, ...rest } = changedFields(values, CAPACITY_DEFAULTS);
+      return radiosTyped && radios !== undefined ? { radios, ...rest } : rest;
     },
   };
 }

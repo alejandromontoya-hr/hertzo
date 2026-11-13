@@ -26,6 +26,8 @@ export interface SiteControls {
 export interface SiteControlsOptions {
   radiusKm: number;
   maxRadiusKm: number;
+  /** Sitio y nombre con que abre la página (los de un enlace compartido). */
+  initial?: { site: LonLat | null; name: string };
   /** Cambió algo que afecta el cálculo: el sitio o el radio. */
   onChange(): void;
 }
@@ -126,6 +128,17 @@ export function createSiteControls(page: MapPage, options: SiteControlsOptions):
     },
   );
   page.find('[data-radius-field]').append(radiusField.element);
+
+  // Sin avisar a la página: todavía se está armando, y al terminar calcula con todo lo que tiene.
+  if (options.initial) {
+    fields.setName(options.initial.name);
+    if (options.initial.site) {
+      site = options.initial.site;
+      fields.show(site);
+      marker.set(site);
+      sitePanel.showSite(site);
+    }
+  }
 
   return {
     getSite: () => site,

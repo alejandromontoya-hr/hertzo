@@ -8,8 +8,9 @@ import { pageMeta } from './seo/seo';
 import { installInfoTips } from './ui/infoTip';
 
 // Contador de visitas de Vercel Web Analytics: sin cookies ni datos personales. Fuera de
-// Vercel (por ejemplo en desarrollo) no envía nada.
-inject();
+// Vercel (por ejemplo en desarrollo) no envía nada. Nunca envía lo que va después del "#": ahí
+// viajan los datos de un enlace de "Compartir", que no deben salir del navegador.
+inject({ beforeSend: (event) => ({ ...event, url: event.url.replace(/#.*$/, '') }) });
 
 // Globo de los botones "i" de todas las páginas.
 installInfoTips();

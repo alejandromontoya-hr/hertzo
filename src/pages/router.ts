@@ -2,9 +2,14 @@
 // hertzo.site/terreno?banda=uhf). La compilación deja una copia de la app en la carpeta de
 // cada ruta, así cualquier hosting estático la sirve sin reglas de reescritura.
 
+import type { ParseResult } from '../export/projectFile';
+import { decodeShare, shareCodeFromHash } from '../export/shareLink';
+
 export interface PageContext {
   root: HTMLElement;
   params: URLSearchParams;
+  /** Datos de un enlace de "Compartir" (#d=…), sin revisar; null si la dirección no trae uno. */
+  shared: ParseResult<Record<string, unknown>> | null;
 }
 
 /** Monta la página y devuelve la función que la desmonta (libera el mapa, cancela cálculos…). */
@@ -53,6 +58,15 @@ export async function startRouter(
   const dirtyPath = TRAILING_PUNCTUATION.test(decodeURIComponent(location.pathname));
   if (route.path !== path || dirtyPath) history.replaceState(null, '', `/${route.path}${location.search}`);
   onNavigate(route);
-  const mount = await route.load();
-  mount({ root, params });
+  const code = shareCodeFromHash(location.hash);
+  const [mount, shared] = await Promise.all([route.load(), code ? decodeShare(code) : null]);
+  // Ya leído, el enlace sale de la barra de direcciones: lo que cambies después no lo actualiza,
+  // y copiarla de ahí no debe pasar por la versión que te mandaron.
+  if (code) history.replaceState(null, '', `${location.pathname}${location.search}`);
+  mount({ root, params, shared });
+  // Un enlace pegado en una pestaña que ya está en esa dirección solo cambia el "#" y el
+  // navegador no recarga: se recarga a mano para abrirlo.
+  window.addEventListener('hashchange', () => {
+    if (shareCodeFromHash(location.hash)) location.reload();
+  });
 }

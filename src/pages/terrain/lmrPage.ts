@@ -18,6 +18,8 @@ import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/devi
 import { evaluateDevice, matchProfileId } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
+import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
 import { talkInBudget, talkOutBudget, type RadioProfile, type SiteRxChain, type SiteTxChain } from '../../rf/linkBudget';
@@ -36,6 +38,7 @@ import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createRequestMemo } from '../shared/requestMemo';
 import { createSiteControls } from '../shared/siteControls';
+import { readTerrainShare, terrainShareData } from './terrainShare';
 
 const VIEWS: { id: CoverageView; label: string; title: string }[] = [
   { id: 'talkOut', label: 'Bajada', title: 'Nivel recibido en el radio (dBm)' },
@@ -60,8 +63,11 @@ const gridsOf = (result: CoverageResult): CoverageGrids => ({
   talkIn: result.grids[TALK_IN]!,
 });
 
-export function mountLmrPage({ root, params }: PageContext): () => void {
+export function mountLmrPage({ root, params, shared }: PageContext): () => void {
   const initialBand = LMR_BANDS.find((b) => b.id === params.get('banda')) ?? LMR_BANDS.find((b) => b.id === '800')!;
+  // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con los de siempre.
+  const fromLink = shared?.ok ? readTerrainShare(shared.data, initialBand) : null;
+  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
 
   const page = createMapPage(
     root,
@@ -70,6 +76,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       <h2>Radiocomunicaciones en terreno${infoButton('Trunking P25, SmartZone y convencional. Bajada y subida por separado, cada una con su frecuencia y su cadena.')}</h2>
       ${choiceHtml('banda', LMR_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda', '')}
       <div class="form" data-reliability-form></div>
+      ${SHARE_BUTTON_HTML}
     </section>
     ${siteSectionHtml()}
     ${coverageStatusHtml()}
@@ -102,11 +109,11 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   );
 
   let band = initialBand;
-  let tx = band.tx;
-  let rx = band.rx;
-  let radio = RADIO_PROFILES.find((p) => p.id === DEFAULT_RADIO_PROFILE_ID)!;
+  let tx = fromLink?.tx ?? band.tx;
+  let rx = fromLink?.rx ?? band.rx;
+  let radio = fromLink?.radio ?? RADIO_PROFILES.find((p) => p.id === DEFAULT_RADIO_PROFILE_ID)!;
   let view: CoverageView = 'talkOut';
-  let thresholds = [...DEFAULT_LEVEL_THRESHOLDS_DBM];
+  let thresholds = fromLink?.thresholds ?? [...DEFAULT_LEVEL_THRESHOLDS_DBM];
   let opacity = 0.7;
   let coverage: CoverageResult | null = null;
   let geometry: RasterGeometry | null = null;
@@ -137,7 +144,12 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
     },
   });
 
-  const site = createSiteControls(page, { radiusKm: DEFAULT_RADIUS_KM, maxRadiusKm: 100, onChange: onParametersChange });
+  const site = createSiteControls(page, {
+    radiusKm: fromLink?.radiusKm ?? DEFAULT_RADIUS_KM,
+    maxRadiusKm: 100,
+    initial: fromLink ?? undefined,
+    onChange: onParametersChange,
+  });
   const controller = createCoverageController(
     page.find('[data-coverage-status]'),
     page.find('[data-simulate-box]'),
@@ -182,7 +194,7 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
   // sensibilidad no vuelve a correr el ITM; solo se recalcula si cambia la geometría.
   const lossCache = new Map<string, Promise<DeviceLoss>>();
   const radioOf = (d: Device) => RADIO_PROFILES.find((p) => p.id === d.profileId) ?? radio;
-  const capacity = createTrunkingCapacity(page.find('[data-capacity]'));
+  const capacity = createTrunkingCapacity(page.find('[data-capacity]'), fromLink?.capacity);
   let deviceList: DeviceList | undefined;
   deviceList = createDeviceList(page, page.find('[data-devices]'), {
     onCountChange: (count) => capacity.setDeviceCount(count),
@@ -219,7 +231,31 @@ export function mountLmrPage({ root, params }: PageContext): () => void {
       };
     },
     fileName: () => exportFileName('terreno-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
+    initial: fromLink?.devices,
   });
+
+  bindShareButton(
+    page.panel,
+    {
+      title: () => `Hertzo · Terreno ${band.label}${site.getName() ? ` · ${site.getName()}` : ''}`,
+      data: () =>
+        terrainShareData(
+          {
+            site: site.getSite(),
+            name: site.getName(),
+            radiusKm: site.getRadiusKm(),
+            tx,
+            rx,
+            radio,
+            thresholds,
+            capacity: capacity.changed(),
+            devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
+          },
+          band,
+        ),
+    },
+    opened,
+  );
 
   bindChoice(page.panel, 'banda', band.id, (id) => {
     band = LMR_BANDS.find((b) => b.id === (id as LmrBandId))!;

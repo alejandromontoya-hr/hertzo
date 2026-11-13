@@ -50,6 +50,8 @@ export interface DeviceListOptions {
   onCountChange?(count: number): void;
   /** Avisa cada vez que termina de evaluar un equipo. */
   onRowsChange?(): void;
+  /** Equipos con que abre la página (los de un enlace compartido). */
+  initial?: Omit<Device, 'id'>[];
 }
 
 export interface DeviceList {
@@ -428,6 +430,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   const withUnit = (column: string, i: number) => (options.units[i] ? `${column} (${options.units[i]})` : column);
 
   render();
+  if (options.initial?.length) add(options.initial);
 
   return {
     refresh,

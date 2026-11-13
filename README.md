@@ -35,6 +35,7 @@ Las variantes van como parámetros: `/terreno?banda=uhf`, `/lora?banda=au915`, `
 - **Equipos concretos** (Terreno y LoRa). Se agregan con clic en el mapa o pegando una lista de Excel; cada uno se calcula con el ITM punto a punto a su propia altura, se arrastra para moverlo y se le cambia el nombre o el tipo en su fila.
 - **Capacidad.** Terreno estima cuántas llamadas esperan canal en la hora pico (Erlang C); LoRa, qué parte de los mensajes choca en el aire (ALOHA).
 - **Exportar.** KMZ para Google Earth con cada capa y su leyenda, el sitio con su ficha y los equipos; CSV con los equipos. Interiores y Cavernas guardan y abren proyectos (.json).
+- **Compartir** (Terreno). El botón copia un enlace con todo lo que tienes en la página: el sitio, las dos cadenas, el radio de usuario, los umbrales, la capacidad y los equipos. En un correo se pega como "Hertzo · Terreno 800 MHz · Cerro El Volador"; en el celular abre el menú de compartir del teléfono. Los datos van comprimidos después del `#` de la dirección, que no sale del navegador: Hertzo no los guarda ni los ve. Quien abre el enlace recibe una copia, y lo que cambie queda solo en su navegador. Un sitio con 20 radios cabe en unos 420 caracteres.
 
 ## Desarrollo
 
@@ -87,7 +88,7 @@ Al cambiar lo que dice una página, se actualiza su texto en `src/seo/pageConten
 | `src/indoor/` | Plano de interiores, mapa de calor de bajada y subida, planos de ejemplo y proyectos |
 | `src/cave/` | Red de galerías, propagación guiada, escenarios de ejemplo y proyectos |
 | `src/editor/` | Vista de plano 2D compartida por los editores |
-| `src/export/` | KMZ para Google Earth, leyendas y nombres de archivo |
+| `src/export/` | KMZ para Google Earth, leyendas, nombres de archivo, proyectos y enlaces de "Compartir" |
 | `src/pages/` | Portada, rutas y una carpeta por escenario |
 | `src/seo/` | Títulos, descripciones, texto de cada página, datos estructurados, robots.txt, sitemap.xml y llms.txt |
 | `src/map/` | Mapa, marcadores y capas |

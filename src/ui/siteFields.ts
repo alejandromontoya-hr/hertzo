@@ -49,6 +49,8 @@ export interface SiteFields {
   show(site: LonLat): void;
   /** Nombre escrito; vacío si no hay. */
   getName(): string;
+  /** Escribe el nombre (por ejemplo, el que trae un enlace compartido). */
+  setName(name: string): void;
 }
 
 /**
@@ -109,5 +111,8 @@ export function bindSiteFields(root: HTMLElement, onSite: (site: LonLat | null) 
       showError(null);
     },
     getName: () => nameInput.value.trim(),
+    setName(name) {
+      nameInput.value = name;
+    },
   };
 }

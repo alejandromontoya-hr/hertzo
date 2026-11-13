@@ -44,6 +44,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         q: '¿Qué modelo de propagación usa?',
         a: 'El Irregular Terrain Model (Longley-Rice) v1.4 de NTIA, sin modificaciones, compilado a WebAssembly, sobre el terreno de Terrain Tiles (SRTM). Con "Entorno del equipo", que se elige antes de simular, suma la pérdida por edificios y árboles de la UIT-R P.2108.',
       },
+      {
+        q: '¿Puedo compartir una simulación?',
+        a: 'Sí: "Compartir" copia un enlace con el sitio, las cadenas de bajada y subida, el radio y los equipos. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
+      },
       ...COMMON_FAQ,
     ],
   },
