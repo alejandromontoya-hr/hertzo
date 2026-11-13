@@ -109,7 +109,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         q: '¿Puedo guardar el plano?',
-        a: 'Sí: "Guardar proyecto" descarga un archivo .json con el plano y todos sus ajustes, y "Abrir proyecto" lo vuelve a cargar en otro equipo.',
+        a: 'Sí: "Guardar proyecto" descarga un archivo .json con el plano y todos sus ajustes, y "Abrir proyecto" lo vuelve a cargar en otro equipo. "Compartir" copia un enlace con el mismo plano: quien lo abre recibe una copia, y el plano que tenía queda en "Deshacer".',
       },
       ...COMMON_FAQ,
     ],

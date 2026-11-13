@@ -7,6 +7,8 @@ import { isoDate } from '../../export/projectFile';
 import { REPORT_CONTENT_WIDTH, REPORT_SCALE, drawReport, reportDate, swatchKey } from '../../export/reportImage';
 import { saveFile } from '../../export/download';
 import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectButtons';
+import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { addPlanExport } from '../../map/exportControl';
 import {
   LINK_DIRECTIONS,
@@ -48,6 +50,7 @@ import { createFieldGroup, createNumberField, createSelectField, type NumberFiel
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
+import { indoorShareData, readIndoorShare } from './indoorShare';
 import { bindChoice, bindSegmented, choiceHtml, segmentedHtml } from '../shared/mapPage';
 
 type Tool = 'select' | 'wall' | 'ap' | 'erase';
@@ -105,15 +108,20 @@ function save(data: Saved) {
   }
 }
 
-export function mountIndoorPage({ root, params }: PageContext): () => void {
+export function mountIndoorPage({ root, params, shared }: PageContext): () => void {
   const presetId = params.get('plano');
-  const saved = presetId ? null : loadSaved();
-  let plan: FloorPlan = saved?.plan ?? (PLAN_PRESETS.find((p) => p.id === presetId) ?? PLAN_PRESETS[0]!).build();
+  // Enlace de "Compartir": la página abre con ese plano o, si no sirve, con el que tenía.
+  const fromLink = shared?.ok ? readIndoorShare(shared.data) : null;
+  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  /** El plano que este navegador tenía guardado: con un enlace, queda en "Deshacer". */
+  const saved = presetId && !fromLink ? null : loadSaved();
+  const fromSaved = fromLink ? null : saved;
+  let plan: FloorPlan = fromLink?.plan ?? fromSaved?.plan ?? (PLAN_PRESETS.find((p) => p.id === presetId) ?? PLAN_PRESETS[0]!).build();
   // Un plano guardado antes de que existiera el mobiliario queda en "Casa amueblada".
   if (!FURNITURE.some((f) => f.id === plan.furniture)) plan.furniture = 'casa';
-  let band: WifiBand = saved?.band ?? '2.4';
-  let clientPowerDbm: Record<WifiBand, number> = { ...DEFAULT_CLIENT_POWER_DBM, ...saved?.clientPowerDbm };
-  let channelWidthMHz: Record<WifiBand, ChannelWidth> = { ...DEFAULT_CHANNEL_WIDTH, ...saved?.channelWidthMHz };
+  let band: WifiBand = fromLink?.band ?? fromSaved?.band ?? '2.4';
+  let clientPowerDbm: Record<WifiBand, number> = fromLink?.clientPowerDbm ?? { ...DEFAULT_CLIENT_POWER_DBM, ...fromSaved?.clientPowerDbm };
+  let channelWidthMHz: Record<WifiBand, ChannelWidth> = fromLink?.channelWidthMHz ?? { ...DEFAULT_CHANNEL_WIDTH, ...fromSaved?.channelWidthMHz };
   let direction: LinkDirection = 'worst';
   let tool: Tool = 'select';
   let newMaterial: MaterialId = 'ladrillo';
@@ -122,10 +130,24 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
   let hover: { x: number; y: number } | null = null;
   let drag: Drag = null;
   let view: View = 'rssi';
-  let thresholds = WIFI_THRESHOLDS.map((t) => t.dbm);
+  let thresholds = fromLink?.thresholds ?? WIFI_THRESHOLDS.map((t) => t.dbm);
   let opacity = 0.65;
   let heatmaps: Record<LinkDirection, Heatmap> | null = null;
   const undoStack: string[] = [];
+  // Lo que había antes de abrir el enlace no se pierde: "Deshacer" lo trae de vuelta.
+  const previousProject: IndoorProject | null =
+    fromLink && saved
+      ? {
+          plan: { ...saved.plan, furniture: FURNITURE.some((f) => f.id === saved.plan.furniture) ? saved.plan.furniture : 'casa' },
+          band: saved.band ?? '2.4',
+          thresholds: WIFI_THRESHOLDS.map((t) => t.dbm),
+          clientPowerDbm: { ...DEFAULT_CLIENT_POWER_DBM, ...saved.clientPowerDbm },
+          channelWidthMHz: { ...DEFAULT_CHANNEL_WIDTH, ...saved.channelWidthMHz },
+        }
+      : null;
+  if (previousProject) undoStack.push(JSON.stringify({ project: previousProject } satisfies UndoEntry));
+  // Sin "?plano=…" en la dirección, al recargar se ve el plano del enlace y no el de ejemplo.
+  if (fromLink) replaceQuery('plano', null);
   const heatCanvas = document.createElement('canvas');
   /** Al dibujar para la imagen: sin selección, puntos editables ni el muro que se está trazando. */
   let forImage = false;
@@ -137,6 +159,7 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
           <h2>Interiores (WiFi)${infoButton('Dibuja el plano con sus muros, elige el material de cada uno y ubica los access points. El mapa de calor usa el modelo multipared.')}</h2>
           ${choiceHtml('banda', WIFI_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda WiFi')}
           ${choiceHtml('sentido', LINK_DIRECTIONS.map((d) => ({ id: d.id, label: d.label })), 'Sentido del enlace', 'La pérdida del camino es la misma de ida y de vuelta, pero el cliente (celular, portátil) transmite con menos potencia que el AP. "Peor de las dos" muestra en cada punto el sentido más débil: ahí es donde el enlace se cae.')}
+          ${SHARE_BUTTON_HTML}
         </section>
         <section class="panel-section">
           <h2>Plano</h2>
@@ -965,6 +988,13 @@ export function mountIndoorPage({ root, params }: PageContext): () => void {
       applyProject(data);
     },
   });
+
+  bindShareButton(
+    panel,
+    { title: () => `Hertzo · Interiores WiFi ${WIFI_BANDS.find((b) => b.id === band)!.label}`, data: () => indoorShareData(currentProject()) },
+    opened,
+    previousProject ? 'Tu plano anterior quedó en "Deshacer".' : undefined,
+  );
 
   function undo() {
     const previous = undoStack.pop();

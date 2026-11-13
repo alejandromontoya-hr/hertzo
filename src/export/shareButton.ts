@@ -28,16 +28,17 @@ const useSystemShare = () => typeof navigator.share === 'function' && window.mat
 
 /**
  * Conecta `SHARE_BUTTON_HTML`, que debe estar dentro de `root`. `opened` es el enlace con que se
- * abrió la página: si trae datos, avisa que es una copia; si no sirvió, dice por qué.
+ * abrió la página: si trae datos, avisa que es una copia (con `openedNote` al final, por ejemplo
+ * dónde quedó lo que había); si no sirvió, dice por qué.
  */
-export function bindShareButton(root: HTMLElement, binding: ShareBinding, opened: ParseResult<unknown> | null): void {
+export function bindShareButton(root: HTMLElement, binding: ShareBinding, opened: ParseResult<unknown> | null, openedNote?: string): void {
   const button = root.querySelector<HTMLButtonElement>('[data-share]')!;
   const message = root.querySelector<HTMLElement>('[data-share-message]')!;
   const show = (text: string) => {
     message.hidden = false;
     message.textContent = text;
   };
-  if (opened) show(opened.ok ? OPENED : opened.message);
+  if (opened) show(opened.ok ? [OPENED, openedNote].filter(Boolean).join(' ') : opened.message);
 
   button.addEventListener('click', async () => {
     const title = binding.title();

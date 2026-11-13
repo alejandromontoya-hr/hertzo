@@ -20,7 +20,7 @@ Todas las fórmulas viven en módulos puros (`src/rf/`, `src/indoor/`, `src/cave
 - **Entorno del equipo** (Terreno, LoRa, FM y Celular con ITM): UIT-R P.2108-1, sección 3.1. El trayecto se calcula con la antena subida a la altura de lo que la rodea y se suma la pérdida de cada extremo: abierto (10 m), suburbano (10 m), urbano (15 m) o urbano denso (20 m), con la altura editable. Un equipo a 2 m en entorno urbano suma 22,35 dB a 916,8 MHz. En Terreno y LoRa el entorno se elige antes de simular (el botón "Simular" espera hasta que se elija); `?entorno=ninguno` es solo el relieve.
 - **Equipos concretos** (Terreno y LoRa): cada equipo se calcula con el ITM punto a punto a su altura; a menos de 50 m del sitio, con espacio libre y la distancia real a la antena.
 - **Exportar:** KMZ para Google Earth y CSV de los equipos.
-- **Compartir** (Terreno, LoRa, Celular, Enlace y Radiodifusión): un enlace con los datos comprimidos (deflate y Base64) después del `#`, que el navegador no envía a ningún servidor. Solo viaja lo que cambió frente a los valores de la banda (en Enlace, frente al ejemplo Padre Amaya → El Volador), y las coordenadas van con 6 decimales (≈ 11 cm). Si el enlace llega cortado o trae un valor que el formulario no aceptaría (por ejemplo 0 W), la página abre con sus valores de siempre y lo avisa, nunca con una mezcla. La banda, la confiabilidad, el entorno y en LoRa el límite de 400 ms siguen en la dirección (`?banda=800&entorno=urbano`, `?banda=au915&tiempo=400`).
+- **Compartir** (Terreno, LoRa, Celular, Enlace y Radiodifusión; Interiores en su sección): un enlace con los datos comprimidos (deflate y Base64) después del `#`, que el navegador no envía a ningún servidor. Solo viaja lo que cambió frente a los valores de la banda (en Enlace, frente al ejemplo Padre Amaya → El Volador), y las coordenadas van con 6 decimales (≈ 11 cm). Si el enlace llega cortado o trae un valor que el formulario no aceptaría (por ejemplo 0 W), la página abre con sus valores de siempre y lo avisa, nunca con una mezcla. La banda, la confiabilidad, el entorno y en LoRa el límite de 400 ms siguen en la dirección (`?banda=800&entorno=urbano`, `?banda=au915&tiempo=400`).
 
 ## Radiocomunicaciones en terreno (LMR)
 
@@ -62,7 +62,7 @@ Todas las fórmulas viven en módulos puros (`src/rf/`, `src/indoor/`, `src/cave
 
 ## Interiores (WiFi)
 
-- Editor: muros encadenados con ajuste a 25 cm y a los extremos de otros muros, 8 materiales, access points, deshacer, guardado en el navegador y proyectos (.json).
+- Editor: muros encadenados con ajuste a 25 cm y a los extremos de otros muros, 8 materiales, access points, deshacer, guardado en el navegador, proyectos (.json) y enlace de "Compartir" con el mismo proyecto, medidas al centímetro (el plano "Casa", con 32 muros, cabe en menos de 800 caracteres). Al abrir un enlace, el plano que el navegador tenía guardado queda en "Deshacer".
 - Modelo multipared: espacio libre a la distancia directa más la pérdida de cada muro cruzado, multiplicada por 1/cos θ (hasta el doble) cuando la señal lo cruza de lado. Pérdidas típicas por material a 2,4, 5 y 6 GHz (UIT-R P.2040 y guías de diseño WiFi).
 - "Mobiliario y personas": exponente de 2 (espacio vacío), 2,4 (casa amueblada) o 2,6 (oficina con puestos) desde 1 m.
 - Bajada (del access point al cliente) y subida (del cliente al access point, 15 dBm a 2,4 GHz y 13 dBm a 5 y 6 GHz), y la peor de las dos.
