@@ -173,6 +173,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         q: '¿Qué es un cable radiante?',
         a: 'Un cable coaxial con ranuras que deja salir y entrar la señal a lo largo de todo el túnel, como una antena larga. Se usa en minas y túneles viales para cubrir donde las antenas no llegan.',
       },
+      {
+        q: '¿Puedo compartir la red de galerías?',
+        a: 'Sí: "Compartir" copia un enlace con las galerías, las antenas, el cable radiante y los ajustes de roca y radio. Quien lo abre recibe una copia, y la red que tenía queda en "Deshacer". También puedes guardar el proyecto como archivo .json.',
+      },
       ...COMMON_FAQ,
     ],
   },

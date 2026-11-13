@@ -26,6 +26,8 @@ import { saveFile } from '../../export/download';
 import { isoDate } from '../../export/projectFile';
 import { REPORT_CONTENT_WIDTH, REPORT_SCALE, drawReport, reportDate, swatchKey } from '../../export/reportImage';
 import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectButtons';
+import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { addPlanExport } from '../../map/exportControl';
 import { distanceToSegment, newId, snap } from '../../indoor/plan';
 import {
@@ -47,6 +49,7 @@ import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../..
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
+import { caveShareData, readCaveShare } from './caveShare';
 import { bindChoice, bindSegmented, choiceHtml, segmentedHtml } from '../shared/mapPage';
 
 type Tool = 'select' | 'gallery' | 'antenna' | 'cable' | 'erase';
@@ -126,9 +129,14 @@ function save(data: CaveProject) {
   }
 }
 
-export function mountCavePage({ root, params }: PageContext): () => void {
+export function mountCavePage({ root, params, shared }: PageContext): () => void {
   const presetId = params.get('escenario');
-  const saved = presetId ? null : loadSaved();
+  // Enlace de "Compartir": se aplica al final, como "Abrir proyecto", y lo que había queda en "Deshacer".
+  const fromLink = shared?.ok ? readCaveShare(shared.data) : null;
+  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  // Con un enlace, lo guardado en este navegador manda aunque la dirección traiga "?escenario=…":
+  // es lo que queda en "Deshacer".
+  const saved = presetId && !fromLink ? null : loadSaved();
   const preset = CAVE_PRESETS.find((p) => p.id === presetId) ?? CAVE_PRESETS[0]!;
   let model: CaveModel = saved?.model ?? preset.build();
   let band: CaveBand = CAVE_BANDS.find((b) => b.id === (saved?.bandId ?? preset.band)) ?? CAVE_BANDS[3]!;
@@ -163,6 +171,7 @@ export function mountCavePage({ root, params }: PageContext): () => void {
         <section class="panel-section page-intro">
           <h2>Cavernas, túneles y minas${infoButton('Dibuja la red de galerías, ubica antenas y cable radiante. Cada galería se comporta como una guía de onda: pierde más cuanto más baja es la frecuencia y más pequeña la sección.')}</h2>
           ${choiceHtml('banda', CAVE_BANDS.map((b) => ({ id: b.id, label: bandOptionLabel(b) })), 'Banda', '')}
+          ${SHARE_BUTTON_HTML}
         </section>
         <section class="panel-section">
           <h2>Escenario</h2>
@@ -1270,6 +1279,17 @@ export function mountCavePage({ root, params }: PageContext): () => void {
   renderSettings();
   renderRockCalculator();
   changed();
+
+  if (fromLink) {
+    pushUndo({ project: currentProject() });
+    applyProject(fromLink);
+  }
+  bindShareButton(
+    panel,
+    { title: () => `Hertzo · Cavernas ${bandOptionLabel(band)}`, data: () => caveShareData(currentProject()) },
+    opened,
+    saved ? 'Tu red anterior quedó en "Deshacer".' : undefined,
+  );
 
   return () => {
     window.removeEventListener('keydown', onKey);
