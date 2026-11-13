@@ -129,6 +129,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         q: '¿Qué modelos usa?',
         a: 'Espacio libre, difracción por aristas de la UIT-R P.526 e ITM sobre el perfil real; la lluvia con la UIT-R P.838-3 y la P.530-18, y el multitrayecto con Vigants-Barnett.',
       },
+      {
+        q: '¿Puedo compartir el enlace calculado?',
+        a: 'Sí: "Compartir" copia un enlace con los extremos A y B, la frecuencia, las antenas, el factor k, la lluvia y el clima. Quien lo abre recibe una copia y pulsa "Simular" para ver el perfil: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
+      },
       ...COMMON_FAQ,
     ],
   },

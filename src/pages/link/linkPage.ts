@@ -6,6 +6,8 @@ import { Marker, type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
 import { saveFile } from '../../export/download';
 import { exportFileName, linkKml, type KmlPlacemark } from '../../export/kml';
+import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { linkRayPath } from '../../export/linkPath';
 import { drawProfileReport } from '../../export/profileImage';
 import { reportDate, type ReportRow } from '../../export/reportImage';
@@ -38,62 +40,40 @@ import {
 import { dbmToWatts } from '../../rf/units';
 import { loadTerrain } from '../../terrain/elevation';
 import { profileBounds, sampleProfile, type TerrainProfile } from '../../terrain/profile';
-import { createFieldGroup, createNumberField, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { createFieldGroup, createNumberField, createSelectField } from '../../ui/fields';
 import { infoButton } from '../../ui/infoTip';
 import { bindSiteFields, siteFieldsHtml } from '../../ui/siteFields';
 import { formatHeight, formatLonLat, formatMeters, formatWatts } from '../../ui/format';
 import { createLinkChart } from '../../ui/linkChart';
 import { replaceQuery, type PageContext } from '../router';
 import { bindChoice, choiceHtml, createMapPage, simulateBoxHtml } from '../shared/mapPage';
-
-type LinkType = 'microondas' | 'radio';
-
-interface LinkParams {
-  frequencyMHz: number;
-  txPowerDbm: number;
-  heightAM: number;
-  heightBM: number;
-  /** Microondas: diámetro de cada parábola (m). Radio: ganancia de cada antena (dBi). */
-  antennaA: number;
-  antennaB: number;
-  lossAdb: number;
-  lossBdb: number;
-  thresholdDbm: number;
-}
-
-const PRESETS: Record<LinkType, { params: LinkParams; frequencies: { id: string; label: string }[] }> = {
-  microondas: {
-    params: { frequencyMHz: 11000, txPowerDbm: 20, heightAM: 30, heightBM: 30, antennaA: 0.6, antennaB: 0.6, lossAdb: 1, lossBdb: 1, thresholdDbm: -70 },
-    frequencies: [6175, 7400, 8000, 11000, 13000, 15000, 18000, 23000].map((f) => ({ id: String(f), label: `${f / 1000} GHz` })),
-  },
-  radio: {
-    params: { frequencyMHz: 450, txPowerDbm: 40, heightAM: 20, heightBM: 20, antennaA: 10, antennaB: 10, lossAdb: 2, lossBdb: 2, thresholdDbm: -110 },
-    frequencies: [150, 450, 900].map((f) => ({ id: String(f), label: `${f} MHz` })),
-  },
-};
-
-const K_FACTORS = [
-  { id: '1.3333', label: 'k = 4/3 (atmósfera estándar)' },
-  { id: '1', label: 'k = 1 (sin refracción)' },
-  { id: '0.6667', label: 'k = 2/3 (desfavorable, para el peor caso)' },
-];
-
-type LossModel = 'difraccion' | 'itm';
-
-const POLARIZATIONS: { id: Polarization; label: string }[] = [
-  { id: 'vertical', label: 'Vertical' },
-  { id: 'horizontal', label: 'Horizontal (la lluvia atenúa más)' },
-];
+import {
+  DEFAULT_CLIMATE_ID,
+  DEFAULT_K_FACTOR,
+  DEFAULT_POLARIZATION,
+  DEFAULT_TERRAIN_ID,
+  EXAMPLE_A,
+  EXAMPLE_B,
+  EXAMPLE_NAME_A,
+  EXAMPLE_NAME_B,
+  K_FACTORS,
+  POLARIZATIONS,
+  PRESETS,
+  RAIN_FIELD,
+  defaultLossModel,
+  kFactorId,
+  linkFieldSpecs,
+  type LinkParams,
+  type LinkType,
+  type LossModel,
+} from './linkFields';
+import { linkShareData, readLinkShare } from './linkShare';
 
 /**
  * ITM para un enlace fijo: modo de variabilidad 1 (accidental), el de los trayectos punto a punto
  * entre antenas fijas, en vez del 2 (móvil) de las coberturas. Al 50 % la mediana es la misma.
  */
 const LINK_ITM_PARAMETERS: ItmParameters = { ...DEFAULT_ITM_PARAMETERS, variabilityMode: 1 };
-
-/** Ejemplo inicial: del cerro del Padre Amaya al cerro El Volador (Medellín). */
-const EXAMPLE_A: LonLat = { lon: -75.6853, lat: 6.2794 };
-const EXAMPLE_B: LonLat = { lon: -75.5828, lat: 6.2664 };
 
 type EndLabel = 'A' | 'B';
 const END_COLORS: Record<EndLabel, string> = { A: '#0969da', B: '#bc4c00' };
@@ -143,18 +123,20 @@ interface LinkResult {
   tiltB: number;
 }
 
-export function mountLinkPage({ root, params }: PageContext): () => void {
+export function mountLinkPage({ root, params, shared }: PageContext): () => void {
   let type: LinkType = params.get('tipo') === 'radio' ? 'radio' : 'microondas';
-  let link: LinkParams = { ...PRESETS[type].params };
-  let kFactor = 4 / 3;
-  let terrain = TERRAIN_FACTORS[1]!;
-  // Colombia es en buena parte cálida y húmeda: la clase de clima más exigente queda por omisión.
-  let climate = CLIMATE_FACTORS[0]!;
-  let polarization: Polarization = 'vertical';
-  let rainRate = DEFAULT_RAIN_RATE_MM_H;
-  let lossModel: LossModel = type === 'radio' ? 'itm' : 'difraccion';
-  let endA: LonLat | null = EXAMPLE_A;
-  let endB: LonLat | null = EXAMPLE_B;
+  // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con el ejemplo de siempre.
+  const fromLink = shared?.ok ? readLinkShare(shared.data, type) : null;
+  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  let link: LinkParams = fromLink?.params ?? { ...PRESETS[type].params };
+  let kFactor = fromLink && fromLink.kFactorId !== kFactorId(DEFAULT_K_FACTOR) ? Number(fromLink.kFactorId) : DEFAULT_K_FACTOR;
+  let terrain = TERRAIN_FACTORS.find((t) => t.id === (fromLink?.terrainId ?? DEFAULT_TERRAIN_ID))!;
+  let climate = CLIMATE_FACTORS.find((c) => c.id === (fromLink?.climateId ?? DEFAULT_CLIMATE_ID))!;
+  let polarization: Polarization = fromLink?.polarization ?? DEFAULT_POLARIZATION;
+  let rainRate = fromLink?.rainRate ?? DEFAULT_RAIN_RATE_MM_H;
+  let lossModel: LossModel = fromLink?.lossModel ?? defaultLossModel(type);
+  let endA: LonLat | null = fromLink ? fromLink.endA : EXAMPLE_A;
+  let endB: LonLat | null = fromLink ? fromLink.endB : EXAMPLE_B;
   let profile: TerrainProfile | null = null;
   let request = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -166,11 +148,12 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     <section class="panel-section page-intro">
       <h2>Enlace punto a punto</h2>
       ${choiceHtml('tipo', [{ id: 'microondas', label: 'Microondas' }, { id: 'radio', label: 'Radioenlace VHF/UHF' }], 'Tipo de enlace')}
+      ${SHARE_BUTTON_HTML}
     </section>
     <section class="panel-section">
       <h2>Extremos${infoButton('Escribe las coordenadas (puedes pegar las de Google Maps en Latitud), pulsa el ícono de ubicación de A o de B y haz clic donde va, o arrastra los marcadores A y B.')}</h2>
-      ${endHtml('A', 'Cerro El Padre Amaya')}
-      ${endHtml('B', 'Cerro El Volador')}
+      ${endHtml('A', fromLink?.nameA ?? EXAMPLE_NAME_A)}
+      ${endHtml('B', fromLink?.nameB ?? EXAMPLE_NAME_B)}
       ${simulateBoxHtml()}
     </section>
     <section class="panel-section">
@@ -189,6 +172,13 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   );
   page.profileRoot.classList.add('link-chart');
   page.map.jumpTo({ center: [-75.633, 6.272], zoom: 11.2 });
+  // Con extremos de un enlace compartido, el mapa los muestra a los dos.
+  const shownEnds = [endA, endB].filter((p): p is LonLat => p !== null);
+  if (fromLink && shownEnds.length > 0) {
+    const lons = shownEnds.map((p) => p.lon);
+    const lats = shownEnds.map((p) => p.lat);
+    page.map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 80, maxZoom: 13, duration: 0 });
+  }
 
   const results = page.find('[data-results]');
   const exporter = addExportControl(page.map, [
@@ -212,13 +202,38 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
     });
     return marker;
   };
-  const markers: Record<EndLabel, Marker> = { A: makeMarker('A', EXAMPLE_A), B: makeMarker('B', EXAMPLE_B) };
+  const markers: Record<EndLabel, Marker> = { A: makeMarker('A', endA ?? EXAMPLE_A), B: makeMarker('B', endB ?? EXAMPLE_B) };
   const fields = {
     A: bindSiteFields(page.find('[data-site-fields="end-a"]'), (point) => setEnd('A', point, false)),
     B: bindSiteFields(page.find('[data-site-fields="end-b"]'), (point) => setEnd('B', point, false)),
   };
-  fields.A.show(EXAMPLE_A);
-  fields.B.show(EXAMPLE_B);
+  if (endA) fields.A.show(endA);
+  if (endB) fields.B.show(endB);
+
+  bindShareButton(
+    page.panel,
+    {
+      title: () => `Hertzo · Enlace ${frequencyLabel(link.frequencyMHz)} · ${fields.A.getName() || 'A'} → ${fields.B.getName() || 'B'}`,
+      data: () =>
+        linkShareData(
+          {
+            endA,
+            endB,
+            nameA: fields.A.getName(),
+            nameB: fields.B.getName(),
+            params: link,
+            kFactorId: kFactorId(kFactor),
+            lossModel,
+            terrainId: terrain.id,
+            climateId: climate.id,
+            polarization,
+            rainRate,
+          },
+          type,
+        ),
+    },
+    opened,
+  );
 
   /** Un extremo cambió: escrito en los campos (`fromMap` falso), elegido en el mapa o arrastrado. */
   function setEnd(label: EndLabel, point: LonLat | null, fromMap: boolean) {
@@ -314,26 +329,12 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
         schedule();
       }).element,
     );
-    const antennaSpec = (key: 'antennaA' | 'antennaB', end: string): NumberFieldSpec<keyof LinkParams> =>
-      isMicro
-        ? { key, label: `Diámetro de la parábola en ${end}`, unit: 'm', min: 0.1, max: 5 }
-        : { key, label: `Ganancia de la antena en ${end}`, unit: 'dBi', min: -5, max: 30 };
-    const fields: NumberFieldSpec<keyof LinkParams>[] = [
-      { key: 'txPowerDbm', label: 'Potencia del transmisor', unit: 'dBm', min: -10, max: 60 },
-      { key: 'heightAM', label: 'Altura de la antena en A', unit: 'm', min: 1, max: 300 },
-      { key: 'heightBM', label: 'Altura de la antena en B', unit: 'm', min: 1, max: 300 },
-      antennaSpec('antennaA', 'A'),
-      antennaSpec('antennaB', 'B'),
-      { key: 'lossAdb', label: 'Pérdidas de línea y conectores en A', unit: 'dB', min: 0, max: 20 },
-      { key: 'lossBdb', label: 'Pérdidas de línea y conectores en B', unit: 'dB', min: 0, max: 20 },
-      { key: 'thresholdDbm', label: 'Umbral del receptor', unit: 'dBm', min: -140, max: -20 },
-    ];
-    createFieldGroup(linkForm, fields, link, (next) => {
+    createFieldGroup(linkForm, linkFieldSpecs(type), link, (next) => {
       link = next;
       schedule();
     });
     propagationForm.append(
-      createSelectField('Factor k de la Tierra', K_FACTORS, String(Number(kFactor.toFixed(4))), (id) => {
+      createSelectField('Factor k de la Tierra', K_FACTORS, kFactorId(kFactor), (id) => {
         kFactor = Number(id);
         schedule();
       }).element,
@@ -365,14 +366,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
         schedule();
       }).element,
       createNumberField(
-        {
-          key: 'rainRate',
-          label: 'Lluvia excedida el 0,01 % del año (R0,01)',
-          unit: 'mm/h',
-          min: 1,
-          max: 250,
-          hint: '95 mm/h es el valor de la zona N de la ITU-R P.837-1, la de los Andes colombianos. Para tu sitio, escribe el R0,01 del mapa de la ITU-R P.837-7.',
-        },
+        RAIN_FIELD,
         rainRate,
         (value) => {
           rainRate = value;
@@ -698,7 +692,7 @@ export function mountLinkPage({ root, params }: PageContext): () => void {
   bindChoice(page.panel, 'tipo', type, (id) => {
     type = id as LinkType;
     link = { ...PRESETS[type].params };
-    lossModel = type === 'radio' ? 'itm' : 'difraccion';
+    lossModel = defaultLossModel(type);
     buildForms();
     replaceQuery('tipo', type);
     schedule();
