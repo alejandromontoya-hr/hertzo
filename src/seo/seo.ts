@@ -46,7 +46,7 @@ const UPDATED: Record<string, string> = {
   [CHOOSER_PATH]: '2026-11-05',
   terreno: '2026-11-13',
   radiodifusion: '2026-11-06',
-  celular: '2026-11-06',
+  celular: '2026-11-13',
   enlace: '2026-11-06',
   interiores: '2026-11-06',
   cavernas: '2026-11-06',

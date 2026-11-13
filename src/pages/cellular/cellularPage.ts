@@ -10,11 +10,12 @@ import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../cov
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
-import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { destinationPoint, distanceM, initialBearingDeg } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
+import { addShareControl } from '../../map/shareControl';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
 import {
   CARRIERS,
@@ -151,7 +152,7 @@ export function mountCellularPage({ root, params, shared }: PageContext): () => 
       ${choiceHtml('banda', BANDS.map((b) => ({ id: b.id, label: b.id === 'aws' ? 'AWS (2100 MHz)' : `${b.label} MHz` })), 'Banda', '')}
       <div class="form" data-model></div>
       <p class="notice" data-model-warning hidden></p>
-      ${SHARE_BUTTON_HTML}
+      ${SHARE_NOTICE_HTML}
     </section>
     ${siteSectionHtml('Sitio celular', 'la torre')}
     ${coverageStatusHtml()}
@@ -298,32 +299,29 @@ export function mountCellularPage({ root, params, shared }: PageContext): () => 
   }
   buildSectorFields();
 
-  bindShareButton(
-    page.panel,
-    {
-      title: () => `Hertzo · Celular ${band.id === 'aws' ? 'AWS' : `${band.label} MHz`}${site.getName() ? ` · ${site.getName()}` : ''}`,
-      data: () =>
-        cellularShareData(
-          {
-            site: site.getSite(),
-            name: site.getName(),
-            radiusKm: site.getRadiusKm(),
-            thresholds: thresholds.rsrp,
-            model,
-            siteParams,
-            antenna,
-            phone,
-            neighborKm,
-            azimuths,
-            carrierId: carrier.id,
-            sinrThresholds: thresholds.sinr,
-            upThresholds: thresholds.up,
-          },
-          band,
-        ),
-    },
-    opened,
-  );
+  showSharedNotice(page.panel, opened);
+  addShareControl(page.map, {
+    title: () => `Hertzo · Celular ${band.id === 'aws' ? 'AWS' : `${band.label} MHz`}${site.getName() ? ` · ${site.getName()}` : ''}`,
+    data: () =>
+      cellularShareData(
+        {
+          site: site.getSite(),
+          name: site.getName(),
+          radiusKm: site.getRadiusKm(),
+          thresholds: thresholds.rsrp,
+          model,
+          siteParams,
+          antenna,
+          phone,
+          neighborKm,
+          azimuths,
+          carrierId: carrier.id,
+          sinrThresholds: thresholds.sinr,
+          upThresholds: thresholds.up,
+        },
+        band,
+      ),
+  });
 
   function showBand() {
     setInfo(bandDescription, `${band.description} Frecuencia de cálculo: ${band.frequencyMHz} MHz.`);

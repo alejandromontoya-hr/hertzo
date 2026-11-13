@@ -91,7 +91,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         q: '¿Puedo compartir la simulación?',
-        a: 'Sí: "Compartir" copia un enlace con la torre, el modelo, los sectores con su azimut, la antena, la portadora y dónde está el teléfono. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
+        a: 'Sí: el botón de compartir, junto al de exportar en la esquina del mapa, copia un enlace con la torre, el modelo, los sectores con su azimut, la antena, la portadora y dónde está el teléfono, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
       },
       ...COMMON_FAQ,
     ],
