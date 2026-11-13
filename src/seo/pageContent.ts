@@ -175,7 +175,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         q: '¿Puedo compartir la red de galerías?',
-        a: 'Sí: "Compartir" copia un enlace con las galerías, las antenas, el cable radiante y los ajustes de roca y radio. Quien lo abre recibe una copia, y la red que tenía queda en "Deshacer". También puedes guardar el proyecto como archivo .json.',
+        a: 'Sí: el botón de compartir, junto al de exportar en la esquina del plano, copia un enlace con las galerías, las antenas, el cable radiante y los ajustes de roca y radio, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia, y la red que tenía queda en "Deshacer". También puedes guardar el proyecto como archivo .json.',
       },
       ...COMMON_FAQ,
     ],

@@ -49,7 +49,7 @@ const UPDATED: Record<string, string> = {
   celular: '2026-11-13',
   enlace: '2026-11-13',
   interiores: '2026-11-13',
-  cavernas: '2026-11-06',
+  cavernas: '2026-11-13',
   lora: '2026-11-13',
 };
 

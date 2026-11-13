@@ -26,9 +26,10 @@ import { saveFile } from '../../export/download';
 import { isoDate } from '../../export/projectFile';
 import { REPORT_CONTENT_WIDTH, REPORT_SCALE, drawReport, reportDate, swatchKey } from '../../export/reportImage';
 import { PROJECT_BUTTONS_HTML, bindProjectButtons } from '../../export/projectButtons';
-import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { addPlanExport } from '../../map/exportControl';
+import { addPlanShare } from '../../map/shareControl';
 import { distanceToSegment, newId, snap } from '../../indoor/plan';
 import {
   DEFAULT_TILT_DEG,
@@ -171,7 +172,7 @@ export function mountCavePage({ root, params, shared }: PageContext): () => void
         <section class="panel-section page-intro">
           <h2>Cavernas, túneles y minas${infoButton('Dibuja la red de galerías, ubica antenas y cable radiante. Cada galería se comporta como una guía de onda: pierde más cuanto más baja es la frecuencia y más pequeña la sección.')}</h2>
           ${choiceHtml('banda', CAVE_BANDS.map((b) => ({ id: b.id, label: bandOptionLabel(b) })), 'Banda', '')}
-          ${SHARE_BUTTON_HTML}
+          ${SHARE_NOTICE_HTML}
         </section>
         <section class="panel-section">
           <h2>Escenario</h2>
@@ -1284,15 +1285,17 @@ export function mountCavePage({ root, params, shared }: PageContext): () => void
     pushUndo({ project: currentProject() });
     applyProject(fromLink);
   }
-  bindShareButton(
+  showSharedNotice(
     panel,
-    { title: () => `Hertzo · Cavernas ${bandOptionLabel(band)}`, data: () => caveShareData(currentProject()) },
     opened,
     saved ? 'Tu red anterior quedó en "Deshacer".' : undefined,
   );
+  const sharer = addPlanShare(find('.editor-area'), { title: () => `Hertzo · Cavernas ${bandOptionLabel(band)}`, data: () => caveShareData(currentProject()) });
 
   return () => {
     window.removeEventListener('keydown', onKey);
     planView.destroy();
+    exporter.destroy();
+    sharer.destroy();
   };
 }

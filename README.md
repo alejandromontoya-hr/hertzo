@@ -91,7 +91,7 @@ Al cambiar lo que dice una página, se actualiza su texto en `src/seo/pageConten
 | `src/export/` | KMZ para Google Earth, leyendas, nombres de archivo, proyectos y enlaces de "Compartir" |
 | `src/pages/` | Portada, rutas y una carpeta por escenario |
 | `src/seo/` | Títulos, descripciones, texto de cada página, datos estructurados, robots.txt, sitemap.xml y llms.txt |
-| `src/map/` | Mapa, marcadores y capas |
+| `src/map/` | Mapa, marcadores, capas y los botones redondos de exportar y compartir |
 | `src/ui/` | Formularios, panel de balance, leyenda, lecturas, equipos, capacidad, entorno y confiabilidad |
 | `engine/` | Código C++ del motor y script de compilación a WebAssembly |
 | `scripts/` | Aviso a Bing (IndexNow) |

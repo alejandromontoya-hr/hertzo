@@ -1,15 +1,9 @@
-// Del navegador: compartir una página. "Copiar enlace" pone el enlace con un título (pegado en un
-// correo se ve "Hertzo · Terreno 800 MHz · Cerro El Volador", no las letras de los datos); el
-// aviso de arriba del panel le dice a quien abrió un enlace que tiene una copia.
+// Del navegador: lo que usa el botón "Compartir" del mapa (src/map/shareControl.ts) para armar y
+// copiar el enlace (pegado en un correo se ve "Hertzo · Terreno 800 MHz · Cerro El Volador", no las
+// letras de los datos), y el aviso de arriba del panel para quien abrió un enlace: tiene una copia.
 
 import type { ParseResult } from './projectFile';
 import { encodeShare, shareHash } from './shareLink';
-
-export const SHARE_BUTTON_HTML = `
-  <div class="button-row">
-    <button type="button" class="button" data-share title="Copia un enlace con todo lo que tienes en la página">Compartir</button>
-  </div>
-  <p class="hint" data-share-message role="status" hidden></p>`;
 
 /** Lugar del aviso "Abriste una simulación compartida…", arriba del panel. */
 export const SHARE_NOTICE_HTML = `<p class="hint" data-share-message role="status" hidden></p>`;
@@ -55,39 +49,13 @@ export async function copyShareLink(title: string, url: Promise<string>): Promis
 }
 
 /**
- * Muestra en `[data-share-message]` (dentro de `root`) cómo se abrió la página: si el enlace trajo
+ * Muestra en `SHARE_NOTICE_HTML` (dentro de `root`) cómo se abrió la página: si el enlace trajo
  * datos, avisa que es una copia (con `openedNote` al final, por ejemplo dónde quedó lo que había);
  * si no sirvió, dice por qué. Sin enlace no muestra nada.
  */
-export function showSharedNotice(root: HTMLElement, opened: ParseResult<unknown> | null, openedNote?: string): (text: string) => void {
+export function showSharedNotice(root: HTMLElement, opened: ParseResult<unknown> | null, openedNote?: string): void {
+  if (!opened) return;
   const message = root.querySelector<HTMLElement>('[data-share-message]')!;
-  const show = (text: string) => {
-    message.hidden = false;
-    message.textContent = text;
-  };
-  if (opened) show(opened.ok ? [OPENED, openedNote].filter(Boolean).join(' ') : opened.message);
-  return show;
-}
-
-/** Conecta `SHARE_BUTTON_HTML`, que debe estar dentro de `root`, y muestra el aviso del enlace con que se abrió. */
-export function bindShareButton(root: HTMLElement, binding: ShareBinding, opened: ParseResult<unknown> | null, openedNote?: string): void {
-  const button = root.querySelector<HTMLButtonElement>('[data-share]')!;
-  const show = showSharedNotice(root, opened, openedNote);
-
-  button.addEventListener('click', async () => {
-    const title = binding.title();
-    const url = shareUrl(binding);
-    const showUrl = async () => show(`No se pudo copiar solo. Copia este enlace: ${await url}`);
-    if (canUseSystemShare()) {
-      try {
-        await navigator.share({ title, url: await url });
-      } catch (err) {
-        // Cerrar el menú sin elegir no es un error; otro fallo deja el enlace a la vista.
-        if ((err as Error).name !== 'AbortError') await showUrl();
-      }
-      return;
-    }
-    if (await copyShareLink(title, url)) show(COPIED_MESSAGE);
-    else await showUrl();
-  });
+  message.hidden = false;
+  message.textContent = opened.ok ? [OPENED, openedNote].filter(Boolean).join(' ') : opened.message;
 }
