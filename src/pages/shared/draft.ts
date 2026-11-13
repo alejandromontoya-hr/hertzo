@@ -6,7 +6,8 @@
 // Tres casos:
 // - Vuelves: la página abre con lo guardado.
 // - "Empezar de nuevo": lo guardado pasa a "Deshacer" (solo en esta pestaña) y la página abre limpia.
-// - Abres un enlace que te mandaron: lo tuyo queda aparte y el aviso ofrece "Volver a la tuya".
+// - Abres un enlace que te mandaron: lo tuyo queda aparte y el aviso ofrece "Volver a la tuya". Si
+//   le cambias algo al enlace, pasa a ser tuyo: el siguiente enlace lo aparta en vez de borrarlo.
 
 import { isRecord } from '../../export/projectFile';
 import { SHARE_VERSION } from '../../export/shareLink';
@@ -91,8 +92,9 @@ const SAVE_DELAY_MS = 400;
 export function openDraft(page: string, params: URLSearchParams, hasLink: boolean): DraftSession {
   const saved = read(local, draftKey(page));
   let fromLink = hasLink || (saved?.fromLink ?? false);
-  // Un enlace nuevo sobre lo tuyo: lo tuyo queda aparte. Si lo guardado ya era de otro enlace, lo
-  // tuyo ya estaba aparte y no se pisa.
+  // Un enlace nuevo sobre lo tuyo: lo tuyo queda aparte. Si lo guardado es otro enlace que no
+  // cambiaste, lo tuyo ya estaba aparte y no se pisa. Hay un solo lugar aparte: queda lo último en
+  // que trabajaste.
   if (hasLink && saved && !saved.fromLink) write(local, ownKey(page), saved);
   const hasOwn = fromLink && read(local, ownKey(page)) !== null;
 
@@ -108,10 +110,20 @@ export function openDraft(page: string, params: URLSearchParams, hasLink: boolea
   let current: (() => Record<string, unknown>) | null = null;
   let timer = 0;
   let stopped = false;
+  /** Cómo llegó el enlace, para saber si le cambiaste algo. */
+  let linkSnapshot: string | null = null;
   const save = () => {
     window.clearTimeout(timer);
     if (stopped || !current) return;
-    write(local, draftKey(page), { search: location.search, data: current(), fromLink });
+    const draft = { search: location.search, data: current() };
+    if (fromLink) {
+      const snapshot = JSON.stringify(draft);
+      linkSnapshot ??= snapshot;
+      // Le cambiaste algo a lo que llegó por enlace (la potencia, un equipo, la banda): ya es tuyo,
+      // y el próximo enlace lo aparta en vez de borrarlo.
+      if (snapshot !== linkSnapshot) fromLink = false;
+    }
+    write(local, draftKey(page), { ...draft, fromLink });
   };
   const later = () => {
     window.clearTimeout(timer);
