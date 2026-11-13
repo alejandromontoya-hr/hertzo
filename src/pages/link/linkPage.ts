@@ -6,7 +6,7 @@ import { Marker, type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
 import { saveFile } from '../../export/download';
 import { exportFileName, linkKml, type KmlPlacemark } from '../../export/kml';
-import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showPageNotice, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { linkRayPath } from '../../export/linkPath';
 import { drawProfileReport } from '../../export/profileImage';
@@ -15,6 +15,7 @@ import { zipStore } from '../../export/zip';
 import { destinationPoint, distanceM, initialBearingDeg, type LonLat } from '../../geo/geodesy';
 import { addExportControl } from '../../map/exportControl';
 import { addShareControl } from '../../map/shareControl';
+import { START_OVER_HTML, openDraft } from '../shared/draft';
 import { createPickBanner } from '../../map/pickBanner';
 import { DEFAULT_ITM_PARAMETERS, loadItm, type ItmParameters } from '../../propagation/itm';
 import { freeSpaceLossDb } from '../../rf/fieldStrength';
@@ -124,11 +125,16 @@ interface LinkResult {
   tiltB: number;
 }
 
-export function mountLinkPage({ root, params, shared }: PageContext): () => void {
+export function mountLinkPage({ root, params: urlParams, shared }: PageContext): () => void {
+  // Lo que dejaste en este navegador; con un enlace, lo tuyo queda aparte.
+  const draft = openDraft('enlace', urlParams, shared !== null);
+  const params = draft.params;
   let type: LinkType = params.get('tipo') === 'radio' ? 'radio' : 'microondas';
   // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con el ejemplo de siempre.
-  const fromLink = shared?.ok ? readLinkShare(shared.data, type) : null;
-  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  const linked = shared?.ok ? readLinkShare(shared.data, type) : null;
+  const opened = shared && (shared.ok && !linked ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  // Con qué abre la página: el enlace o, si no hay, lo guardado en este navegador.
+  const fromLink = linked ?? (draft.data ? readLinkShare(draft.data, type) : null);
   let link: LinkParams = fromLink?.params ?? { ...PRESETS[type].params };
   let kFactor = fromLink && fromLink.kFactorId !== kFactorId(DEFAULT_K_FACTOR) ? Number(fromLink.kFactorId) : DEFAULT_K_FACTOR;
   let terrain = TERRAIN_FACTORS.find((t) => t.id === (fromLink?.terrainId ?? DEFAULT_TERRAIN_ID))!;
@@ -150,6 +156,7 @@ export function mountLinkPage({ root, params, shared }: PageContext): () => void
       <h2>Enlace punto a punto</h2>
       ${choiceHtml('tipo', [{ id: 'microondas', label: 'Microondas' }, { id: 'radio', label: 'Radioenlace VHF/UHF' }], 'Tipo de enlace')}
       ${SHARE_NOTICE_HTML}
+      ${START_OVER_HTML}
     </section>
     <section class="panel-section">
       <h2>Extremos${infoButton('Escribe las coordenadas (puedes pegar las de Google Maps en Latitud), pulsa el ícono de ubicación de A o de B y haz clic donde va, o arrastra los marcadores A y B.')}</h2>
@@ -211,26 +218,32 @@ export function mountLinkPage({ root, params, shared }: PageContext): () => void
   if (endA) fields.A.show(endA);
   if (endB) fields.B.show(endB);
 
-  showSharedNotice(page.panel, opened);
+  /** Lo que tienes en la página: lo mismo para el enlace y para lo guardado en el navegador. */
+  const pageData = () =>
+    linkShareData(
+      {
+        endA,
+        endB,
+        nameA: fields.A.getName(),
+        nameB: fields.B.getName(),
+        params: link,
+        kFactorId: kFactorId(kFactor),
+        lossModel,
+        terrainId: terrain.id,
+        climateId: climate.id,
+        polarization,
+        rainRate,
+      },
+      type,
+    );
+
+  if (draft.hasOwn) showSharedNotice(page.panel, opened ?? { ok: true, data: null }, undefined, { label: 'Volver a la tuya', run: draft.backToOwn });
+  else showSharedNotice(page.panel, opened);
+  if (draft.restarted) showPageNotice(page.panel, 'Empezaste una simulación nueva.', { label: 'Deshacer', run: draft.undoStartOver });
+  page.find('[data-start-over]').addEventListener('click', draft.startOver);
   addShareControl(page.map, {
     title: () => `Hertzo · Enlace ${frequencyLabel(link.frequencyMHz)} · ${fields.A.getName() || 'A'} → ${fields.B.getName() || 'B'}`,
-    data: () =>
-      linkShareData(
-        {
-          endA,
-          endB,
-          nameA: fields.A.getName(),
-          nameB: fields.B.getName(),
-          params: link,
-          kFactorId: kFactorId(kFactor),
-          lossModel,
-          terrainId: terrain.id,
-          climateId: climate.id,
-          polarization,
-          rainRate,
-        },
-        type,
-      ),
+    data: pageData,
   });
 
   /** Un extremo cambió: escrito en los campos (`fromMap` falso), elegido en el mapa o arrastrado. */
@@ -699,7 +712,10 @@ export function mountLinkPage({ root, params, shared }: PageContext): () => void
   buildForms();
   refreshSimulate();
 
+  draft.start(root, pageData);
+
   return () => {
+    draft.stop();
     clearTimeout(timer);
     request++;
     page.destroy();

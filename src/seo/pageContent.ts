@@ -142,6 +142,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         a: 'Espacio libre, difracción por aristas de la UIT-R P.526 e ITM sobre el perfil real; la lluvia con la UIT-R P.838-3 y la P.530-18, y el multitrayecto con Vigants-Barnett.',
       },
       {
+        q: '¿Se pierde lo que hice si cierro la pestaña?',
+        a: 'No: cada cambio queda guardado en este navegador, y al volver sigues donde quedaste; solo hay que pulsar "Simular" para ver otra vez el resultado. "Empezar de nuevo" deja la página con los valores de siempre y se puede deshacer.',
+      },
+      {
         q: '¿Puedo compartir el enlace calculado?',
         a: 'Sí: el botón de compartir, junto al de exportar en la esquina del mapa, copia un enlace con los extremos A y B, la frecuencia, las antenas, el factor k, la lluvia y el clima, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia y pulsa "Simular" para ver el perfil: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
       },
