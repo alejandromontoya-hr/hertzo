@@ -18,7 +18,7 @@ import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/devi
 import { evaluateDevice, matchProfileId } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
-import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showPageNotice, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
@@ -38,6 +38,7 @@ import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createRequestMemo } from '../shared/requestMemo';
+import { START_OVER_HTML, openDraft } from '../shared/draft';
 import { createSiteControls } from '../shared/siteControls';
 import { readTerrainShare, terrainShareData } from './terrainShare';
 
@@ -64,11 +65,15 @@ const gridsOf = (result: CoverageResult): CoverageGrids => ({
   talkIn: result.grids[TALK_IN]!,
 });
 
-export function mountLmrPage({ root, params, shared }: PageContext): () => void {
+export function mountLmrPage({ root, params: urlParams, shared }: PageContext): () => void {
+  // Lo que dejaste en este navegador; con un enlace, lo tuyo queda aparte.
+  const draft = openDraft('terreno', urlParams, shared !== null);
+  const params = draft.params;
   const initialBand = LMR_BANDS.find((b) => b.id === params.get('banda')) ?? LMR_BANDS.find((b) => b.id === '800')!;
   // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con los de siempre.
   const fromLink = shared?.ok ? readTerrainShare(shared.data, initialBand) : null;
   const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  const initial = fromLink ?? (draft.data ? readTerrainShare(draft.data, initialBand) : null);
 
   const page = createMapPage(
     root,
@@ -78,6 +83,7 @@ export function mountLmrPage({ root, params, shared }: PageContext): () => void 
       ${choiceHtml('banda', LMR_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda', '')}
       <div class="form" data-reliability-form></div>
       ${SHARE_NOTICE_HTML}
+      ${START_OVER_HTML}
     </section>
     ${siteSectionHtml()}
     ${coverageStatusHtml()}
@@ -110,11 +116,11 @@ export function mountLmrPage({ root, params, shared }: PageContext): () => void 
   );
 
   let band = initialBand;
-  let tx = fromLink?.tx ?? band.tx;
-  let rx = fromLink?.rx ?? band.rx;
-  let radio = fromLink?.radio ?? RADIO_PROFILES.find((p) => p.id === DEFAULT_RADIO_PROFILE_ID)!;
+  let tx = initial?.tx ?? band.tx;
+  let rx = initial?.rx ?? band.rx;
+  let radio = initial?.radio ?? RADIO_PROFILES.find((p) => p.id === DEFAULT_RADIO_PROFILE_ID)!;
   let view: CoverageView = 'talkOut';
-  let thresholds = fromLink?.thresholds ?? [...DEFAULT_LEVEL_THRESHOLDS_DBM];
+  let thresholds = initial?.thresholds ?? [...DEFAULT_LEVEL_THRESHOLDS_DBM];
   let opacity = 0.7;
   let coverage: CoverageResult | null = null;
   let geometry: RasterGeometry | null = null;
@@ -146,9 +152,9 @@ export function mountLmrPage({ root, params, shared }: PageContext): () => void 
   });
 
   const site = createSiteControls(page, {
-    radiusKm: fromLink?.radiusKm ?? DEFAULT_RADIUS_KM,
+    radiusKm: initial?.radiusKm ?? DEFAULT_RADIUS_KM,
     maxRadiusKm: 100,
-    initial: fromLink ?? undefined,
+    initial: initial ?? undefined,
     onChange: onParametersChange,
   });
   const controller = createCoverageController(
@@ -195,7 +201,7 @@ export function mountLmrPage({ root, params, shared }: PageContext): () => void 
   // sensibilidad no vuelve a correr el ITM; solo se recalcula si cambia la geometría.
   const lossCache = new Map<string, Promise<DeviceLoss>>();
   const radioOf = (d: Device) => RADIO_PROFILES.find((p) => p.id === d.profileId) ?? radio;
-  const capacity = createTrunkingCapacity(page.find('[data-capacity]'), fromLink?.capacity);
+  const capacity = createTrunkingCapacity(page.find('[data-capacity]'), initial?.capacity);
   let deviceList: DeviceList | undefined;
   deviceList = createDeviceList(page, page.find('[data-devices]'), {
     onCountChange: (count) => capacity.setDeviceCount(count),
@@ -232,27 +238,33 @@ export function mountLmrPage({ root, params, shared }: PageContext): () => void 
       };
     },
     fileName: () => exportFileName('terreno-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
-    initial: fromLink?.devices,
+    initial: initial?.devices,
   });
 
-  showSharedNotice(page.panel, opened);
+  /** Lo que tienes en la página: lo mismo para el enlace y para lo guardado en el navegador. */
+  const pageData = () =>
+    terrainShareData(
+      {
+        site: site.getSite(),
+        name: site.getName(),
+        radiusKm: site.getRadiusKm(),
+        tx,
+        rx,
+        radio,
+        thresholds,
+        capacity: capacity.changed(),
+        devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
+      },
+      band,
+    );
+
+  if (draft.hasOwn) showSharedNotice(page.panel, opened ?? { ok: true, data: null }, undefined, { label: 'Volver a la tuya', run: draft.backToOwn });
+  else showSharedNotice(page.panel, opened);
+  if (draft.restarted) showPageNotice(page.panel, 'Empezaste una simulación nueva.', { label: 'Deshacer', run: draft.undoStartOver });
+  page.find('[data-start-over]').addEventListener('click', draft.startOver);
   addShareControl(page.map, {
     title: () => `Hertzo · Terreno ${band.label}${site.getName() ? ` · ${site.getName()}` : ''}`,
-    data: () =>
-      terrainShareData(
-        {
-          site: site.getSite(),
-          name: site.getName(),
-          radiusKm: site.getRadiusKm(),
-          tx,
-          rx,
-          radio,
-          thresholds,
-          capacity: capacity.changed(),
-          devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
-        },
-        band,
-      ),
+    data: pageData,
   });
 
   bindChoice(page.panel, 'banda', band.id, (id) => {
@@ -396,8 +408,10 @@ export function mountLmrPage({ root, params, shared }: PageContext): () => void 
   page.map.on('mouseout', () => readout.hide());
 
   onParametersChange();
+  draft.start(root, pageData);
 
   return () => {
+    draft.stop();
     deviceList?.destroy();
     controller.destroy();
     page.destroy();

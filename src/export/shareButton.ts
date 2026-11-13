@@ -48,14 +48,32 @@ export async function copyShareLink(title: string, url: Promise<string>): Promis
   }
 }
 
+/** Un botón al final del aviso, por ejemplo "Volver a la tuya". */
+export interface NoticeAction {
+  label: string;
+  run(): void;
+}
+
+/** Muestra `text` en `SHARE_NOTICE_HTML` (dentro de `root`), con `action` al final si la hay. */
+export function showPageNotice(root: HTMLElement, text: string, action?: NoticeAction): void {
+  const message = root.querySelector<HTMLElement>('[data-share-message]')!;
+  message.hidden = false;
+  message.textContent = text;
+  if (!action) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'link-button';
+  button.textContent = action.label;
+  button.addEventListener('click', () => action.run());
+  message.append(' ', button);
+}
+
 /**
  * Muestra en `SHARE_NOTICE_HTML` (dentro de `root`) cómo se abrió la página: si el enlace trajo
  * datos, avisa que es una copia (con `openedNote` al final, por ejemplo dónde quedó lo que había);
  * si no sirvió, dice por qué. Sin enlace no muestra nada.
  */
-export function showSharedNotice(root: HTMLElement, opened: ParseResult<unknown> | null, openedNote?: string): void {
+export function showSharedNotice(root: HTMLElement, opened: ParseResult<unknown> | null, openedNote?: string, action?: NoticeAction): void {
   if (!opened) return;
-  const message = root.querySelector<HTMLElement>('[data-share-message]')!;
-  message.hidden = false;
-  message.textContent = opened.ok ? [OPENED, openedNote].filter(Boolean).join(' ') : opened.message;
+  showPageNotice(root, opened.ok ? [OPENED, openedNote].filter(Boolean).join(' ') : opened.message, action);
 }

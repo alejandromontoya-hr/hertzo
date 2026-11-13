@@ -718,6 +718,12 @@ body {
   margin-bottom: 10px;
 }
 
+/* "Empezar de nuevo": discreto, al final de la presentación de la página. */
+.page-intro .start-over {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .segmented {
   display: flex;
   flex-wrap: wrap;

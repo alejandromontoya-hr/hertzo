@@ -45,6 +45,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         a: 'El Irregular Terrain Model (Longley-Rice) v1.4 de NTIA, sin modificaciones, compilado a WebAssembly, sobre el terreno de Terrain Tiles (SRTM). Con "Entorno del equipo", que se elige antes de simular, suma la pérdida por edificios y árboles de la UIT-R P.2108.',
       },
       {
+        q: '¿Se pierde lo que hice si cierro la pestaña?',
+        a: 'No: cada cambio queda guardado en este navegador, y al volver sigues donde quedaste; solo hay que pulsar "Simular" para ver otra vez la cobertura. "Empezar de nuevo" deja la página con los valores de siempre y se puede deshacer.',
+      },
+      {
         q: '¿Puedo compartir una simulación?',
         a: 'Sí: el botón de compartir, junto al de exportar en la esquina del mapa, copia un enlace con el sitio, las cadenas de bajada y subida, el radio y los equipos, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
       },
