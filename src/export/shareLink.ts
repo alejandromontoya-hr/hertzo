@@ -7,7 +7,11 @@ import type { LonLat } from '../geo/geodesy';
 import type { NumberFieldSpec } from '../ui/fields';
 import { isFiniteNumber, isRecord, type ParseResult } from './projectFile';
 
-/** Versión del formato; sube cuando un cambio impide que una versión vieja de Hertzo lo lea. */
+/**
+ * Versión del formato; sube cuando un cambio impide que una versión vieja de Hertzo lo lea. Al
+ * subirla, cada lector debe seguir entendiendo la anterior: con ella se abren los enlaces viejos y
+ * lo que cada navegador tiene guardado (src/pages/shared/draft.ts).
+ */
 export const SHARE_VERSION = 1;
 
 /** "#d=" + los datos. */

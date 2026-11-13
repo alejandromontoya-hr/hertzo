@@ -8,8 +8,13 @@
 // - "Empezar de nuevo": lo guardado pasa a "Deshacer" (solo en esta pestaña) y la página abre limpia.
 // - Abres un enlace que te mandaron: lo tuyo queda aparte y el aviso ofrece "Volver a la tuya". Si
 //   le cambias algo al enlace, pasa a ser tuyo: el siguiente enlace lo aparta en vez de borrarlo.
+//
+// Lo guardado por una versión anterior de Hertzo se abre, igual que un enlace viejo (por eso el
+// formato solo sube de versión con un lector que entienda el anterior). Lo que no se puede leer
+// (de una versión más nueva, en una pestaña que no se ha recargado, o dañado) no se borra: queda
+// en `hertzo:borrador-respaldo:<página>` antes de que el guardado escriba encima.
 
-import { isRecord } from '../../export/projectFile';
+import { isFiniteNumber, isRecord } from '../../export/projectFile';
 import { SHARE_VERSION } from '../../export/shareLink';
 
 export interface Draft {
@@ -21,8 +26,11 @@ export interface Draft {
   fromLink: boolean;
 }
 
-/** Lo guardado, o null si no hay o no tiene la forma esperada (de una versión vieja, por ejemplo). */
-export function parseDraft(raw: string | null): Draft | null {
+/**
+ * Lo guardado, o null si no hay, está dañado o es de una versión de Hertzo más nueva que `current`.
+ * Los datos llevan su versión en `v`, como los de un enlace, para que el lector sepa leerlos.
+ */
+export function parseDraft(raw: string | null, current = SHARE_VERSION): Draft | null {
   if (!raw) return null;
   let value: unknown;
   try {
@@ -30,10 +38,12 @@ export function parseDraft(raw: string | null): Draft | null {
   } catch {
     return null;
   }
-  // De otra versión de Hertzo: no se intenta leer (la página abre con sus valores de siempre).
-  if (!isRecord(value) || value.v !== SHARE_VERSION || typeof value.search !== 'string' || !isRecord(value.data)) return null;
+  if (!isRecord(value) || typeof value.search !== 'string' || !isRecord(value.data)) return null;
+  // Una versión anterior se lee, como un enlace viejo; una más nueva, no.
+  const version = value.v;
+  if (!isFiniteNumber(version) || !Number.isInteger(version) || version < 1 || version > current) return null;
   if (value.search !== '' && !value.search.startsWith('?')) return null;
-  return { search: value.search, data: value.data, fromLink: value.fromLink === true };
+  return { search: value.search, data: { ...value.data, v: version }, fromLink: value.fromLink === true };
 }
 
 const draftKey = (page: string) => `hertzo:borrador:${page}`;
@@ -41,6 +51,18 @@ const draftKey = (page: string) => `hertzo:borrador:${page}`;
 const ownKey = (page: string) => `hertzo:borrador-propio:${page}`;
 /** Lo que había antes de "Empezar de nuevo", para "Deshacer" (solo en esta pestaña). */
 const restartKey = (page: string) => `hertzo:antes-de-empezar:${page}`;
+/** Lo guardado que esta versión no supo leer, tal cual, para no perderlo. */
+const backupKey = (page: string) => `hertzo:borrador-respaldo:${page}`;
+
+/** Si en `key` hay algo que no se puede leer, lo copia tal cual al respaldo antes de que se pise. */
+function keepUnreadable(page: string, key: string): void {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw && !parseDraft(raw)) localStorage.setItem(backupKey(page), raw);
+  } catch {
+    // Sin almacenamiento: no hay nada que proteger.
+  }
+}
 
 function read(storage: () => Storage, key: string): Draft | null {
   try {
@@ -52,8 +74,14 @@ function read(storage: () => Storage, key: string): Draft | null {
 
 function write(storage: () => Storage, key: string, draft: Draft | null): void {
   try {
-    if (draft) storage().setItem(key, JSON.stringify({ v: SHARE_VERSION, ...draft }));
-    else storage().removeItem(key);
+    if (!draft) {
+      storage().removeItem(key);
+      return;
+    }
+    // Lo de la página es de esta versión; lo que se mueve tal cual (lo tuyo aparte, "Deshacer")
+    // conserva la versión con que se leyó, para que el lector lo siga entendiendo.
+    const { v = SHARE_VERSION, ...data } = draft.data;
+    storage().setItem(key, JSON.stringify({ v, search: draft.search, data, fromLink: draft.fromLink }));
   } catch {
     // Sin almacenamiento (ventana privada, o lleno): la simulación simplemente no se recuerda.
   }
@@ -90,6 +118,8 @@ const SAVE_DELAY_MS = 400;
  * `hasLink` dice si abrió con un enlace de "Compartir" (aunque venga dañado).
  */
 export function openDraft(page: string, params: URLSearchParams, hasLink: boolean): DraftSession {
+  keepUnreadable(page, draftKey(page));
+  keepUnreadable(page, ownKey(page));
   const saved = read(local, draftKey(page));
   let fromLink = hasLink || (saved?.fromLink ?? false);
   // Un enlace nuevo sobre lo tuyo: lo tuyo queda aparte. Si lo guardado es otro enlace que no
