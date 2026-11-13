@@ -2284,3 +2284,8 @@ a.map-menu-option {
   margin-left: 0;
   color: var(--muted);
 }
+
+/* Brújula del mapa (debajo de + y −): solo se ve con el mapa girado o inclinado. */
+.maplibregl-map:not(.map-rotated) .maplibregl-ctrl-compass {
+  display: none;
+}

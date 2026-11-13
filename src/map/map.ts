@@ -224,9 +224,18 @@ export function createMap(container: HTMLElement): MapLibreMap {
     locale: SPANISH_LOCALE,
     attributionControl: false,
   });
-  map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+  // La brújula apunta al norte y un clic deja el mapa derecho otra vez (sin giro ni inclinación).
+  map.addControl(new NavigationControl({ showCompass: true, visualizePitch: true }), 'top-right');
+  // Solo se ve con el mapa girado o inclinado (clic derecho y arrastrar, Ctrl + arrastrar o dos dedos):
+  // con el norte arriba no hace falta.
+  const showCompass = () =>
+    container.classList.toggle('map-rotated', Math.abs(map.getBearing()) > 0.5 || map.getPitch() > 0.5);
+  map.on('rotate', showCompass);
+  map.on('pitch', showCompass);
+  showCompass();
   map.addControl(new MapMenuControl(basemap), 'bottom-right');
   map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
   // OpenStreetMap exige que su crédito se vea en el mapa: queda abajo a la izquierda, junto a la escala.
-  map.addControl(new AttributionControl(), 'bottom-left');  return map;
+  map.addControl(new AttributionControl(), 'bottom-left');
+  return map;
 }
