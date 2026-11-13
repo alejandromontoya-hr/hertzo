@@ -168,6 +168,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         a: 'La intensidad del campo eléctrico en decibelios sobre 1 microvoltio por metro, la unidad con que se definen las zonas de servicio de las emisoras.',
       },
       {
+        q: '¿Se pierde lo que hice si cierro la pestaña?',
+        a: 'No: cada cambio queda guardado en este navegador, y al volver sigues donde quedaste; solo hay que pulsar "Simular" para ver otra vez el resultado. "Empezar de nuevo" deja la página con los valores de siempre y se puede deshacer.',
+      },
+      {
         q: '¿Puedo compartir la cobertura de mi emisora?',
         a: 'Sí: el botón de compartir, junto al de exportar en la esquina del mapa, copia un enlace con el transmisor, la frecuencia, la potencia, la antena, el suelo y los umbrales de cada zona, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
       },

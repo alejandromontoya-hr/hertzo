@@ -11,12 +11,13 @@ import { areaAboveKm2, gridValues, lowConfidencePixels, pixelAreaKm2 } from '../
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName } from '../../export/kml';
-import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showPageNotice, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { distanceM } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
 import { addShareControl } from '../../map/shareControl';
+import { START_OVER_HTML, openDraft } from '../shared/draft';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
 import {
   dbuvmToMvm,
@@ -63,11 +64,16 @@ const mvmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 
-export function mountBroadcastPage({ root, params, shared }: PageContext): () => void {
+export function mountBroadcastPage({ root, params: urlParams, shared }: PageContext): () => void {
+  // Lo que dejaste en este navegador; con un enlace, lo tuyo queda aparte.
+  const draft = openDraft('radiodifusion', urlParams, shared !== null);
+  const params = draft.params;
   let service: Service = params.get('servicio') === 'am' ? 'am' : 'fm';
   // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con los de siempre.
-  const fromLink = shared?.ok ? readBroadcastShare(shared.data, service) : null;
-  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  const linked = shared?.ok ? readBroadcastShare(shared.data, service) : null;
+  const opened = shared && (shared.ok && !linked ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  // Con qué abre la página: el enlace o, si no hay, lo guardado en este navegador.
+  const fromLink = linked ?? (draft.data ? readBroadcastShare(draft.data, service) : null);
   let fm: FmStation = fromLink?.fm ?? { ...DEFAULT_FM };
   let am: AmStation = fromLink?.am ?? { ...DEFAULT_AM };
   let amAntenna = fromLink ? AM_ANTENNAS.find((a) => a.id === fromLink.amAntennaId)! : AM_ANTENNAS[DEFAULT_AM_ANTENNA_INDEX]!;
@@ -90,6 +96,7 @@ export function mountBroadcastPage({ root, params, shared }: PageContext): () =>
       <h2>Radiodifusión</h2>
       ${choiceHtml('servicio', [{ id: 'fm', label: 'FM (88 a 108 MHz)' }, { id: 'am', label: 'AM (530 a 1710 kHz)' }], 'Servicio', '')}
       ${SHARE_NOTICE_HTML}
+      ${START_OVER_HTML}
     </section>
     ${siteSectionHtml('Transmisor', 'la antena de la emisora')}
     ${coverageStatusHtml()}
@@ -149,15 +156,21 @@ export function mountBroadcastPage({ root, params, shared }: PageContext): () =>
     initial: fromLink ?? undefined,
     onChange,
   });
-  showSharedNotice(page.panel, opened);
+  /** Lo que tienes en la página: lo mismo para el enlace y para lo guardado en el navegador. */
+  const pageData = () =>
+    broadcastShareData(
+      { site: site.getSite(), name: site.getName(), radiusKm: site.getRadiusKm(), thresholds, fm, am, amAntennaId: amAntenna.id, groundId: ground.id },
+      service,
+    );
+
+  if (draft.hasOwn) showSharedNotice(page.panel, opened ?? { ok: true, data: null }, undefined, { label: 'Volver a la tuya', run: draft.backToOwn });
+  else showSharedNotice(page.panel, opened);
+  if (draft.restarted) showPageNotice(page.panel, 'Empezaste una simulación nueva.', { label: 'Deshacer', run: draft.undoStartOver });
+  page.find('[data-start-over]').addEventListener('click', draft.startOver);
   addShareControl(page.map, {
     title: () =>
       `Hertzo · ${service === 'fm' ? `FM ${formatMHz(fm.frequencyMHz)}` : `AM ${integerFormat.format(am.frequencyKHz)} kHz`}${site.getName() ? ` · ${site.getName()}` : ''}`,
-    data: () =>
-      broadcastShareData(
-        { site: site.getSite(), name: site.getName(), radiusKm: site.getRadiusKm(), thresholds, fm, am, amAntennaId: amAntenna.id, groundId: ground.id },
-        service,
-      ),
+    data: pageData,
   });
   const controller = createCoverageController(page.find('[data-coverage-status]'), page.find('[data-simulate-box]'), (result) => {
     coverage = result;
@@ -462,7 +475,10 @@ export function mountBroadcastPage({ root, params, shared }: PageContext): () =>
   buildStationForm();
   onChange();
 
+  draft.start(root, pageData);
+
   return () => {
+    draft.stop();
     controller.destroy();
     page.destroy();
   };
