@@ -71,6 +71,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         a: 'Elige "Medidor en caja", que suma 15 dB por la caja y pone la antena a 0,5 m, y el entorno que lo rodea. Así el cálculo cuenta lo que pierde la señal por estar abajo y encerrado.',
       },
       {
+        q: '¿Se pierde lo que hice si cierro la pestaña?',
+        a: 'No: cada cambio queda guardado en este navegador, y al volver sigues donde quedaste; solo hay que pulsar "Simular" para ver otra vez el resultado. "Empezar de nuevo" deja la página con los valores de siempre y se puede deshacer.',
+      },
+      {
         q: '¿Puedo compartir la simulación con mi cliente?',
         a: 'Sí: el botón de compartir, junto al de exportar en la esquina del mapa, copia un enlace con el gateway, el sensor, los medidores con su tipo y los ajustes de SF y capacidad, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
       },

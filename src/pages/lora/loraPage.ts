@@ -25,7 +25,7 @@ import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/devi
 import { evaluateDevice, matchProfileId } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
-import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showPageNotice, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
@@ -56,6 +56,7 @@ import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createRequestMemo } from '../shared/requestMemo';
+import { START_OVER_HTML, openDraft } from '../shared/draft';
 import { createSiteControls } from '../shared/siteControls';
 import {
   ADR_MARGIN_FIELD,
@@ -100,10 +101,15 @@ const gridsOf = (result: CoverageResult): CoverageGrids => ({
   talkIn: result.grids[TALK_IN]!,
 });
 
-export function mountLoraPage({ root, params, shared }: PageContext): () => void {
+export function mountLoraPage({ root, params: urlParams, shared }: PageContext): () => void {
+  // Lo que dejaste en este navegador; con un enlace, lo tuyo queda aparte.
+  const draft = openDraft('lora', urlParams, shared !== null);
+  const params = draft.params;
   // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con los de siempre.
-  const fromLink = shared?.ok ? readLoraShare(shared.data) : null;
-  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  const linked = shared?.ok ? readLoraShare(shared.data) : null;
+  const opened = shared && (shared.ok && !linked ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  // Con qué abre la página: el enlace o, si no hay, lo guardado en este navegador.
+  const fromLink = linked ?? (draft.data ? readLoraShare(draft.data) : null);
   const page = createMapPage(
     root,
     `
@@ -123,6 +129,7 @@ export function mountLoraPage({ root, params, shared }: PageContext): () => void
       </div>
       <div class="form" data-reliability-form></div>
       ${SHARE_NOTICE_HTML}
+      ${START_OVER_HTML}
     </section>
     ${siteSectionHtml('Gateway', 'el gateway')}
     ${coverageStatusHtml()}
@@ -374,22 +381,28 @@ export function mountLoraPage({ root, params, shared }: PageContext): () => void
     initial: fromLink?.devices,
   });
 
-  showSharedNotice(page.panel, opened);
+  /** Lo que tienes en la página: lo mismo para el enlace y para lo guardado en el navegador. */
+  const pageData = () =>
+    loraShareData({
+      site: site.getSite(),
+      name: site.getName(),
+      radiusKm: site.getRadiusKm(),
+      thresholds,
+      devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
+      gateway,
+      sensor,
+      payloadBytes,
+      adrMarginDb,
+      capacity: capacity.changed(),
+    });
+
+  if (draft.hasOwn) showSharedNotice(page.panel, opened ?? { ok: true, data: null }, undefined, { label: 'Volver a la tuya', run: draft.backToOwn });
+  else showSharedNotice(page.panel, opened);
+  if (draft.restarted) showPageNotice(page.panel, 'Empezaste una simulación nueva.', { label: 'Deshacer', run: draft.undoStartOver });
+  page.find('[data-start-over]').addEventListener('click', draft.startOver);
   addShareControl(page.map, {
     title: () => `Hertzo · LoRaWAN ${band.label}${site.getName() ? ` · ${site.getName()}` : ''}`,
-    data: () =>
-      loraShareData({
-        site: site.getSite(),
-        name: site.getName(),
-        radiusKm: site.getRadiusKm(),
-        thresholds,
-        devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
-        gateway,
-        sensor,
-        payloadBytes,
-        adrMarginDb,
-        capacity: capacity.changed(),
-      }),
+    data: pageData,
   });
 
   /** "no llega ni con SF12", o "ni con SF10" si el límite de 400 ms deja hasta SF10. */
@@ -573,7 +586,10 @@ export function mountLoraPage({ root, params, shared }: PageContext): () => void
 
   onParametersChange();
 
+  draft.start(root, pageData);
+
   return () => {
+    draft.stop();
     deviceList?.destroy();
     controller.destroy();
     page.destroy();
