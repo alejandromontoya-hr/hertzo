@@ -66,6 +66,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         q: '¿Qué pasa con un medidor dentro de una caja o a ras de piso?',
         a: 'Elige "Medidor en caja", que suma 15 dB por la caja y pone la antena a 0,5 m, y el entorno que lo rodea. Así el cálculo cuenta lo que pierde la señal por estar abajo y encerrado.',
       },
+      {
+        q: '¿Puedo compartir la simulación con mi cliente?',
+        a: 'Sí: "Compartir" copia un enlace con el gateway, el sensor, los medidores con su tipo y los ajustes de SF y capacidad. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
+      },
       ...COMMON_FAQ,
     ],
   },

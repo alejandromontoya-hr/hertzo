@@ -1,27 +1,36 @@
 // Sección "Capacidad" de LoRa: qué parte de los mensajes choca en el aire según cuántos
 // medidores hay, cada cuánto envían y con qué SF. ALOHA puro, un SF independiente del otro.
 
+import { changedFields } from '../export/shareLink';
 import { SPREADING_FACTORS, type SpreadingFactor } from '../rf/lora';
 import { loraCollisionLoss, type LoraTransmitter } from '../rf/traffic';
 import { createFieldGroup, type NumberFieldSpec } from './fields';
 import { formatShare } from './trunkingCapacity';
 
-interface CapacityValues {
+export interface LoraCapacityValues {
   meters: number;
   intervalMinutes: number;
   channels: number;
 }
 
-const FIELDS: readonly NumberFieldSpec<keyof CapacityValues>[] = [
+export const LORA_CAPACITY_FIELDS: readonly NumberFieldSpec<keyof LoraCapacityValues>[] = [
   { key: 'meters', label: 'Medidores', unit: 'medidores', min: 1, max: 1000000, hint: 'Si ubicaste equipos arriba, toma ese número y el SF de cada uno; si lo cambias, todos usan el SF de abajo.' },
   { key: 'intervalMinutes', label: 'Cada medidor envía cada', unit: 'min', min: 0.1, max: 10080 },
   { key: 'channels', label: 'Canales del gateway', unit: 'canales', min: 1, max: 64, hint: 'Un gateway de 8 canales escucha una sub-banda de AU915 o US915.' },
 ];
 
-const DEFAULTS: CapacityValues = { meters: 30, intervalMinutes: 15, channels: 8 };
+export const LORA_CAPACITY_DEFAULTS: LoraCapacityValues = { meters: 30, intervalMinutes: 15, channels: 8 };
 
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 const minutesFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
+
+/** SF de todos los medidores cuando no salen de "Equipos". */
+export const DEFAULT_UNIFORM_SF: SpreadingFactor = 10;
+
+/** Lo que cambió el usuario en "Capacidad", para el enlace de "Compartir". */
+export interface LoraCapacityChanges extends Partial<LoraCapacityValues> {
+  sf?: SpreadingFactor;
+}
 
 export interface LoraCapacityContext {
   /** SF de cada medidor ubicado en "Equipos" (null si no le llega), o vacío si no hay. */
@@ -40,13 +49,17 @@ export interface LoraCapacity {
   update(): void;
   /** Número de medidores en "Equipos": reemplaza el campo mientras el usuario no lo haya escrito. */
   setDeviceCount(count: number): void;
+  /** Los campos que cambió el usuario; "Medidores" solo si lo escribió (no si salió de "Equipos"). */
+  changed(): LoraCapacityChanges;
 }
 
-export function createLoraCapacity(container: HTMLElement, context: LoraCapacityContext): LoraCapacity {
-  let values = { ...DEFAULTS };
-  let metersTyped = false;
+/** `initial`: lo que había cambiado el usuario (lo de un enlace compartido). */
+export function createLoraCapacity(container: HTMLElement, context: LoraCapacityContext, initial: LoraCapacityChanges = {}): LoraCapacity {
+  const { sf: initialSf, ...initialValues } = initial;
+  let values = { ...LORA_CAPACITY_DEFAULTS, ...initialValues };
+  let metersTyped = initial.meters !== undefined;
   let deviceCount = 0;
-  let uniformSf: SpreadingFactor = 10;
+  let uniformSf: SpreadingFactor = initialSf ?? DEFAULT_UNIFORM_SF;
 
   const form = document.createElement('div');
   form.className = 'form';
@@ -64,7 +77,7 @@ export function createLoraCapacity(container: HTMLElement, context: LoraCapacity
   const result = document.createElement('div');
   container.append(form, result);
 
-  const fields = createFieldGroup<CapacityValues>(form, FIELDS, values, (next) => {
+  const fields = createFieldGroup<LoraCapacityValues>(form, LORA_CAPACITY_FIELDS, values, (next) => {
     if (next.meters !== values.meters) metersTyped = true;
     values = { ...next, meters: Math.round(next.meters), channels: Math.round(next.channels) };
     update();
@@ -131,6 +144,14 @@ export function createLoraCapacity(container: HTMLElement, context: LoraCapacity
         fields.setValues(values);
       }
       update();
+    },
+    changed() {
+      const { meters, ...rest } = changedFields(values, LORA_CAPACITY_DEFAULTS);
+      return {
+        ...(metersTyped && meters !== undefined ? { meters } : {}),
+        ...rest,
+        ...(uniformSf !== DEFAULT_UNIFORM_SF ? { sf: uniformSf } : {}),
+      };
     },
   };
 }

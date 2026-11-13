@@ -25,6 +25,8 @@ import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/devi
 import { evaluateDevice, matchProfileId } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
+import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
 import { receivedPowerDbm, talkInBudget, talkOutBudget, type LinkBudget } from '../../rf/linkBudget';
@@ -45,7 +47,7 @@ import { createReliabilityControl, parseReliability, requestReliability } from '
 import { CHOOSE_CLUTTER_REASON, clutterQuery, clutterSummary, createClutterControl, formatClutterDb, parseRequiredClutter } from '../../ui/clutterControl';
 import { createDeviceList, isOverDevice, type Device, type DeviceList } from '../../ui/deviceList';
 import { createLoraCapacity } from '../../ui/loraCapacity';
-import { createFieldGroup, createNumberField, type NumberFieldSpec } from '../../ui/fields';
+import { createFieldGroup, createNumberField } from '../../ui/fields';
 import { formatDbm, formatDistance, formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { createHoverReadout, readoutLines } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
@@ -54,6 +56,18 @@ import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createRequestMemo } from '../shared/requestMemo';
 import { createSiteControls } from '../shared/siteControls';
+import {
+  ADR_MARGIN_FIELD,
+  CUSTOM_SENSOR_ID,
+  DEFAULT_PAYLOAD_BYTES,
+  DEFAULT_RADIUS_KM,
+  GATEWAY_FIELDS,
+  PAYLOAD_FIELD,
+  SENSOR_FIELDS,
+  type GatewayValues,
+  type SensorValues,
+} from './loraFields';
+import { loraShareData, readLoraShare } from './loraShare';
 
 type LoraView = CoverageView | 'sf';
 
@@ -66,9 +80,6 @@ const VIEWS: { id: LoraView; label: string; title: string }[] = [
 
 /** LoRaWAN suma 13 bytes de encabezado y MIC a lo que manda el sensor. */
 const LORAWAN_OVERHEAD_BYTES = 13;
-const DEFAULT_PAYLOAD_BYTES = 11;
-const DEFAULT_RADIUS_KM = 20;
-const CUSTOM_SENSOR_ID = 'personalizado';
 
 const kmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 const integerDbm = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
@@ -88,50 +99,10 @@ const gridsOf = (result: CoverageResult): CoverageGrids => ({
   talkIn: result.grids[TALK_IN]!,
 });
 
-type GatewayValues = Omit<LoraGateway, never>;
-type SensorValues = Omit<LoraSensor, 'id' | 'name'>;
-
-const GATEWAY_FIELDS: readonly NumberFieldSpec<keyof GatewayValues>[] = [
-  {
-    key: 'powerW',
-    label: 'Potencia',
-    unit: 'W',
-    min: 0,
-    max: 10,
-    minExclusive: true,
-    hint: 'En Colombia (915–928 MHz), máximo 1 W a la salida del equipo con antena de hasta 6 dBi; con más ganancia, la potencia baja lo mismo que sobra (ANE, Resolución 105 de 2020, anexo 3.6.1.1).',
-  },
-  { key: 'lineLengthM', label: 'Longitud del cable', unit: 'm', min: 0, max: 200 },
-  { key: 'lineLossDbPer100m', label: 'Pérdida del cable', unit: 'dB/100 m', min: 0, max: 50 },
-  { key: 'connectorLossDb', label: 'Pérdida de conectores', unit: 'dB', min: 0, max: 10 },
-  { key: 'antennaGainDbd', label: 'Ganancia de la antena', unit: 'dBd', min: -10, max: 20 },
-  { key: 'antennaHeightM', label: 'Altura de la antena', unit: 'm', min: 0.5, max: 1000 },
-  {
-    key: 'noiseFigureDb',
-    label: 'Figura de ruido',
-    unit: 'dB',
-    min: 0,
-    max: 20,
-    hint: 'Ruido que agrega el receptor. Con 4 dB el gateway oye SF12 hasta −139 dBm, como el Semtech SX1302.',
-  },
-];
-
-const SENSOR_FIELDS: readonly NumberFieldSpec<keyof SensorValues>[] = [
-  { key: 'powerW', label: 'Potencia', unit: 'W', min: 0, max: 1, minExclusive: true },
-  { key: 'antennaGainDbd', label: 'Ganancia de la antena', unit: 'dBd', min: -20, max: 10 },
-  { key: 'heightM', label: 'Altura de la antena', unit: 'm', min: 0.5, max: 100 },
-  {
-    key: 'enclosureLossDb',
-    label: 'Pérdida por la caja',
-    unit: 'dB',
-    min: 0,
-    max: 40,
-    hint: 'Lo que atenúa la caja, la tapa o el muro que rodea al sensor. Aplica en bajada y en subida.',
-  },
-  { key: 'noiseFigureDb', label: 'Figura de ruido', unit: 'dB', min: 0, max: 20 },
-];
-
-export function mountLoraPage({ root, params }: PageContext): () => void {
+export function mountLoraPage({ root, params, shared }: PageContext): () => void {
+  // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con los de siempre.
+  const fromLink = shared?.ok ? readLoraShare(shared.data) : null;
+  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
   const page = createMapPage(
     root,
     `
@@ -150,6 +121,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
         )}
       </div>
       <div class="form" data-reliability-form></div>
+      ${SHARE_BUTTON_HTML}
     </section>
     ${siteSectionHtml('Gateway', 'el gateway')}
     ${coverageStatusHtml()}
@@ -184,14 +156,14 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   );
 
   let band = LORA_BANDS.find((b) => b.id === params.get('banda')) ?? LORA_BANDS.find((b) => b.id === DEFAULT_LORA_BAND_ID)!;
-  let gateway: LoraGateway = { ...DEFAULT_LORA_GATEWAY };
-  let sensor: LoraSensor = LORA_SENSORS.find((s) => s.id === DEFAULT_LORA_SENSOR_ID)!;
-  let payloadBytes = DEFAULT_PAYLOAD_BYTES;
+  let gateway: LoraGateway = fromLink?.gateway ?? { ...DEFAULT_LORA_GATEWAY };
+  let sensor: LoraSensor = fromLink?.sensor ?? LORA_SENSORS.find((s) => s.id === DEFAULT_LORA_SENSOR_ID)!;
+  let payloadBytes = fromLink?.payloadBytes ?? DEFAULT_PAYLOAD_BYTES;
   let dwellLimit = params.get('tiempo') === '400';
   // Sin valor por omisión: el usuario elige el entorno antes de simular (undefined = sin elegir).
   let clutter = parseRequiredClutter(params);
   let view: LoraView = 'talkIn';
-  let thresholds = [...DEFAULT_LEVEL_THRESHOLDS_DBM];
+  let thresholds = fromLink?.thresholds ?? [...DEFAULT_LEVEL_THRESHOLDS_DBM];
   let opacity = 0.7;
   let coverage: CoverageResult | null = null;
   let geometry: RasterGeometry | null = null;
@@ -244,7 +216,12 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
     },
   });
 
-  const site = createSiteControls(page, { radiusKm: DEFAULT_RADIUS_KM, maxRadiusKm: 100, onChange: onParametersChange });
+  const site = createSiteControls(page, {
+    radiusKm: fromLink?.radiusKm ?? DEFAULT_RADIUS_KM,
+    maxRadiusKm: 100,
+    initial: fromLink ?? undefined,
+    onChange: onParametersChange,
+  });
   const controller = createCoverageController(
     page.find('[data-coverage-status]'),
     page.find('[data-simulate-box]'),
@@ -299,14 +276,7 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   });
 
   const payloadField = createNumberField(
-    {
-      key: 'payloadBytes',
-      label: 'Datos por mensaje',
-      unit: 'bytes',
-      min: 1,
-      max: 222,
-      hint: 'Lo que manda el sensor en cada mensaje. LoRaWAN le suma 13 bytes de encabezado.',
-    },
+    PAYLOAD_FIELD,
     payloadBytes,
     (value) => {
       payloadBytes = Math.round(value);
@@ -317,16 +287,9 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   );
   page.find('[data-payload-form]').append(payloadField.element);
 
-  let adrMarginDb = DEFAULT_ADR_MARGIN_DB;
+  let adrMarginDb = fromLink?.adrMarginDb ?? DEFAULT_ADR_MARGIN_DB;
   const adrField = createNumberField(
-    {
-      key: 'adrMarginDb',
-      label: 'Margen del ADR',
-      unit: 'dB',
-      min: 0,
-      max: 30,
-      hint: 'Lo que la red deja de sobra sobre la sensibilidad al elegir el SF de cada sensor. ChirpStack usa 10 dB y The Things Stack 15 dB. Con más margen el SF es más lento: más alcance seguro, pero más tiempo en el aire.',
-    },
+    ADR_MARGIN_FIELD,
     adrMarginDb,
     (value) => {
       adrMarginDb = value;
@@ -358,13 +321,17 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
   const sensorOf = (d: Device) => LORA_SENSORS.find((s) => s.id === d.profileId) ?? sensor;
   /** SF de subida de cada equipo evaluado, para la capacidad. */
   const sfById = new Map<number, SpreadingFactor | null>();
-  const capacity = createLoraCapacity(page.find('[data-capacity]'), {
-    deviceSfs: () => deviceList?.devices().map((d) => sfById.get(d.id) ?? null) ?? [],
-    timeOnAirMs: (sf) => timeOnAir(sf),
-    maxSf,
-    dutyCyclePct: () => band.regulation.uplinkDutyCyclePct,
-    bandLabel: () => band.label,
-  });
+  const capacity = createLoraCapacity(
+    page.find('[data-capacity]'),
+    {
+      deviceSfs: () => deviceList?.devices().map((d) => sfById.get(d.id) ?? null) ?? [],
+      timeOnAirMs: (sf) => timeOnAir(sf),
+      maxSf,
+      dutyCyclePct: () => band.regulation.uplinkDutyCyclePct,
+      bandLabel: () => band.label,
+    },
+    fromLink?.capacity,
+  );
   let deviceList: DeviceList | undefined;
   deviceList = createDeviceList(page, page.find('[data-devices]'), {
     onCountChange: (count) => capacity.setDeviceCount(count),
@@ -403,7 +370,29 @@ export function mountLoraPage({ root, params }: PageContext): () => void {
       };
     },
     fileName: () => exportFileName('lora-equipos', band.label, site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
+    initial: fromLink?.devices,
   });
+
+  bindShareButton(
+    page.panel,
+    {
+      title: () => `Hertzo · LoRaWAN ${band.label}${site.getName() ? ` · ${site.getName()}` : ''}`,
+      data: () =>
+        loraShareData({
+          site: site.getSite(),
+          name: site.getName(),
+          radiusKm: site.getRadiusKm(),
+          thresholds,
+          devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
+          gateway,
+          sensor,
+          payloadBytes,
+          adrMarginDb,
+          capacity: capacity.changed(),
+        }),
+    },
+    opened,
+  );
 
   /** "no llega ni con SF12", o "ni con SF10" si el límite de 400 ms deja hasta SF10. */
   const emptyLabel = () => `no llega ni con SF${maxSf()}`;
