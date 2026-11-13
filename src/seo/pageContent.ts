@@ -68,7 +68,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         q: '¿Puedo compartir la simulación con mi cliente?',
-        a: 'Sí: "Compartir" copia un enlace con el gateway, el sensor, los medidores con su tipo y los ajustes de SF y capacidad. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
+        a: 'Sí: el botón de compartir, junto al de exportar en la esquina del mapa, copia un enlace con el gateway, el sensor, los medidores con su tipo y los ajustes de SF y capacidad, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
       },
       ...COMMON_FAQ,
     ],

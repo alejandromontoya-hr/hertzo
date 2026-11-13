@@ -25,10 +25,11 @@ import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/devi
 import { evaluateDevice, matchProfileId } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
-import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
+import { addShareControl } from '../../map/shareControl';
 import { receivedPowerDbm, talkInBudget, talkOutBudget, type LinkBudget } from '../../rf/linkBudget';
 import { DIPOLE_GAIN_DBI } from '../../rf/units';
 import {
@@ -121,7 +122,7 @@ export function mountLoraPage({ root, params, shared }: PageContext): () => void
         )}
       </div>
       <div class="form" data-reliability-form></div>
-      ${SHARE_BUTTON_HTML}
+      ${SHARE_NOTICE_HTML}
     </section>
     ${siteSectionHtml('Gateway', 'el gateway')}
     ${coverageStatusHtml()}
@@ -373,26 +374,23 @@ export function mountLoraPage({ root, params, shared }: PageContext): () => void
     initial: fromLink?.devices,
   });
 
-  bindShareButton(
-    page.panel,
-    {
-      title: () => `Hertzo · LoRaWAN ${band.label}${site.getName() ? ` · ${site.getName()}` : ''}`,
-      data: () =>
-        loraShareData({
-          site: site.getSite(),
-          name: site.getName(),
-          radiusKm: site.getRadiusKm(),
-          thresholds,
-          devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
-          gateway,
-          sensor,
-          payloadBytes,
-          adrMarginDb,
-          capacity: capacity.changed(),
-        }),
-    },
-    opened,
-  );
+  showSharedNotice(page.panel, opened);
+  addShareControl(page.map, {
+    title: () => `Hertzo · LoRaWAN ${band.label}${site.getName() ? ` · ${site.getName()}` : ''}`,
+    data: () =>
+      loraShareData({
+        site: site.getSite(),
+        name: site.getName(),
+        radiusKm: site.getRadiusKm(),
+        thresholds,
+        devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
+        gateway,
+        sensor,
+        payloadBytes,
+        adrMarginDb,
+        capacity: capacity.changed(),
+      }),
+  });
 
   /** "no llega ni con SF12", o "ni con SF10" si el límite de 400 ms deja hasta SF10. */
   const emptyLabel = () => `no llega ni con SF${maxSf()}`;

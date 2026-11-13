@@ -50,7 +50,7 @@ const UPDATED: Record<string, string> = {
   enlace: '2026-11-06',
   interiores: '2026-11-06',
   cavernas: '2026-11-06',
-  lora: '2026-11-06',
+  lora: '2026-11-13',
 };
 
 const scenarioMeta = (s: Scenario): PageMeta => ({
