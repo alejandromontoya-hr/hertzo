@@ -60,7 +60,7 @@ Todas las fórmulas viven en módulos puros (`src/rf/`, `src/indoor/`, `src/cave
 ## Radiodifusión
 
 - **FM:** campo en dBµV/m con el ITM sobre el relieve; receptor a 10 m por omisión (referencia de planificación) o 1,5 m (portátil). Zonas de la UIT-R BS.412: 74 (estéreo, ciudades grandes), 66 (estéreo, urbano; también el contorno de servicio de la ANE), 54 (estéreo, rural) y 48 dBµV/m (mono, rural). Confiabilidad 50 % por omisión, como las curvas F(50,50), y entorno del receptor.
-- **Receptores concretos** (FM y AM): campo en su punto, margen sobre el umbral más bajo y la zona de servicio donde queda, con el color de esa zona en el mapa.
+- **Receptores concretos** (FM y AM): campo en su punto, margen sobre el umbral más bajo y la zona de servicio donde queda, con el color de esa zona en el mapa. En FM el valor es a la "Altura del receptor" con que se simuló el mapa (10 m por omisión) y el detalle de cada receptor lo dice ("receptor a 10 m"); para un radio en una casa o un carro se pone 1,5 m y se vuelve a simular.
 - **AM:** cobertura diurna con onda de tierra: Norton exacto cerca del transmisor y la serie de residuos de Wait sobre la Tierra esférica más lejos, validada con los casos de prueba del LFMF de NTIA. 8 tipos de suelo de la UIT-R P.368 y monopolos de 300, 313 y 444 mV/m a 1 km con 1 kW. Contornos de 62, 56, 54 y 48 dBµV/m (1250, 625, 500 y 250 µV/m, Decreto 1445 de 1995).
 - **Limitación:** no modela trayectos mixtos tierra-mar ni la onda de cielo nocturna, que de noche trae interferencia y encoge la cobertura AM.
 

@@ -117,7 +117,7 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
       <div data-zones><p class="hint">Ubica el transmisor y pulsa "Simular" para ver el alcance de cada zona.</p></div>
     </section>
     <details class="panel-section" open>
-      <summary>Receptores${infoButton('Radios concretos, por ejemplo la finca o el pueblo donde quieres saber si se oye la emisora: agrégalos con clic en el mapa o pega su lista. Cada uno toma el campo del mapa calculado en su punto (el mismo de la lectura al pasar el mouse) y dice en qué zona de servicio queda.')}</summary>
+      <summary>Receptores${infoButton('Radios concretos, por ejemplo la finca o el pueblo donde quieres saber si se oye la emisora: agrégalos con clic en el mapa o pega su lista. Cada uno toma el campo del mapa calculado en su punto (el mismo de la lectura al pasar el mouse) y dice en qué zona de servicio queda. En FM, a la altura del receptor de "Emisora": 10 m por omisión, la de planificación; para un radio en una casa o un carro, ponla en 1,5 m y vuelve a simular.')}</summary>
       <div data-devices></div>
     </details>`,
     'Parámetros de la emisora',
@@ -381,7 +381,13 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
         zone >= 0
           ? { color: LEVEL_COLORS[zone]!, label: `Zona ≥ ${sorted[zone]} dBµV/m${zoneSuffix(zone)}` }
           : { color: '#d73027', label: 'Por debajo del umbral más bajo' },
-      detail: `${where} · ${mvmFormat.format(dbuvmToMvm(field))} mV/m${lowConfidence ? ' · baja confianza: ladera empinada junto al transmisor' : ''}`,
+      detail: [
+        where,
+        `${mvmFormat.format(dbuvmToMvm(field))} mV/m`,
+        // En FM el campo cambia con la altura del receptor (10 m de planificación o 1,5 m de un radio común); en AM no.
+        ...(service === 'fm' ? [`receptor a ${formatHeight(result.request.links[0]!.radioHeightM)}`] : []),
+        ...(lowConfidence ? ['baja confianza: ladera empinada junto al transmisor'] : []),
+      ].join(' · '),
     };
   }
 
