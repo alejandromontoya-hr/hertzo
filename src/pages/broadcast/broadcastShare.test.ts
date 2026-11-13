@@ -13,6 +13,7 @@ const fresh = (service: 'fm' | 'am'): BroadcastShare => ({
   am: { ...DEFAULT_AM },
   amAntennaId: 'cuarto',
   groundId: 'media',
+  devices: [],
 });
 
 describe('broadcastShareData', () => {
@@ -38,6 +39,10 @@ describe('readBroadcastShare', () => {
       am: { frequencyKHz: 750, powerKw: 50 },
       amAntennaId: 'corto',
       groundId: 'humeda',
+      devices: [
+        { name: 'Finca La Esperanza', position: { lat: 4.7, lon: -74.2 }, profileId: null },
+        { name: 'Receptor 2', position: { lat: 4.55, lon: -73.9 }, profileId: null },
+      ],
     };
     const decoded = await decodeShare(await encodeShare(broadcastShareData(state, 'am')));
     expect(decoded.ok && readBroadcastShare(decoded.data, 'am')).toEqual(state);
@@ -54,5 +59,6 @@ describe('readBroadcastShare', () => {
     expect(readBroadcastShare({ g: 'arena' }, 'am')).toBeNull();
     expect(readBroadcastShare({ u: [150, 66, 54, 48] }, 'fm')).toBeNull(); // umbrales hasta 140 dBµV/m
     expect(readBroadcastShare({ r: 400 }, 'am')).toBeNull(); // radio hasta 300 km
+    expect(readBroadcastShare({ e: [['Receptor 1', 4.7, -74.2, 'movil-techo']] }, 'fm')).toBeNull(); // los receptores no tienen tipo
   });
 });

@@ -43,6 +43,9 @@ import { createFieldGroup, createSelectField } from '../../ui/fields';
 import { formatDb, formatDbi, formatHeight, formatLonLat, formatWatts } from '../../ui/format';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { infoButton, setInfo } from '../../ui/infoTip';
+import { createDeviceList, isOverDevice, type Device, type DeviceList, type DeviceRow } from '../../ui/deviceList';
+import { PHONE_ICON } from '../../ui/icons';
+import { matchProfileId } from '../../devices/devices';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
@@ -178,7 +181,11 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
     <section class="panel-section">
       <h2>Resumen</h2>
       <div data-summary><p class="hint">Ubica la torre y pulsa "Simular" para ver la cobertura.</p></div>
-    </section>`,
+    </section>
+    <details class="panel-section" open>
+      <summary>Teléfonos${infoButton('Teléfonos concretos, por ejemplo la oficina o la finca donde quieres saber si hay señal: agrégalos con clic en el mapa o pega su lista. Cada uno toma el cálculo del mapa en su punto (lo mismo de la lectura al pasar el mouse), con su propio lugar: en la calle o dentro de un edificio.')}</summary>
+      <div data-devices></div>
+    </details>`,
     'Parámetros del sitio celular',
   );
 
@@ -306,6 +313,26 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
   }
   buildSectorFields();
 
+  // Teléfonos concretos: el cálculo del mapa en su punto, cada uno en la calle o adentro.
+  const phoneOf = (d: Device): PhoneLocation => (PHONE_LOCATIONS.find((p) => p.id === d.profileId)?.id ?? phone);
+  const phoneProfiles = PHONE_LOCATIONS.map((p) => ({ id: p.id, name: p.label }));
+  let deviceList: DeviceList | undefined;
+  deviceList = createDeviceList(page, page.find('[data-devices]'), {
+    columns: ['RSRP', 'SINR', 'Subida'],
+    units: ['dBm', 'dB', 'dB'],
+    noun: { one: 'teléfono', many: 'teléfonos' },
+    profiles: phoneProfiles,
+    profileName: (id) => (phoneProfiles.find((p) => p.id === id) ?? phoneProfiles.find((p) => p.id === phone)!).name,
+    profileIcon: () => PHONE_ICON,
+    matchProfile: (text) => matchProfileId(text, phoneProfiles),
+    waitingText: 'Pulsa "Simular" para calcular los teléfonos.',
+    async evaluate(device) {
+      return coverage ? phoneRow(coverage, device.position, phoneOf(device)) : null;
+    },
+    fileName: () => exportFileName('celular-telefonos', bandName(), site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
+    initial: fromLink?.devices,
+  });
+
   /** Lo que tienes en la página: lo mismo para el enlace y para lo guardado en el navegador. */
   const pageData = () =>
     cellularShareData(
@@ -323,6 +350,7 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
         carrierId: carrier.id,
         sinrThresholds: thresholds.sinr,
         upThresholds: thresholds.up,
+        devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
       },
       band,
     );
@@ -552,6 +580,7 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
       opacity,
       site: towerPlacemark(result),
       lines: sectorLines(result),
+      devices: deviceList && { folderName: `Teléfonos (${deviceList.placemarks().length})`, placemarks: deviceList.placemarks() },
     });
   }
 
@@ -693,6 +722,7 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
 
   function redraw() {
     showModelHint();
+    deviceList?.refresh();
     if (coverage && geometry && values) computePixels(coverage, geometry, values);
     repaint();
   }
@@ -733,39 +763,80 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
   }
   let curveCache: ((d: number) => number) | null = null;
 
-  const readout = createHoverReadout(page.readoutRoot);
-  page.map.on('mousemove', (event) => {
-    if (!coverage || !values || !geometry) return readout.hide();
-    const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
-    const g = gridIndexAt(coverage.plan, point);
-    if (g < 0) return readout.hide();
-    const d = distanceM(coverage.plan.site, point);
-    const bearing = initialBearingDeg(coverage.plan.site, point);
-    const grid = coverage.grids[0]!;
+  /**
+   * Lo que recibe un teléfono en `point`, `location` (en la calle o adentro), con el cálculo
+   * `result` y los valores de ahora; null fuera del radio de cálculo. La misma cuenta del mapa.
+   */
+  function pointResult(result: CoverageResult, point: { lon: number; lat: number }, location: PhoneLocation) {
+    const g = gridIndexAt(result.plan, point);
+    const grid = result.grids[0]!;
+    if (g < 0 || Number.isNaN(grid.lossDb[g]!)) return null;
+    const d = distanceM(result.plan.site, point);
+    const bearing = initialBearingDeg(result.plan.site, point);
     const pRe = powerPerResourceElementDbm(wattsToDbm(siteParams.powerW), carrier.resourceBlocks);
     const below = (Math.atan2(siteParams.antennaHeightM - siteParams.ueHeightM, Math.max(1, d)) * 180) / Math.PI;
-    const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(coverage.request.links[0]!.frequencyMHz, phone);
-    const margin = coverage.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(coverage.request.engine.id));
+    const base = pRe - siteParams.cableLossDb - buildingEntryLossDb(result.request.links[0]!.frequencyMHz, location);
+    const margin = result.request.engine.id === 'itm' ? 0 : locationMarginDb(reliability, shadowSigmaDb(result.request.engine.id));
     const median = azimuths.map((a) => base + sectorGainDbi(antenna, angleDiffDeg(bearing, a), below) - grid.lossDb[g]!);
     const levels = median.map((l) => l - margin);
     const best = levels.indexOf(Math.max(...levels));
     const noise = noisePerResourceElementDbm(carrier.subcarrierKHz, siteParams.noiseFigureDb);
-    const upGrid = coverage.grids[1] ?? grid;
-    const uplinkMHz = coverage.request.links[1]?.frequencyMHz ?? band.uplinkMHz;
+    const upGrid = result.grids[1] ?? grid;
+    const uplinkMHz = result.request.links[1]?.frequencyMHz ?? band.uplinkMHz;
     const upGain =
       -siteParams.cableLossDb -
-      buildingEntryLossDb(uplinkMHz, phone) +
+      buildingEntryLossDb(uplinkMHz, location) +
       sectorGainDbi(antenna, angleDiffDeg(bearing, azimuths[best]!), below) -
       upGrid.lossDb[g]! -
       margin;
+    return {
+      d,
+      bearing,
+      best,
+      levels,
+      sinr: sinrDb(median[best]!, readoutInterferers(median, best, d, bearing, base), noise),
+      upSinr: uplinkSinrDb(uplinkParams(), carrier.subcarrierKHz, upGain),
+      lowConfidence: (grid.warnings[g]! & lowConfidenceMask(result.request.engine)) !== 0,
+    };
+  }
+
+  /** Fila de un teléfono: RSRP, SINR y SINR de subida, y si llegan bajada y subida como en "Desbalance". */
+  function phoneRow(result: CoverageResult, point: { lon: number; lat: number }, location: PhoneLocation): DeviceRow {
+    const r = pointResult(result, point, location);
+    if (!r) {
+      const where = `A ${oneDecimal.format(distanceM(result.plan.site, point) / 1000)} km de la torre`;
+      return { cells: ['—', '—', '—'], status: 'unknown', look: { color: '#8a8a8a', label: 'Fuera del radio de cálculo' }, detail: where };
+    }
+    const rsrp = r.levels[r.best]!;
+    const down = rsrp >= Math.min(...thresholds.rsrp);
+    const up = r.upSinr >= Math.min(...thresholds.up);
+    const db = (v: number) => oneDecimal.format(v).replace('−', '-');
+    return {
+      cells: [db(rsrp), db(r.sinr), db(r.upSinr)],
+      status: down && up ? 'both' : down ? 'talkOutOnly' : up ? 'talkInOnly' : 'none',
+      detail: [
+        `A ${oneDecimal.format(r.d / 1000)} km de la torre, sector S${r.best + 1}`,
+        ...(r.lowConfidence ? [model === 'itm' ? 'baja confianza: ladera empinada junto a la torre' : 'fuera del rango de validez del modelo'] : []),
+      ].join(' · '),
+    };
+  }
+
+  const readout = createHoverReadout(page.readoutRoot);
+  page.map.on('mousemove', (event) => {
+    // Sobre un teléfono manda su propio globo.
+    if (isOverDevice(event.originalEvent)) return;
+    if (!coverage || !values || !geometry) return readout.hide();
+    const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
+    const r = pointResult(coverage, point, phone);
+    if (!r) return readout.hide();
     const lines = [
-      `A ${oneDecimal.format(d / 1000)} km de la torre, rumbo ${integerFormat.format(bearing)}°`,
-      `Mejor sector: S${best + 1} · RSRP ${oneDecimal.format(levels[best]!)} dBm`,
-      `SINR ${oneDecimal.format(sinrDb(median[best]!, readoutInterferers(median, best, d, bearing, base), noise))} dB`,
-      `Subida: SINR ${oneDecimal.format(uplinkSinrDb(uplinkParams(), carrier.subcarrierKHz, upGain))} dB por bloque en S${best + 1}`,
-      ...levels.map((l, s) => `S${s + 1}: ${oneDecimal.format(l)} dBm`),
+      `A ${oneDecimal.format(r.d / 1000)} km de la torre, rumbo ${integerFormat.format(r.bearing)}°`,
+      `Mejor sector: S${r.best + 1} · RSRP ${oneDecimal.format(r.levels[r.best]!)} dBm`,
+      `SINR ${oneDecimal.format(r.sinr)} dB`,
+      `Subida: SINR ${oneDecimal.format(r.upSinr)} dB por bloque en S${r.best + 1}`,
+      ...r.levels.map((l, s) => `S${s + 1}: ${oneDecimal.format(l)} dBm`),
     ];
-    if (grid.warnings[g]! & lowConfidenceMask(coverage.request.engine)) {
+    if (r.lowConfidence) {
       lines.push(model === 'itm' ? 'Baja confianza: ladera empinada junto a la torre' : 'Fuera del rango de validez del modelo');
     }
     const entorno = clutterSummary(coverage.request);
@@ -780,6 +851,7 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
 
   return () => {
     draft.stop();
+    deviceList?.destroy();
     controller.destroy();
     page.destroy();
   };

@@ -25,6 +25,11 @@ export interface DeviceRow {
   /** Un texto por columna, en el orden de `columns`. */
   cells: string[];
   status: DeviceStatus;
+  /**
+   * Color y nombre propios del resultado, cuando no es bajada y subida: por ejemplo la zona de
+   * servicio de una emisora ("≥ 66 dBµV/m · urbana"). Sin esto se usan los del estado.
+   */
+  look?: { color: string; label: string };
   /** A qué distancia del sitio está, por ejemplo "A 0,2 km del gateway"; va en el globo y en el KMZ. */
   detail: string;
 }
@@ -36,7 +41,7 @@ export interface DeviceListOptions {
   units: string[];
   /** Cómo se llama el equipo en plural y en singular: "medidores" / "medidor". */
   noun: { one: string; many: string };
-  /** Perfiles que se pueden elegir para un equipo, en el menú de su fila. */
+  /** Perfiles que se pueden elegir para un equipo, en el menú de su fila; sin perfiles no hay menú. */
   profiles: readonly { id: string; name: string }[];
   /** Nombre del perfil para mostrarlo en la fila. */
   profileName(profileId: string | null): string;
@@ -46,6 +51,10 @@ export interface DeviceListOptions {
   matchProfile(text: string): string | null;
   /** Evalúa un equipo; null si todavía no se puede (por ejemplo, sin sitio). */
   evaluate(device: Device): Promise<DeviceRow | null>;
+  /** Qué falta cuando `evaluate` da null; por omisión, "Ubica el sitio para calcular los equipos.". */
+  waitingText?: string;
+  /** Resumen cuando ya se calcularon todos; por omisión, cuántos tienen bajada y subida. */
+  summary?(rows: DeviceRow[]): string;
   /** Nombre del archivo CSV, sin extensión. */
   fileName(): string;
   /** Avisa cuántos equipos hay cada vez que se agregan o se quitan. */
@@ -74,18 +83,32 @@ const STATUS: Record<DeviceStatus, { color: string; label: string }> = {
   unknown: { color: '#8a8a8a', label: 'Sin cálculo' },
 };
 
+/** Color y nombre con que se muestra un resultado. */
+const lookOf = (row: DeviceRow | null | undefined) => row?.look ?? STATUS[row?.status ?? 'unknown'];
+
+/** Color claro (amarillo, verde claro): el ícono encima va oscuro para que se lea. */
+function isLight(color: string): boolean {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color)?.[1];
+  if (!hex) return false;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45;
+}
+
 const escape = (text: string) =>
   text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 export function createDeviceList(page: MapPage, container: HTMLElement, options: DeviceListOptions): DeviceList {
+  const hasProfiles = options.profiles.length > 0;
   container.innerHTML = `
     <div class="device-actions">
       <button type="button" class="button" data-device-pick aria-pressed="false">Agregar en el mapa</button>
       <button type="button" class="button" data-device-paste aria-expanded="false">Pegar lista</button>
     </div>
     <div class="device-paste" hidden>
-      <label for="lista-equipos">Una línea por equipo: nombre, latitud, longitud y, si quieres, el tipo${infoButton(
-        'Puedes copiar las columnas desde Excel o pegar un CSV. Ejemplo: "Medidor 12; 6,2442; -75,5812; medidor-caja". Sin tipo, usa el elegido arriba.',
+      <label for="lista-equipos">Una línea por ${options.noun.one}: nombre, latitud, longitud${hasProfiles ? ' y, si quieres, el tipo' : ''}${infoButton(
+        hasProfiles
+          ? `Puedes copiar las columnas desde Excel o pegar un CSV. Ejemplo: "${capitalize(options.noun.one)} 12; 6,2442; -75,5812; ${options.profiles[options.profiles.length - 1]!.id}". Sin tipo, usa el elegido arriba.`
+          : `Puedes copiar las columnas desde Excel o pegar un CSV. Ejemplo: "${capitalize(options.noun.one)} 12; 6,2442; -75,5812".`,
       )}</label>
       <textarea id="lista-equipos" rows="5" placeholder="${capitalize(options.noun.one)} 1&#9;6,2442&#9;-75,5812"></textarea>
       <button type="button" class="button" data-device-load>Cargar</button>
@@ -143,10 +166,14 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   });
   q('[data-device-load]').addEventListener('click', () => {
     const parsed = parseDeviceList(textarea.value);
-    const items = parsed.devices.map((d) => ({ name: d.name, position: d.position, profileId: d.profile ? options.matchProfile(d.profile) : null }));
+    const items = parsed.devices.map((d) => ({
+      name: d.name,
+      position: d.position,
+      profileId: d.profile && hasProfiles ? options.matchProfile(d.profile) : null,
+    }));
     // Un tipo que no coincide con ningún perfil no se cambia en silencio por el de arriba: se avisa.
     const unknown = parsed.devices
-      .filter((d, i) => d.profile && items[i]!.profileId === null)
+      .filter((d, i) => hasProfiles && d.profile && items[i]!.profileId === null)
       .map((d) => `"${d.name}": el tipo "${d.profile}" no coincide con ningún perfil (${options.profiles.map((p) => p.name).join(', ')}); se calcula como el de arriba.`);
     const messages = [...parsed.errors, ...unknown];
     errorsBox.hidden = messages.length === 0;
@@ -167,7 +194,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   interface RowElements {
     tr: HTMLTableRowElement;
     dot: HTMLElement;
-    sameOption: HTMLOptionElement;
+    sameOption: HTMLOptionElement | undefined;
     cells: HTMLTableCellElement[];
   }
   const rowElements = new Map<number, RowElements>();
@@ -178,7 +205,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     tr.innerHTML = `
       <th scope="row">
         <div class="device-name"><span class="status-dot" role="img"></span><input type="text" maxlength="60" aria-label="Nombre del ${options.noun.one}"></div>
-        <select class="device-type" aria-label="Tipo de ${escape(device.name)}"><option value=""></option>${profileOptions}</select>
+        ${hasProfiles ? `<select class="device-type" aria-label="Tipo de ${escape(device.name)}"><option value=""></option>${profileOptions}</select>` : ''}
       </th>
       ${options.columns.map(() => '<td></td>').join('')}
       <td class="device-row-actions">
@@ -186,15 +213,15 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
         <button type="button" class="link-button" data-remove title="Quitar" aria-label="Quitar ${escape(device.name)}">×</button>
       </td>`;
     const input = tr.querySelector('input')!;
-    const select = tr.querySelector('select')!;
+    const select = tr.querySelector('select');
     input.value = device.name;
-    select.value = device.profileId ?? '';
+    if (select) select.value = device.profileId ?? '';
     input.addEventListener('change', () => {
       device.name = input.value.trim() || device.name;
       input.value = device.name;
       render();
     });
-    select.addEventListener('change', () => {
+    select?.addEventListener('change', () => {
       device.profileId = select.value || null;
       reevaluate(device.id);
     });
@@ -205,7 +232,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     return {
       tr,
       dot: tr.querySelector('.status-dot')!,
-      sameOption: select.options[0]!,
+      sameOption: select?.options[0],
       cells: [...tr.querySelectorAll('td')].slice(0, options.columns.length),
     };
   }
@@ -265,10 +292,10 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   /** Globo del equipo, igual al de la lectura del mapa: nombre, estado, tipo y cada columna. */
   function showReadout(device: Device, event: MouseEvent) {
     const row = rows.get(device.id);
-    const status = row ? STATUS[row.status] : undefined;
+    const status = row ? lookOf(row) : undefined;
     const lines = [
       device.name,
-      `${status?.label ?? 'Calculando…'} · ${options.profileName(device.profileId)}`,
+      hasProfiles ? `${status?.label ?? 'Calculando…'} · ${options.profileName(device.profileId)}` : (status?.label ?? 'Calculando…'),
       ...(row ? options.columns.map((c, i) => `${c}: ${cellWithUnit(row.cells[i]!, options.units[i]!)}`) : []),
       ...(row ? [row.detail] : []),
     ];
@@ -315,19 +342,19 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     footer.hidden = devices.length === 0;
     for (const d of devices) {
       const row = rows.get(d.id);
-      const status = row ? STATUS[row.status] : undefined;
+      const status = row ? lookOf(row) : undefined;
       const elements = rowElements.get(d.id)!;
       elements.dot.style.background = status?.color ?? 'transparent';
       elements.dot.setAttribute('aria-label', status?.label ?? 'Calculando');
-      elements.sameOption.textContent = `${options.profileName(null)} · como arriba`;
+      if (elements.sameOption) elements.sameOption.textContent = `${options.profileName(null)} · como arriba`;
       elements.cells.forEach((cell, i) => (cell.innerHTML = row ? row.cells[i]! : '…'));
       const element = markers.get(d.id)?.getElement();
       if (!element) continue;
       const dot = element.querySelector<HTMLElement>('.device-dot')!;
-      const markerStatus = row?.status ?? 'unknown';
-      dot.style.background = STATUS[markerStatus].color;
-      // Sobre el verde claro de "Solo subida" el ícono va oscuro para que se lea.
-      dot.classList.toggle('device-dot-dark', markerStatus === 'talkInOnly');
+      const color = lookOf(row).color;
+      dot.style.background = color;
+      // Sobre un color claro (el verde de "Solo subida", el amarillo de una zona) el ícono va oscuro.
+      dot.classList.toggle('device-dot-dark', isLight(color));
       const icon = options.profileIcon(d.profileId);
       if (shownIcons.get(d.id) !== icon) {
         shownIcons.set(d.id, icon);
@@ -347,6 +374,10 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
     const done = devices.map((d) => rows.get(d.id)).filter((r): r is DeviceRow => !!r);
     if (done.length < devices.length) {
       summary.textContent = `Calculando ${done.length} de ${devices.length}…`;
+      return;
+    }
+    if (options.summary) {
+      summary.textContent = options.summary(done);
       return;
     }
     const ok = done.filter((r) => r.status === 'both').length;
@@ -382,7 +413,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
         }
         if (current !== generation) return;
         if (!row) {
-          summary.textContent = 'Ubica el sitio para calcular los equipos.';
+          summary.textContent = options.waitingText ?? 'Ubica el sitio para calcular los equipos.';
           return;
         }
         if (!devices.includes(device)) continue;
@@ -395,16 +426,16 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
 
   function downloadCsv() {
     const quote = (text: string) => `"${text.replace(/"/g, '""').replace(/−/g, '-')}"`;
-    const header = ['Nombre', 'Tipo', 'Latitud', 'Longitud', ...options.columns.map(withUnit), 'Estado'];
+    const header = ['Nombre', ...(hasProfiles ? ['Tipo'] : []), 'Latitud', 'Longitud', ...options.columns.map(withUnit), 'Estado'];
     const lines = devices.map((d) => {
       const row = rows.get(d.id);
       return [
         d.name,
-        options.profileName(d.profileId),
+        ...(hasProfiles ? [options.profileName(d.profileId)] : []),
         String(d.position.lat).replace('.', ','),
         String(d.position.lon).replace('.', ','),
         ...(row ? row.cells : options.columns.map(() => '')),
-        row ? STATUS[row.status].label : '',
+        row ? lookOf(row).label : '',
       ]
         .map(quote)
         .join(';');
@@ -421,7 +452,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
   function placemarks(): KmlPlacemark[] {
     return devices.map((d) => {
       const row = rows.get(d.id);
-      const status = row ? STATUS[row.status] : STATUS.unknown;
+      const status = lookOf(row);
       return {
         name: d.name,
         position: d.position,
@@ -430,7 +461,7 @@ export function createDeviceList(page: MapPage, container: HTMLElement, options:
           {
             rows: [
               ['Estado', status.label],
-              ['Tipo', options.profileName(d.profileId)],
+              ...(hasProfiles ? [['Tipo', options.profileName(d.profileId)]] : []),
               ...options.columns.map((c, i) => [c, row ? cellWithUnit(row.cells[i]!, options.units[i]!) : '—']),
               ['Ubicación (lat, lon)', formatLonLat(d.position.lon, d.position.lat)],
             ],

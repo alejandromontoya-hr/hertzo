@@ -26,8 +26,11 @@ import {
   type SiteParams,
 } from './cellularFields';
 
-/** La torre, su nombre, su radio de cálculo y los umbrales de RSRP (`thresholds`); sin equipos. */
-export interface CellularShare extends Omit<MapShareCommon, 'devices'> {
+/**
+ * La torre, su nombre, su radio de cálculo, los umbrales de RSRP (`thresholds`) y los teléfonos,
+ * cada uno con dónde está (en la calle o dentro de un edificio) o null si usa el del panel.
+ */
+export interface CellularShare extends MapShareCommon {
   model: ModelId;
   siteParams: SiteParams;
   antenna: SectorAntenna;
@@ -44,7 +47,7 @@ const MAP_OPTIONS: MapShareOptions = {
   defaultRadiusKm: DEFAULT_RADIUS_KM,
   maxRadiusKm: MAX_RADIUS_KM,
   thresholds: CELL_THRESHOLDS.rsrp,
-  profileIds: [],
+  profileIds: PHONE_LOCATIONS.map((p) => p.id),
 };
 
 const DEFAULT_PHONE: PhoneLocation = 'exterior';
@@ -57,12 +60,12 @@ const sameList = (a: readonly number[], b: readonly number[]) => a.length === b.
 const isEmpty = (o: object) => Object.keys(o).length === 0;
 
 /**
- * Lo que va en el enlace: lo común (s, n, r y u los umbrales de RSRP), m el modelo, sp el sitio y
+ * Lo que va en el enlace: lo común (s, n, r, u los umbrales de RSRP y e los teléfonos), m el modelo, sp el sitio y
  * el teléfono, a la antena, ph dónde está el teléfono, k la distancia a los vecinos, z los
  * azimuts, cr la portadora, us los umbrales de SINR y uu los de subida.
  */
 export function cellularShareData(state: CellularShare, band: Band): Record<string, unknown> {
-  const data = mapShareData({ ...state, devices: [] }, MAP_OPTIONS);
+  const data = mapShareData(state, MAP_OPTIONS);
   if (state.model !== defaultModel(band)) data.m = state.model;
   const site = changedFields(state.siteParams, bandSite(band));
   if (!isEmpty(site)) data.sp = site;
@@ -100,9 +103,8 @@ export function readCellularShare(data: unknown, band: Band): CellularShare | nu
   const upThresholds = readThresholds(data.uu, CELL_THRESHOLDS.up);
   if (!common || !siteParams || !antenna || !neighbors || !azimuths || !sinrThresholds || !upThresholds) return null;
   if (!MODELS.some((m) => m.id === model) || !PHONE_LOCATIONS.some((p) => p.id === phone) || !CARRIERS.some((c) => c.id === carrierId)) return null;
-  const { devices: _devices, ...rest } = common;
   return {
-    ...rest,
+    ...common,
     model: model as ModelId,
     siteParams,
     antenna,

@@ -21,6 +21,7 @@ const fresh = (): CellularShare => ({
   carrierId: 'lte10',
   sinrThresholds: [...CELL_THRESHOLDS.sinr.defaults],
   upThresholds: [...CELL_THRESHOLDS.up.defaults],
+  devices: [],
 });
 
 describe('cellularShareData', () => {
@@ -52,6 +53,10 @@ describe('readCellularShare', () => {
       carrierId: 'lte20',
       thresholds: [-85, -95, -105, -115],
       sinrThresholds: [18, 10, 3, -2],
+      devices: [
+        { name: 'Oficina piso 8', position: { lat: 6.2101, lon: -75.5702 }, profileId: 'interior-altas' },
+        { name: 'Teléfono 2', position: { lat: 6.25, lon: -75.59 }, profileId: null },
+      ],
     };
     const decoded = await decodeShare(await encodeShare(cellularShareData(state, band850)));
     expect(decoded.ok && readCellularShare(decoded.data, band850)).toEqual(state);
@@ -67,6 +72,7 @@ describe('readCellularShare', () => {
     expect(readCellularShare({ m: 'no-existe' }, band850)).toBeNull();
     expect(readCellularShare({ cr: 'lte50' }, band850)).toBeNull();
     expect(readCellularShare({ ph: 'sotano' }, band850)).toBeNull();
+    expect(readCellularShare({ e: [['Teléfono 1', 6.2, -75.5, 'sotano']] }, band850)).toBeNull();
     expect(readCellularShare({ k: 25 }, band850)).toBeNull(); // vecinos hasta 20 km
     expect(readCellularShare({ r: 50 }, band850)).toBeNull(); // radio hasta 40 km
     expect(readCellularShare({ sp: { powerW: 0 } }, band850)).toBeNull();

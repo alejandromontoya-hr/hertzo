@@ -38,7 +38,7 @@ export const SCENARIOS: Scenario[] = [
     description:
       'RSRP, mejor sector, SINR y subida de un sitio con sectores de 700 a 3500 MHz, con Okumura-Hata, 3GPP 38.901 o ITM sobre el terreno. Gratis, en tu navegador.',
     summary: 'Un sitio con sectores: señal, mejor sector e interferencia entre sectores.',
-    computes: 'RSRP, mejor sector, SINR y subida del teléfono a la torre, con patrón de antena e inclinación.',
+    computes: 'RSRP, mejor sector, SINR y subida del teléfono a la torre, con patrón de antena e inclinación, y teléfonos concretos.',
     model: 'Okumura-Hata / COST-231, 3GPP 38.901 o ITM con terreno',
     options: [
       { label: '700 MHz', href: '/celular?banda=700' },
@@ -121,7 +121,7 @@ export const SCENARIOS: Scenario[] = [
     description:
       'Intensidad de campo en dBµV/m y zonas de servicio de una emisora: FM con ITM sobre el terreno real y AM con onda de tierra. Gratis, en tu navegador.',
     summary: 'Emisoras sobre el terreno: intensidad de campo y zonas de servicio.',
-    computes: 'Campo en dBµV/m y contornos de servicio urbano, suburbano y rural.',
+    computes: 'Campo en dBµV/m, contornos de servicio urbano, suburbano y rural, y receptores concretos.',
     model: 'FM con ITM sobre terreno; AM con onda de tierra sobre Tierra esférica (Norton y Wait)',
     options: [
       { label: 'FM', href: '/radiodifusion?servicio=fm' },

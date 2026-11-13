@@ -15,6 +15,7 @@ import router from 'lucide-static/icons/router.svg?raw';
 import satelliteDish from 'lucide-static/icons/satellite-dish.svg?raw';
 import share2 from 'lucide-static/icons/share-2.svg?raw';
 import signal from 'lucide-static/icons/signal.svg?raw';
+import smartphone from 'lucide-static/icons/smartphone.svg?raw';
 import utilityPole from 'lucide-static/icons/utility-pole.svg?raw';
 
 /** Quita el comentario de licencia del archivo y marca el ícono como decorativo. */
@@ -44,6 +45,12 @@ export const POLE_ICON = decorative(utilityPole);
 
 /** Medidor (agua, gas, energía) en su caja. */
 export const METER_ICON = decorative(gauge);
+
+/** Receptor de radio FM o AM (equipo de sonido), en Radiodifusión. */
+export const RADIO_RECEIVER_ICON = decorative(boomBox);
+
+/** Teléfono celular, en Celular. */
+export const PHONE_ICON = decorative(smartphone);
 
 /** Punto de acceso WiFi (router), para el plano de Interiores. */
 export const ROUTER_ICON = decorative(router);

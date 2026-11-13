@@ -1,6 +1,6 @@
 // Datos de /radiodifusion para el enlace de "Compartir": lo común de las páginas con mapa (el
-// transmisor, su nombre, el radio de cálculo y los umbrales en dBµV/m), la emisora FM, la AM, la
-// antena AM y el suelo. Solo viaja lo que cambió. El servicio (FM o AM), la confiabilidad y el
+// transmisor, su nombre, el radio de cálculo, los umbrales en dBµV/m y los receptores), la
+// emisora FM, la AM, la antena AM y el suelo. Solo viaja lo que cambió. El servicio (FM o AM), la confiabilidad y el
 // entorno ya van en la dirección (?servicio=am). Módulo puro.
 
 import { isRecord } from '../../export/projectFile';
@@ -22,8 +22,8 @@ import {
   type Service,
 } from './broadcastFields';
 
-/** El transmisor, su nombre, el radio de cálculo y los umbrales (dBµV/m); sin equipos. */
-export interface BroadcastShare extends Omit<MapShareCommon, 'devices'> {
+/** El transmisor, su nombre, el radio de cálculo, los umbrales (dBµV/m) y los receptores (sin tipo). */
+export interface BroadcastShare extends MapShareCommon {
   fm: FmStation;
   am: AmStation;
   amAntennaId: string;
@@ -42,11 +42,11 @@ const DEFAULT_ANTENNA_ID = AM_ANTENNAS[DEFAULT_AM_ANTENNA_INDEX]!.id;
 const isEmpty = (o: object) => Object.keys(o).length === 0;
 
 /**
- * Lo que va en el enlace: lo común (s, n, r, u), f la emisora FM, am la AM, an la antena AM y
+ * Lo que va en el enlace: lo común (s, n, r, u, e), f la emisora FM, am la AM, an la antena AM y
  * g el suelo.
  */
 export function broadcastShareData(state: BroadcastShare, service: Service): Record<string, unknown> {
-  const data = mapShareData({ ...state, devices: [] }, mapOptions(service));
+  const data = mapShareData(state, mapOptions(service));
   const fm = changedFields(state.fm, DEFAULT_FM);
   if (!isEmpty(fm)) data.f = fm;
   const am = changedFields(state.am, DEFAULT_AM);
@@ -66,6 +66,5 @@ export function readBroadcastShare(data: unknown, service: Service): BroadcastSh
   const groundId = data.g ?? DEFAULT_GROUND_ID;
   if (!common || !fm || !am) return null;
   if (!AM_ANTENNAS.some((a) => a.id === amAntennaId) || !GROUND_TYPES.some((g) => g.id === groundId)) return null;
-  const { devices: _devices, ...rest } = common;
-  return { ...rest, fm, am, amAntennaId: amAntennaId as string, groundId: groundId as string };
+  return { ...common, fm, am, amAntennaId: amAntennaId as string, groundId: groundId as string };
 }

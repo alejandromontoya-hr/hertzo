@@ -30,9 +30,11 @@ import {
 import { AM_ANTENNAS, GROUND_TYPES, groundwaveRangeKm } from '../../rf/groundwave';
 import { clutterQuery, clutterSummary, createClutterControl, parseClutter } from '../../ui/clutterControl';
 import { createMapLegend } from '../../ui/coverageLegend';
+import { createDeviceList, isOverDevice, type DeviceList, type DeviceRow } from '../../ui/deviceList';
 import { createFieldGroup, createSelectField } from '../../ui/fields';
 import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
-import { setInfo } from '../../ui/infoTip';
+import { RADIO_RECEIVER_ICON } from '../../ui/icons';
+import { infoButton, setInfo } from '../../ui/infoTip';
 import { createHoverReadout } from '../../ui/hoverReadout';
 import { createReliabilityControl, parseReliability, requestReliability } from '../../ui/reliabilityControl';
 import { replaceQuery, type PageContext } from '../router';
@@ -113,7 +115,11 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
     <section class="panel-section">
       <h2>Zonas de servicio</h2>
       <div data-zones><p class="hint">Ubica el transmisor y pulsa "Simular" para ver el alcance de cada zona.</p></div>
-    </section>`,
+    </section>
+    <details class="panel-section" open>
+      <summary>Receptores${infoButton('Radios concretos, por ejemplo la finca o el pueblo donde quieres saber si se oye la emisora: agrégalos con clic en el mapa o pega su lista. Cada uno toma el campo del mapa calculado en su punto (el mismo de la lectura al pasar el mouse) y dice en qué zona de servicio queda.')}</summary>
+      <div data-devices></div>
+    </details>`,
     'Parámetros de la emisora',
   );
 
@@ -156,10 +162,42 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
     initial: fromLink ?? undefined,
     onChange,
   });
+  // Receptores concretos: el campo del mapa en su punto, con la potencia de ahora (como la lectura).
+  let deviceList: DeviceList | undefined;
+  deviceList = createDeviceList(page, page.find('[data-devices]'), {
+    columns: ['Campo', 'Margen'],
+    units: ['dBµV/m', ''],
+    noun: { one: 'receptor', many: 'receptores' },
+    profiles: [],
+    profileName: () => 'Receptor',
+    profileIcon: () => RADIO_RECEIVER_ICON,
+    matchProfile: () => null,
+    waitingText: 'Pulsa "Simular" para calcular los receptores.',
+    async evaluate(device) {
+      return coverage ? receiverRow(coverage, device.position) : null;
+    },
+    summary(rows) {
+      const inZone = rows.filter((r) => r.status === 'both').length;
+      return `${inZone} de ${rows.length} ${rows.length === 1 ? 'receptor' : 'receptores'} dentro de alguna zona de servicio.`;
+    },
+    fileName: () => exportFileName('radiodifusion-receptores', stationFileLabel(), site.getSite() ?? { lon: 0, lat: 0 }, 'csv', site.getName()).replace(/\.csv$/, ''),
+    initial: fromLink?.devices,
+  });
+
   /** Lo que tienes en la página: lo mismo para el enlace y para lo guardado en el navegador. */
   const pageData = () =>
     broadcastShareData(
-      { site: site.getSite(), name: site.getName(), radiusKm: site.getRadiusKm(), thresholds, fm, am, amAntennaId: amAntenna.id, groundId: ground.id },
+      {
+        site: site.getSite(),
+        name: site.getName(),
+        radiusKm: site.getRadiusKm(),
+        thresholds,
+        fm,
+        am,
+        amAntennaId: amAntenna.id,
+        groundId: ground.id,
+        devices: (deviceList?.devices() ?? []).map(({ name, position }) => ({ name, position, profileId: null })),
+      },
       service,
     );
 
@@ -318,6 +356,38 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
     };
   }
 
+  /** Campo en `point` según el cálculo `result` y la potencia de ahora (la misma cuenta de la lectura); NaN fuera del cálculo. */
+  function fieldAt(result: CoverageResult, point: { lon: number; lat: number }): { field: number; g: number } {
+    const g = gridIndexAt(result.plan, point);
+    if (g < 0) return { field: Number.NaN, g };
+    return { field: fieldStrengthDbuvm(eirpDbm() - result.grids[0]!.lossDb[g]!, result.request.links[0]!.frequencyMHz), g };
+  }
+
+  /** Fila de un receptor: su campo, el margen sobre el umbral más bajo y la zona donde queda. */
+  function receiverRow(result: CoverageResult, point: { lon: number; lat: number }): DeviceRow {
+    const where = `A ${oneDecimal.format(distanceM(result.plan.site, point) / 1000)} km del transmisor`;
+    const { field, g } = fieldAt(result, point);
+    if (Number.isNaN(field)) {
+      return { cells: ['—', '—'], status: 'unknown', look: { color: '#8a8a8a', label: 'Fuera del radio de cálculo' }, detail: where };
+    }
+    const sorted = [...thresholds].sort((a, b) => b - a);
+    const zone = sorted.findIndex((t) => field >= t);
+    const margin = field - sorted[sorted.length - 1]!;
+    const lowConfidence = service === 'fm' && (result.grids[0]!.warnings[g]! & lowConfidenceMask(engineOf(result))) !== 0;
+    return {
+      cells: [oneDecimal.format(field).replace('−', '-'), `${oneDecimal.format(margin).replace('−', '-')} dB`],
+      status: zone >= 0 ? 'both' : 'none',
+      look:
+        zone >= 0
+          ? { color: LEVEL_COLORS[zone]!, label: `Zona ≥ ${sorted[zone]} dBµV/m${zoneSuffix(zone)}` }
+          : { color: '#d73027', label: 'Por debajo del umbral más bajo' },
+      detail: `${where} · ${mvmFormat.format(dbuvmToMvm(field))} mV/m${lowConfidence ? ' · baja confianza: ladera empinada junto al transmisor' : ''}`,
+    };
+  }
+
+  /** "FM-98.5MHz" o "AM-1000kHz", para los nombres de archivo. */
+  const stationFileLabel = () => (service === 'fm' ? `FM-${fm.frequencyMHz}MHz` : `AM-${am.frequencyKHz}kHz`);
+
   /** "FM 98,5 MHz" o "AM 1.000 kHz". */
   const stationLabel = () =>
     service === 'fm' ? `FM ${formatMHz(fm.frequencyMHz)}` : `AM ${integerFormat.format(am.frequencyKHz)} kHz`;
@@ -354,13 +424,7 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
 
     await downloadCoverageKmz({
       documentName: `Hertzo · Radiodifusión ${stationLabel()}${name ? ` · ${name}` : ''}`,
-      fileName: exportFileName(
-        'radiodifusion',
-        service === 'fm' ? `FM-${fm.frequencyMHz}MHz` : `AM-${am.frequencyKHz}kHz`,
-        position,
-        'kmz',
-        name,
-      ),
+      fileName: exportFileName('radiodifusion', stationFileLabel(), position, 'kmz', name),
       plan: result.plan,
       layers: [
         {
@@ -406,6 +470,7 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
           { title: 'Zonas de servicio', ...zoneInfo },
         ],
       },
+      devices: deviceList && { folderName: `Receptores (${deviceList.placemarks().length})`, placemarks: deviceList.placemarks() },
     });
   }
 
@@ -414,6 +479,8 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
       service === 'fm'
         ? `PIRE ${oneDecimal.format(eirpDbm())} dBm (${mvmFormat.format(fm.erpKw * 1.64)} kW PIRE).`
         : `Campo sin atenuación del suelo a 1 km: ${integerFormat.format(dbuvmToMvm(fieldFromEirp(eirpDbm(), freeSpaceLossDb(1, frequencyMHz()), frequencyMHz())))} mV/m. El mapa es la cobertura diurna (onda de tierra).`;
+    // Cambió la potencia, los umbrales o el cálculo: los receptores se vuelven a leer del mapa.
+    deviceList?.refresh();
     if (!coverage || !geometry || !values || !lowConfidence || !pixels) return;
     const f = coverage.request.links[0]!.frequencyMHz;
     // Campo = PIRE − pérdida + 20·log f + 77,2 (ITU-R P.525).
@@ -455,12 +522,12 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
 
   const readout = createHoverReadout(page.readoutRoot);
   page.map.on('mousemove', (event) => {
+    // Sobre un receptor manda su propio globo.
+    if (isOverDevice(event.originalEvent)) return;
     if (!coverage) return readout.hide();
     const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
-    const g = gridIndexAt(coverage.plan, point);
+    const { field, g } = fieldAt(coverage, point);
     if (g < 0) return readout.hide();
-    const f = coverage.request.links[0]!.frequencyMHz;
-    const field = fieldStrengthDbuvm(eirpDbm() - coverage.grids[0]!.lossDb[g]!, f);
     const lines = [
       `A ${oneDecimal.format(distanceM(coverage.plan.site, point) / 1000)} km del transmisor`,
       `Campo: ${oneDecimal.format(field)} dBµV/m (${mvmFormat.format(dbuvmToMvm(field))} mV/m)`,
@@ -479,6 +546,7 @@ export function mountBroadcastPage({ root, params: urlParams, shared }: PageCont
 
   return () => {
     draft.stop();
+    deviceList?.destroy();
     controller.destroy();
     page.destroy();
   };
