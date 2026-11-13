@@ -153,7 +153,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         q: '¿Puedo compartir la cobertura de mi emisora?',
-        a: 'Sí: "Compartir" copia un enlace con el transmisor, la frecuencia, la potencia, la antena, el suelo y los umbrales de cada zona. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
+        a: 'Sí: el botón de compartir, junto al de exportar en la esquina del mapa, copia un enlace con el transmisor, la frecuencia, la potencia, la antena, el suelo y los umbrales de cada zona, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
       },
       ...COMMON_FAQ,
     ],

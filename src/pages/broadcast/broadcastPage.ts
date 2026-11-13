@@ -11,11 +11,12 @@ import { areaAboveKm2, gridValues, lowConfidencePixels, pixelAreaKm2 } from '../
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName } from '../../export/kml';
-import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { distanceM } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
+import { addShareControl } from '../../map/shareControl';
 import { lowConfidenceMask, type EngineSpec } from '../../propagation/engines';
 import {
   dbuvmToMvm,
@@ -88,7 +89,7 @@ export function mountBroadcastPage({ root, params, shared }: PageContext): () =>
     <section class="panel-section page-intro">
       <h2>Radiodifusión</h2>
       ${choiceHtml('servicio', [{ id: 'fm', label: 'FM (88 a 108 MHz)' }, { id: 'am', label: 'AM (530 a 1710 kHz)' }], 'Servicio', '')}
-      ${SHARE_BUTTON_HTML}
+      ${SHARE_NOTICE_HTML}
     </section>
     ${siteSectionHtml('Transmisor', 'la antena de la emisora')}
     ${coverageStatusHtml()}
@@ -148,19 +149,16 @@ export function mountBroadcastPage({ root, params, shared }: PageContext): () =>
     initial: fromLink ?? undefined,
     onChange,
   });
-  bindShareButton(
-    page.panel,
-    {
-      title: () =>
-        `Hertzo · ${service === 'fm' ? `FM ${formatMHz(fm.frequencyMHz)}` : `AM ${integerFormat.format(am.frequencyKHz)} kHz`}${site.getName() ? ` · ${site.getName()}` : ''}`,
-      data: () =>
-        broadcastShareData(
-          { site: site.getSite(), name: site.getName(), radiusKm: site.getRadiusKm(), thresholds, fm, am, amAntennaId: amAntenna.id, groundId: ground.id },
-          service,
-        ),
-    },
-    opened,
-  );
+  showSharedNotice(page.panel, opened);
+  addShareControl(page.map, {
+    title: () =>
+      `Hertzo · ${service === 'fm' ? `FM ${formatMHz(fm.frequencyMHz)}` : `AM ${integerFormat.format(am.frequencyKHz)} kHz`}${site.getName() ? ` · ${site.getName()}` : ''}`,
+    data: () =>
+      broadcastShareData(
+        { site: site.getSite(), name: site.getName(), radiusKm: site.getRadiusKm(), thresholds, fm, am, amAntennaId: amAntenna.id, groundId: ground.id },
+        service,
+      ),
+  });
   const controller = createCoverageController(page.find('[data-coverage-status]'), page.find('[data-simulate-box]'), (result) => {
     coverage = result;
     geometry = buildRasterGeometry(result.plan);
