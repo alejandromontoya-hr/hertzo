@@ -83,11 +83,15 @@ const VIEWS: { id: View; label: string; title: string }[] = [
   { id: 'balance', label: 'Desbalance', title: 'Dónde llega cada dirección' },
 ];
 
-/** Clases del desbalance: el teléfono ve la red (RSRP) y la torre lo oye (SINR de subida). */
+/**
+ * Clases del desbalance: el teléfono ve la red (RSRP y SINR de bajada) y la torre lo oye (SINR
+ * de subida). Sin la SINR, un punto con buen RSRP pero tapado por la interferencia de un vecino
+ * (RSRP -108 dBm con SINR -25 dB) salía como si llegaran las dos.
+ */
 const CELL_BALANCE = [
   { color: '#1f5c8c', label: 'Bajada y subida llegan' },
   { color: '#d95f0e', label: 'Solo bajada: el teléfono ve la red, pero la torre no lo oye' },
-  { color: '#a8b65a', label: 'Solo subida: la torre oiría al teléfono, pero él no ve la red' },
+  { color: '#a8b65a', label: 'Solo subida: la torre oiría al teléfono, pero él no ve la red (señal débil o mucha interferencia)' },
 ];
 
 const RSRP_DESCRIPTIONS = ['excelente', 'buena', 'regular', 'débil'];
@@ -497,17 +501,22 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
     };
   }
 
+  /**
+   * Llega la bajada si el RSRP pasa el umbral más bajo de su mapa y la SINR de bajada el más bajo
+   * del suyo; la subida, si su SINR pasa el más bajo de "Subida". La misma regla en el mapa
+   * "Desbalance", en el resumen y en los teléfonos.
+   */
+  const downlinkOk = (rsrp: number, sinr: number) => rsrp >= Math.min(...thresholds.rsrp) && sinr >= Math.min(...thresholds.sinr);
+  const uplinkOk = (upSinr: number) => upSinr >= Math.min(...thresholds.up);
+
   /** Pinta la vista `v` en `out`, igual sobre el mapa que para el KMZ. */
   function paintView(v: View, size: RasterGeometry, px: SectorPixels, out: Uint8ClampedArray) {
     if (v === 'balance') {
-      // Llega la bajada si el RSRP pasa el umbral más bajo; la subida, si su SINR pasa el suyo.
-      const minRsrp = Math.min(...thresholds.rsrp);
-      const minUp = Math.min(...thresholds.up);
       const classes = new Int16Array(px.bestRsrp.length);
       for (let p = 0; p < classes.length; p++) {
-        const down = px.bestRsrp[p]! >= minRsrp;
-        const upOk = px.uplinkSinr[p]! >= minUp;
-        classes[p] = down && upOk ? 0 : down ? 1 : upOk ? 2 : -1;
+        const down = downlinkOk(px.bestRsrp[p]!, px.sinr[p]!);
+        const up = uplinkOk(px.uplinkSinr[p]!);
+        classes[p] = down && up ? 0 : down ? 1 : up ? 2 : -1;
       }
       paintCategories(size, classes, CELL_BALANCE.map((c) => c.color), px.lowConfidence, out);
     } else if (v === 'best') {
@@ -525,7 +534,7 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
     const descriptions = v === 'rsrp' ? RSRP_DESCRIPTIONS : SINR_DESCRIPTIONS;
     const title =
       v === 'balance'
-        ? `Dónde llega cada dirección: RSRP ≥ ${Math.min(...thresholds.rsrp)} dBm y SINR de subida ≥ ${Math.min(...thresholds.up)} dB (los umbrales más bajos de cada mapa)`
+        ? `Dónde llega cada dirección: bajada con RSRP ≥ ${Math.min(...thresholds.rsrp)} dBm y SINR ≥ ${Math.min(...thresholds.sinr)} dB, subida con SINR ≥ ${Math.min(...thresholds.up)} dB (los umbrales más bajos de cada mapa)`
         : VIEWS.find((x) => x.id === v)!.title;
     return {
       title: (v === 'rsrp' || v === 'up' || v === 'balance') && reliability !== 50 ? `${title} · ${reliability} % de confiabilidad` : title,
@@ -588,6 +597,8 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
   const bandName = () => (/^\d+$/.test(band.label) ? `${band.label} MHz` : band.label);
 
   function repaint() {
+    // Cambió un umbral, la potencia o el cálculo: los teléfonos se vuelven a leer del mapa.
+    deviceList?.refresh();
     if (!coverage || !geometry || !values || !pixels) return;
     paintView(view, geometry, values, pixels);
     coverageLayer.draw(geometry, pixels);
@@ -624,7 +635,7 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
       if (bestRsrp[p]! >= minRsrp) covered++;
       if (sinr[p]! >= 0) goodSinr++;
       if (uplinkSinr[p]! >= minUp) upCovered++;
-      if (bestRsrp[p]! >= minRsrp && uplinkSinr[p]! >= minUp) both++;
+      if (downlinkOk(bestRsrp[p]!, sinr[p]!) && uplinkOk(uplinkSinr[p]!)) both++;
     }
     const up = uplinkParams();
     const uplinkMHz = coverage.request.links[1]?.frequencyMHz ?? band.uplinkMHz;
@@ -722,7 +733,6 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
 
   function redraw() {
     showModelHint();
-    deviceList?.refresh();
     if (coverage && geometry && values) computePixels(coverage, geometry, values);
     repaint();
   }
@@ -808,8 +818,8 @@ export function mountCellularPage({ root, params: urlParams, shared }: PageConte
       return { cells: ['—', '—', '—'], status: 'unknown', look: { color: '#8a8a8a', label: 'Fuera del radio de cálculo' }, detail: where };
     }
     const rsrp = r.levels[r.best]!;
-    const down = rsrp >= Math.min(...thresholds.rsrp);
-    const up = r.upSinr >= Math.min(...thresholds.up);
+    const down = downlinkOk(rsrp, r.sinr);
+    const up = uplinkOk(r.upSinr);
     const db = (v: number) => oneDecimal.format(v).replace('−', '-');
     return {
       cells: [db(rsrp), db(r.sinr), db(r.upSinr)],

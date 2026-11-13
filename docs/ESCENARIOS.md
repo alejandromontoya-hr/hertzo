@@ -42,11 +42,12 @@ Todas las fórmulas viven en módulos puros (`src/rf/`, `src/indoor/`, `src/cave
 ## Celular
 
 - Hasta 4 sectores con el patrón de antena 3GPP (horizontal y vertical con inclinación). La pérdida se calcula una vez por sitio y el patrón se aplica al pintar.
+- **Desbalance:** llega la bajada si el RSRP pasa el umbral más bajo de su mapa (−110 dBm) y la SINR de bajada el del suyo (0 dB); llega la subida si su SINR pasa el más bajo de "Subida" (−5 dB). Con vecinos a 1 km, un teléfono a 1,4 km de la torre con RSRP −108 dBm queda con SINR −25 dB (lo atendería un vecino): sale "Solo subida", no "Llegan las dos". El resumen ("Área con bajada y subida") y los teléfonos usan la misma regla.
 - Vistas: RSRP del mejor sector, mejor sector y SINR a plena carga con los demás sectores y con seis sitios vecinos iguales a la distancia que se elija (1 km por omisión). La señal de los vecinos usa la pérdida típica por distancia del propio cálculo. Con vecinos a 1 km, en el borde de celda la SINR da unos +3 dB, como en una red real.
 - **Hata** usa como altura efectiva la mayor entre la altura de la torre y su altura sobre el terreno promedio de 3 a 15 km. Se ajustó de 1 a 20 km; entre 0,5 y 1 km se extrapola y por debajo aparece rayado. No vale sobre 2000 MHz. Nunca da menos pérdida que el espacio libre.
 - **3GPP 38.901 UMa** (ciudad sin línea de vista) vale hasta 5 km y de 0,5 a 100 GHz: es el modelo para 2600 y 3500 MHz. Toma el teléfono desde 1,5 m.
 - **Teléfono dentro de un edificio** (38.901, modelo O2I): vidrio común y concreto suma 14,7 dB a 850 MHz y 16,9 dB a 3500 MHz; vidrio reflectivo, 31,0 dB a 3500 MHz.
-- **Teléfonos concretos:** RSRP, SINR y SINR de subida en su punto, cada uno en la calle o dentro de un edificio (o como el del panel). El estado sigue el mapa de desbalance: llega la bajada si el RSRP pasa el umbral más bajo de su mapa y la subida si su SINR pasa el suyo.
+- **Teléfonos concretos:** RSRP, SINR y SINR de subida en su punto, cada uno en la calle o dentro de un edificio (o como el del panel). El estado sigue el mapa de desbalance.
 - **Limitación:** los vecinos son copias del sitio, no la red real del operador; no hay ganancia de beamforming por usuario.
 
 ## Enlaces punto a punto
