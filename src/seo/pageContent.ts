@@ -98,6 +98,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         a: 'Hata vale hasta 2 GHz y de 1 a 20 km; 38.901 cubre las bandas altas como 3500 MHz; ITM usa el relieve real y sirve donde manda el terreno, como en los valles de Antioquia.',
       },
       {
+        q: '¿Se pierde lo que hice si cierro la pestaña?',
+        a: 'No: cada cambio queda guardado en este navegador, y al volver sigues donde quedaste; solo hay que pulsar "Simular" para ver otra vez el resultado. "Empezar de nuevo" deja la página con los valores de siempre y se puede deshacer.',
+      },
+      {
         q: '¿Puedo compartir la simulación?',
         a: 'Sí: el botón de compartir, junto al de exportar en la esquina del mapa, copia un enlace con la torre, el modelo, los sectores con su azimut, la antena, la portadora y dónde está el teléfono, o lo manda por WhatsApp o correo. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
       },

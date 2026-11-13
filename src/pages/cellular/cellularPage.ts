@@ -10,7 +10,7 @@ import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../cov
 import { LEVEL_COLORS } from '../../coverage/colorScale';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
-import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showPageNotice, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { destinationPoint, distanceM, initialBearingDeg } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
@@ -46,6 +46,7 @@ import { infoButton, setInfo } from '../../ui/infoTip';
 import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
+import { START_OVER_HTML, openDraft } from '../shared/draft';
 import { createSiteControls } from '../shared/siteControls';
 import {
   ANTENNA_FIELDS,
@@ -116,11 +117,16 @@ const mhzFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
 /** σ del desvanecimiento lento según el motor que calculó el mapa: 6 dB en UMa, 8 dB en Hata. */
 const shadowSigmaDb = (engineId: string) => (engineId === 'uma' ? 6 : 8);
 
-export function mountCellularPage({ root, params, shared }: PageContext): () => void {
+export function mountCellularPage({ root, params: urlParams, shared }: PageContext): () => void {
+  // Lo que dejaste en este navegador; con un enlace, lo tuyo queda aparte.
+  const draft = openDraft('celular', urlParams, shared !== null);
+  const params = draft.params;
   let band = BANDS.find((b) => b.id === params.get('banda')) ?? BANDS[0]!;
   // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con los de siempre.
-  const fromLink = shared?.ok ? readCellularShare(shared.data, band) : null;
-  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  const linked = shared?.ok ? readCellularShare(shared.data, band) : null;
+  const opened = shared && (shared.ok && !linked ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  // Con qué abre la página: el enlace o, si no hay, lo guardado en este navegador.
+  const fromLink = linked ?? (draft.data ? readCellularShare(draft.data, band) : null);
   let carrier = CARRIERS.find((c) => c.id === (fromLink?.carrierId ?? band.carrier))!;
   let model: ModelId = fromLink?.model ?? defaultModel(band);
   let siteParams: SiteParams = fromLink?.siteParams ?? { ...BASE_SITE, ...band.site };
@@ -153,6 +159,7 @@ export function mountCellularPage({ root, params, shared }: PageContext): () => 
       <div class="form" data-model></div>
       <p class="notice" data-model-warning hidden></p>
       ${SHARE_NOTICE_HTML}
+      ${START_OVER_HTML}
     </section>
     ${siteSectionHtml('Sitio celular', 'la torre')}
     ${coverageStatusHtml()}
@@ -299,28 +306,34 @@ export function mountCellularPage({ root, params, shared }: PageContext): () => 
   }
   buildSectorFields();
 
-  showSharedNotice(page.panel, opened);
+  /** Lo que tienes en la página: lo mismo para el enlace y para lo guardado en el navegador. */
+  const pageData = () =>
+    cellularShareData(
+      {
+        site: site.getSite(),
+        name: site.getName(),
+        radiusKm: site.getRadiusKm(),
+        thresholds: thresholds.rsrp,
+        model,
+        siteParams,
+        antenna,
+        phone,
+        neighborKm,
+        azimuths,
+        carrierId: carrier.id,
+        sinrThresholds: thresholds.sinr,
+        upThresholds: thresholds.up,
+      },
+      band,
+    );
+
+  if (draft.hasOwn) showSharedNotice(page.panel, opened ?? { ok: true, data: null }, undefined, { label: 'Volver a la tuya', run: draft.backToOwn });
+  else showSharedNotice(page.panel, opened);
+  if (draft.restarted) showPageNotice(page.panel, 'Empezaste una simulación nueva.', { label: 'Deshacer', run: draft.undoStartOver });
+  page.find('[data-start-over]').addEventListener('click', draft.startOver);
   addShareControl(page.map, {
     title: () => `Hertzo · Celular ${band.id === 'aws' ? 'AWS' : `${band.label} MHz`}${site.getName() ? ` · ${site.getName()}` : ''}`,
-    data: () =>
-      cellularShareData(
-        {
-          site: site.getSite(),
-          name: site.getName(),
-          radiusKm: site.getRadiusKm(),
-          thresholds: thresholds.rsrp,
-          model,
-          siteParams,
-          antenna,
-          phone,
-          neighborKm,
-          azimuths,
-          carrierId: carrier.id,
-          sinrThresholds: thresholds.sinr,
-          upThresholds: thresholds.up,
-        },
-        band,
-      ),
+    data: pageData,
   });
 
   function showBand() {
@@ -763,7 +776,10 @@ export function mountCellularPage({ root, params, shared }: PageContext): () => 
 
   onGeometryChange();
 
+  draft.start(root, pageData);
+
   return () => {
+    draft.stop();
     controller.destroy();
     page.destroy();
   };
