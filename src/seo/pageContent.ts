@@ -151,6 +151,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
         q: '¿Qué es un dBµV/m?',
         a: 'La intensidad del campo eléctrico en decibelios sobre 1 microvoltio por metro, la unidad con que se definen las zonas de servicio de las emisoras.',
       },
+      {
+        q: '¿Puedo compartir la cobertura de mi emisora?',
+        a: 'Sí: "Compartir" copia un enlace con el transmisor, la frecuencia, la potencia, la antena, el suelo y los umbrales de cada zona. Quien lo abre recibe una copia: lo que cambie no afecta la tuya. Los datos van dentro del enlace y no pasan por ningún servidor.',
+      },
       ...COMMON_FAQ,
     ],
   },

@@ -11,6 +11,8 @@ import { areaAboveKm2, gridValues, lowConfidencePixels, pixelAreaKm2 } from '../
 import { buildRasterGeometry, gridIndexAt, type RasterGeometry } from '../../coverage/raster';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName } from '../../export/kml';
+import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { distanceM } from '../../geo/geodesy';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
@@ -26,7 +28,7 @@ import {
 import { AM_ANTENNAS, GROUND_TYPES, groundwaveRangeKm } from '../../rf/groundwave';
 import { clutterQuery, clutterSummary, createClutterControl, parseClutter } from '../../ui/clutterControl';
 import { createMapLegend } from '../../ui/coverageLegend';
-import { createFieldGroup, createSelectField, type NumberFieldSpec } from '../../ui/fields';
+import { createFieldGroup, createSelectField } from '../../ui/fields';
 import { formatHeight, formatLonLat, formatMHz } from '../../ui/format';
 import { setInfo } from '../../ui/infoTip';
 import { createHoverReadout } from '../../ui/hoverReadout';
@@ -35,65 +37,22 @@ import { replaceQuery, type PageContext } from '../router';
 import { createCoverageController } from '../shared/coverageController';
 import { bindChoice, choiceHtml, coverageStatusHtml, createMapPage, siteSectionHtml } from '../shared/mapPage';
 import { createSiteControls } from '../shared/siteControls';
-
-type Service = 'fm' | 'am';
-
-interface FmStation {
-  frequencyMHz: number;
-  erpKw: number;
-  antennaHeightM: number;
-  receiverHeightM: number;
-}
-
-interface AmStation {
-  frequencyKHz: number;
-  powerKw: number;
-}
-
-const FM_FIELDS: readonly NumberFieldSpec<keyof FmStation>[] = [
-  { key: 'frequencyMHz', label: 'Frecuencia', unit: 'MHz', min: 76, max: 108 },
-  { key: 'erpKw', label: 'Potencia radiada (ERP)', unit: 'kW', min: 0, max: 500, minExclusive: true },
-  { key: 'antennaHeightM', label: 'Altura de la antena', unit: 'm', min: 1, max: 1000 },
-  {
-    key: 'receiverHeightM',
-    label: 'Altura del receptor',
-    unit: 'm',
-    min: 0.5,
-    max: 100,
-    hint: '10 m es la altura de referencia para planificar FM; 1,5 m para un radio portátil.',
-  },
-];
-
-const AM_FIELDS: readonly NumberFieldSpec<keyof AmStation>[] = [
-  { key: 'frequencyKHz', label: 'Frecuencia', unit: 'kHz', min: 530, max: 1710 },
-  { key: 'powerKw', label: 'Potencia del transmisor', unit: 'kW', min: 0, max: 1000, minExclusive: true },
-];
-
-/**
- * Umbrales de campo de la ITU-R BS.412 (FM) y, en AM, los contornos del plan técnico de
- * radiodifusión sonora en AM de Colombia (Decreto 1445 de 1995, numeral 4.21): 1250, 625, 500 y
- * 250 µV/m = 20·log(µV/m) = 61,9, 55,9, 54,0 y 48,0 dBµV/m, redondeados a 62, 56, 54 y 48.
- */
-const SERVICE = {
-  fm: {
-    thresholds: [74, 66, 54, 48],
-    descriptions: ['estéreo, ciudades grandes', 'estéreo, urbano', 'estéreo, rural', 'mono, rural'],
-    radiusKm: 60,
-  },
-  am: {
-    thresholds: [62, 56, 54, 48],
-    descriptions: [
-      'contorno de 1250 µV/m (Decreto 1445 de 1995)',
-      'contorno de 625 µV/m (Decreto 1445 de 1995)',
-      'contorno de 500 µV/m (Decreto 1445 de 1995)',
-      'contorno de 250 µV/m (Decreto 1445 de 1995)',
-    ],
-    radiusKm: 150,
-  },
-} as const;
-
-/** FM: radio máximo del cálculo con ITM (más allá es lento y el horizonte ya cortó). */
-const FM_MAX_RADIUS_KM = 150;
+import {
+  AM_FIELDS,
+  DEFAULT_AM,
+  DEFAULT_AM_ANTENNA_INDEX,
+  DEFAULT_FM,
+  DEFAULT_GROUND_ID,
+  FM_FIELDS,
+  FM_MAX_RADIUS_KM,
+  MAX_RADIUS_KM,
+  SERVICE,
+  THRESHOLD_RANGE,
+  type AmStation,
+  type FmStation,
+  type Service,
+} from './broadcastFields';
+import { broadcastShareData, readBroadcastShare } from './broadcastShare';
 
 /** Nota de las zonas AM: el mapa es de día; de noche la onda de cielo lo reduce. */
 const AM_NIGHT_NOTE =
@@ -103,13 +62,16 @@ const mvmFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 });
 const oneDecimal = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const integerFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
 
-export function mountBroadcastPage({ root, params }: PageContext): () => void {
+export function mountBroadcastPage({ root, params, shared }: PageContext): () => void {
   let service: Service = params.get('servicio') === 'am' ? 'am' : 'fm';
-  let fm: FmStation = { frequencyMHz: 98.5, erpKw: 10, antennaHeightM: 40, receiverHeightM: 10 };
-  let am: AmStation = { frequencyKHz: 1000, powerKw: 10 };
-  let amAntenna = AM_ANTENNAS[1]!;
-  let ground = GROUND_TYPES.find((g) => g.id === 'media')!;
-  let thresholds: number[] = [...SERVICE[service].thresholds];
+  // Enlace de "Compartir": la página abre con esos datos o, si no sirven, con los de siempre.
+  const fromLink = shared?.ok ? readBroadcastShare(shared.data, service) : null;
+  const opened = shared && (shared.ok && !fromLink ? { ok: false as const, message: SHARE_BROKEN_MESSAGE } : shared);
+  let fm: FmStation = fromLink?.fm ?? { ...DEFAULT_FM };
+  let am: AmStation = fromLink?.am ?? { ...DEFAULT_AM };
+  let amAntenna = fromLink ? AM_ANTENNAS.find((a) => a.id === fromLink.amAntennaId)! : AM_ANTENNAS[DEFAULT_AM_ANTENNA_INDEX]!;
+  let ground = GROUND_TYPES.find((g) => g.id === (fromLink?.groundId ?? DEFAULT_GROUND_ID))!;
+  let thresholds: number[] = fromLink?.thresholds ?? [...SERVICE[service].thresholds];
   /** FM: entorno del receptor (UIT-R P.2108) y confiabilidad; 50 % es la F(50,50) de la radiodifusión. */
   let clutter = parseClutter(params);
   let reliability = parseReliability(params, 50);
@@ -126,6 +88,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     <section class="panel-section page-intro">
       <h2>Radiodifusión</h2>
       ${choiceHtml('servicio', [{ id: 'fm', label: 'FM (88 a 108 MHz)' }, { id: 'am', label: 'AM (530 a 1710 kHz)' }], 'Servicio', '')}
+      ${SHARE_BUTTON_HTML}
     </section>
     ${siteSectionHtml('Transmisor', 'la antena de la emisora')}
     ${coverageStatusHtml()}
@@ -179,7 +142,25 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
     },
   });
 
-  const site = createSiteControls(page, { radiusKm: SERVICE[service].radiusKm, maxRadiusKm: 300, onChange });
+  const site = createSiteControls(page, {
+    radiusKm: fromLink?.radiusKm ?? SERVICE[service].radiusKm,
+    maxRadiusKm: MAX_RADIUS_KM,
+    initial: fromLink ?? undefined,
+    onChange,
+  });
+  bindShareButton(
+    page.panel,
+    {
+      title: () =>
+        `Hertzo · ${service === 'fm' ? `FM ${formatMHz(fm.frequencyMHz)}` : `AM ${integerFormat.format(am.frequencyKHz)} kHz`}${site.getName() ? ` · ${site.getName()}` : ''}`,
+      data: () =>
+        broadcastShareData(
+          { site: site.getSite(), name: site.getName(), radiusKm: site.getRadiusKm(), thresholds, fm, am, amAntennaId: amAntenna.id, groundId: ground.id },
+          service,
+        ),
+    },
+    opened,
+  );
   const controller = createCoverageController(page.find('[data-coverage-status]'), page.find('[data-simulate-box]'), (result) => {
     coverage = result;
     geometry = buildRasterGeometry(result.plan);
@@ -435,7 +416,7 @@ export function mountBroadcastPage({ root, params }: PageContext): () => void {
       ...legendTexts(),
       // En AM no hay rayado: la serie de residuos vale a cualquier distancia.
       ...(service === 'am' && { hatchLabel: undefined }),
-      thresholds: { values: thresholds, unit: 'dBµV/m', min: 0, max: 140 },
+      thresholds: { values: thresholds, unit: 'dBµV/m', ...THRESHOLD_RANGE },
       opacity,
     });
     showZones();
