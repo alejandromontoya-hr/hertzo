@@ -1,6 +1,6 @@
-// Del navegador: botón "Compartir" de una página. En el computador copia el enlace con un título
-// (pegado en un correo se ve "Hertzo · Terreno 800 MHz · Cerro El Volador", no las letras de los
-// datos); en el celular abre el menú de compartir del teléfono (WhatsApp, Teams, correo…).
+// Del navegador: compartir una página. "Copiar enlace" pone el enlace con un título (pegado en un
+// correo se ve "Hertzo · Terreno 800 MHz · Cerro El Volador", no las letras de los datos); el
+// aviso de arriba del panel le dice a quien abrió un enlace que tiene una copia.
 
 import type { ParseResult } from './projectFile';
 import { encodeShare, shareHash } from './shareLink';
@@ -10,6 +10,9 @@ export const SHARE_BUTTON_HTML = `
     <button type="button" class="button" data-share title="Copia un enlace con todo lo que tienes en la página">Compartir</button>
   </div>
   <p class="hint" data-share-message role="status" hidden></p>`;
+
+/** Lugar del aviso "Abriste una simulación compartida…", arriba del panel. */
+export const SHARE_NOTICE_HTML = `<p class="hint" data-share-message role="status" hidden></p>`;
 
 export interface ShareBinding {
   /** Título del enlace, por ejemplo "Hertzo · Terreno 800 MHz · Cerro El Volador". */
@@ -21,51 +24,70 @@ export interface ShareBinding {
 const OPENED =
   'Abriste una simulación compartida. Es una copia: lo que cambies queda solo en este navegador y no le llega a quien te la mandó.';
 
+export const COPIED_MESSAGE = 'Enlace copiado: pégalo en un correo, WhatsApp o Teams. Quien lo abra recibe una copia; lo que cambie no te afecta.';
+
 const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** Celular o tableta: ahí el menú de compartir del sistema es lo natural; en el computador, copiar. */
-const useSystemShare = () => typeof navigator.share === 'function' && window.matchMedia('(pointer: coarse)').matches;
+/** Celular o tableta: ahí el menú de compartir del sistema es lo natural. */
+export const canUseSystemShare = () => typeof navigator.share === 'function' && window.matchMedia('(pointer: coarse)').matches;
+
+/** La dirección de esta página con los datos de ahora después del "#". */
+export const shareUrl = (binding: ShareBinding) =>
+  encodeShare(binding.data()).then((code) => `${location.origin}${location.pathname}${location.search}${shareHash(code)}`);
 
 /**
- * Conecta `SHARE_BUTTON_HTML`, que debe estar dentro de `root`. `opened` es el enlace con que se
- * abrió la página: si trae datos, avisa que es una copia (con `openedNote` al final, por ejemplo
- * dónde quedó lo que había); si no sirvió, dice por qué.
+ * Copia el enlace con su título; false si el navegador no dejó (sin permiso o muy viejo). Hay que
+ * llamarla en el mismo clic: Safari no deja copiar después, por eso espera el enlace adentro.
  */
-export function bindShareButton(root: HTMLElement, binding: ShareBinding, opened: ParseResult<unknown> | null, openedNote?: string): void {
-  const button = root.querySelector<HTMLButtonElement>('[data-share]')!;
+export async function copyShareLink(title: string, url: Promise<string>): Promise<boolean> {
+  const blob = (type: string, text: (url: string) => string) => url.then((u) => new Blob([text(u)], { type }));
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': blob('text/html', (u) => `<a href="${escapeHtml(u)}">${escapeHtml(title)}</a>`),
+        'text/plain': blob('text/plain', (u) => u),
+      }),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Muestra en `[data-share-message]` (dentro de `root`) cómo se abrió la página: si el enlace trajo
+ * datos, avisa que es una copia (con `openedNote` al final, por ejemplo dónde quedó lo que había);
+ * si no sirvió, dice por qué. Sin enlace no muestra nada.
+ */
+export function showSharedNotice(root: HTMLElement, opened: ParseResult<unknown> | null, openedNote?: string): (text: string) => void {
   const message = root.querySelector<HTMLElement>('[data-share-message]')!;
   const show = (text: string) => {
     message.hidden = false;
     message.textContent = text;
   };
   if (opened) show(opened.ok ? [OPENED, openedNote].filter(Boolean).join(' ') : opened.message);
+  return show;
+}
+
+/** Conecta `SHARE_BUTTON_HTML`, que debe estar dentro de `root`, y muestra el aviso del enlace con que se abrió. */
+export function bindShareButton(root: HTMLElement, binding: ShareBinding, opened: ParseResult<unknown> | null, openedNote?: string): void {
+  const button = root.querySelector<HTMLButtonElement>('[data-share]')!;
+  const show = showSharedNotice(root, opened, openedNote);
 
   button.addEventListener('click', async () => {
     const title = binding.title();
-    const urlPromise = encodeShare(binding.data()).then((code) => `${location.origin}${location.pathname}${location.search}${shareHash(code)}`);
-    const showUrl = async () => show(`No se pudo copiar solo. Copia este enlace: ${await urlPromise}`);
-    if (useSystemShare()) {
+    const url = shareUrl(binding);
+    const showUrl = async () => show(`No se pudo copiar solo. Copia este enlace: ${await url}`);
+    if (canUseSystemShare()) {
       try {
-        await navigator.share({ title, url: await urlPromise });
+        await navigator.share({ title, url: await url });
       } catch (err) {
         // Cerrar el menú sin elegir no es un error; otro fallo deja el enlace a la vista.
         if ((err as Error).name !== 'AbortError') await showUrl();
       }
       return;
     }
-    // El copiado empieza en el mismo clic (Safari no lo deja después) y espera a que el enlace esté listo.
-    const blob = (type: string, text: (url: string) => string) => urlPromise.then((url) => new Blob([text(url)], { type }));
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          'text/html': blob('text/html', (url) => `<a href="${escapeHtml(url)}">${escapeHtml(title)}</a>`),
-          'text/plain': blob('text/plain', (url) => url),
-        }),
-      ]);
-      show('Enlace copiado: pégalo en un correo, WhatsApp o Teams. Quien lo abra recibe una copia; lo que cambie no te afecta.');
-    } catch {
-      // Sin permiso para copiar (o un navegador viejo): el enlace queda a la vista para copiarlo a mano.
-      await showUrl();
-    }
+    if (await copyShareLink(title, url)) show(COPIED_MESSAGE);
+    else await showUrl();
   });
 }

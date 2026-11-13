@@ -10,6 +10,7 @@ import mapPin from 'lucide-static/icons/map-pin.svg?raw';
 import pickaxe from 'lucide-static/icons/pickaxe.svg?raw';
 import radioTower from 'lucide-static/icons/radio-tower.svg?raw';
 import satelliteDish from 'lucide-static/icons/satellite-dish.svg?raw';
+import share2 from 'lucide-static/icons/share-2.svg?raw';
 import signal from 'lucide-static/icons/signal.svg?raw';
 
 /** Quita el comentario de licencia del archivo y marca el ícono como decorativo. */
@@ -17,6 +18,9 @@ const decorative = (raw: string) => raw.replace(/<!--[\s\S]*?-->/, '').trim().re
 
 /** Ícono del botón "Exportar" sobre el mapa. */
 export const DOWNLOAD_ICON = decorative(download);
+
+/** Ícono del botón "Compartir" sobre el mapa. */
+export const SHARE_ICON = decorative(share2);
 
 /** Ícono del botón "Elegir en el mapa" junto a las coordenadas. */
 export const PIN_ICON = decorative(mapPin);

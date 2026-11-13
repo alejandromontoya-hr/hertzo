@@ -10,6 +10,8 @@ import {
   readPosition,
   shareCodeFromHash,
   shareHash,
+  mailHref,
+  whatsappHref,
 } from './shareLink';
 
 const POWER = { key: 'powerW', label: 'Potencia', unit: 'W', min: 0, max: 1000, minExclusive: true } as const;
@@ -34,6 +36,27 @@ describe('encodeShare y decodeShare', () => {
     const result = await decodeShare(code);
     expect(result.ok).toBe(false);
     expect(!result.ok && result.message).toMatch(/versión más nueva/);
+  });
+});
+
+describe('WhatsApp y correo', () => {
+  const title = 'Hertzo · Terreno 800 MHz · Cerro El Volador';
+  const url = 'https://hertzo.site/terreno?banda=800&entorno=urbano#d=Jcwx_-';
+
+  it('WhatsApp lleva el título y el enlace en la línea siguiente, con el "#" y el "&" escapados', () => {
+    const href = whatsappHref(title, url);
+    expect(href).toBe(
+      'https://wa.me/?text=Hertzo%20%C2%B7%20Terreno%20800%20MHz%20%C2%B7%20Cerro%20El%20Volador%0Ahttps%3A%2F%2Fhertzo.site%2Fterreno%3Fbanda%3D800%26entorno%3Durbano%23d%3DJcwx_-',
+    );
+    expect(new URL(href).searchParams.get('text')).toBe(`${title}\n${url}`);
+  });
+
+  it('el correo lleva el título de asunto y el enlace completo en el cuerpo', () => {
+    const href = mailHref(title, url);
+    expect(href.startsWith('mailto:?subject=Hertzo%20%C2%B7%20Terreno')).toBe(true);
+    const params = new URLSearchParams(href.slice('mailto:?'.length));
+    expect(params.get('subject')).toBe(title);
+    expect(params.get('body')).toBe(url);
   });
 });
 

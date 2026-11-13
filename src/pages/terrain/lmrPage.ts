@@ -18,10 +18,11 @@ import { deviceLoss, type DeviceLoss, type DevicePath } from '../../devices/devi
 import { evaluateDevice, matchProfileId } from '../../devices/devices';
 import { downloadCoverageKmz } from '../../export/coverageKmz';
 import { exportFileName, type KmlPlacemark } from '../../export/kml';
-import { SHARE_BUTTON_HTML, bindShareButton } from '../../export/shareButton';
+import { SHARE_NOTICE_HTML, showSharedNotice } from '../../export/shareButton';
 import { SHARE_BROKEN_MESSAGE } from '../../export/shareLink';
 import { createCoverageLayer } from '../../map/coverageLayer';
 import { addExportControl } from '../../map/exportControl';
+import { addShareControl } from '../../map/shareControl';
 import { talkInBudget, talkOutBudget, type RadioProfile, type SiteRxChain, type SiteTxChain } from '../../rf/linkBudget';
 import { balanceSummary, budgetRows, createBudgetPanel } from '../../ui/budgetPanel';
 import { createRadioForm, createRxForm, createTxForm } from '../../ui/chainForms';
@@ -76,7 +77,7 @@ export function mountLmrPage({ root, params, shared }: PageContext): () => void 
       <h2>Radiocomunicaciones en terreno${infoButton('Trunking P25, SmartZone y convencional. Bajada y subida por separado, cada una con su frecuencia y su cadena.')}</h2>
       ${choiceHtml('banda', LMR_BANDS.map((b) => ({ id: b.id, label: b.label })), 'Banda', '')}
       <div class="form" data-reliability-form></div>
-      ${SHARE_BUTTON_HTML}
+      ${SHARE_NOTICE_HTML}
     </section>
     ${siteSectionHtml()}
     ${coverageStatusHtml()}
@@ -234,28 +235,25 @@ export function mountLmrPage({ root, params, shared }: PageContext): () => void 
     initial: fromLink?.devices,
   });
 
-  bindShareButton(
-    page.panel,
-    {
-      title: () => `Hertzo · Terreno ${band.label}${site.getName() ? ` · ${site.getName()}` : ''}`,
-      data: () =>
-        terrainShareData(
-          {
-            site: site.getSite(),
-            name: site.getName(),
-            radiusKm: site.getRadiusKm(),
-            tx,
-            rx,
-            radio,
-            thresholds,
-            capacity: capacity.changed(),
-            devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
-          },
-          band,
-        ),
-    },
-    opened,
-  );
+  showSharedNotice(page.panel, opened);
+  addShareControl(page.map, {
+    title: () => `Hertzo · Terreno ${band.label}${site.getName() ? ` · ${site.getName()}` : ''}`,
+    data: () =>
+      terrainShareData(
+        {
+          site: site.getSite(),
+          name: site.getName(),
+          radiusKm: site.getRadiusKm(),
+          tx,
+          rx,
+          radio,
+          thresholds,
+          capacity: capacity.changed(),
+          devices: (deviceList?.devices() ?? []).map(({ name, position, profileId }) => ({ name, position, profileId })),
+        },
+        band,
+      ),
+  });
 
   bindChoice(page.panel, 'banda', band.id, (id) => {
     band = LMR_BANDS.find((b) => b.id === (id as LmrBandId))!;

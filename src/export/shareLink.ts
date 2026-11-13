@@ -22,6 +22,12 @@ export async function encodeShare(data: Record<string, unknown>): Promise<string
 
 export const shareHash = (code: string) => `${HASH_PREFIX}${code}`;
 
+/** WhatsApp (app o web) con el título y, en la línea siguiente, el enlace; falta elegir a quién. */
+export const whatsappHref = (title: string, url: string) => `https://wa.me/?text=${encodeURIComponent(`${title}\n${url}`)}`;
+
+/** Correo nuevo con el título de asunto y el enlace en el cuerpo (solo texto: se ve la dirección larga). */
+export const mailHref = (title: string, url: string) => `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`;
+
 /**
  * Los datos de "#d=…", o null si la dirección no trae un enlace compartido. Ignora la puntuación
  * pegada al final de un enlace copiado de un texto: "#d=abc." → "abc".

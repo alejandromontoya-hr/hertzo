@@ -1627,6 +1627,54 @@ body {
   background: var(--bg);
 }
 
+/* "WhatsApp" y "Correo" del menú Compartir son enlaces con forma de opción. */
+a.map-menu-option {
+  text-decoration: none;
+}
+
+/* "Más…" solo en el celular: sin esto, el display: flex de la opción le gana a [hidden]. */
+.maplibregl-ctrl.map-menu .map-menu-option[hidden] {
+  display: none;
+}
+
+.map-menu-note {
+  margin: 8px 6px 2px;
+  padding-top: 8px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
+#share-menu-panel {
+  overflow-y: auto;
+}
+
+/* "Enlace copiado…" o el enlace para copiarlo a mano, en el mismo lugar que el menú. */
+[data-share-status] {
+  line-height: 1.4;
+}
+
+.map-menu-url {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* "Compartir" en los editores de planos: encima de "Exportar" (44 px de botón y 10 px de aire). */
+.maplibregl-ctrl.map-menu.plan-share {
+  position: absolute;
+  right: 10px;
+  bottom: 64px;
+}
+
 .readout {
   position: absolute;
   top: 0;
