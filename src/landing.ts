@@ -5,13 +5,15 @@ import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './style.css';
 import { inject } from '@vercel/analytics';
+import { injectSpeedInsights } from '@vercel/speed-insights';
 import { landingScenarioList } from './landingList';
 import { GITHUB_ICON, LINKEDIN_ICON, SCENARIO_ICONS } from './ui/icons';
 import { SAMPLE_MAP_KEY, sampleCoverageMap } from './ui/sampleMap';
 
-// Contador de visitas de Vercel Web Analytics: sin cookies ni datos personales. Fuera de
-// Vercel (por ejemplo en desarrollo) no envía nada.
+// Contador de visitas (Vercel Web Analytics) y velocidad de carga con visitas reales (Vercel Speed
+// Insights): sin cookies ni datos personales. Fuera de Vercel (por ejemplo en desarrollo) no envían nada.
 inject();
+injectSpeedInsights();
 
 document.querySelector('[data-sample-map]')!.innerHTML = sampleCoverageMap();
 document.querySelector('[data-sample-key]')!.innerHTML = SAMPLE_MAP_KEY;

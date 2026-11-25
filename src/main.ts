@@ -2,15 +2,19 @@ import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './style.css';
 import { inject } from '@vercel/analytics';
+import { injectSpeedInsights } from '@vercel/speed-insights';
 import { startRouter, type Route } from './pages/router';
 import { CHOOSER_PATH, SCENARIOS } from './pages/scenarios';
 import { pageMeta } from './seo/seo';
 import { installInfoTips } from './ui/infoTip';
 
-// Contador de visitas de Vercel Web Analytics: sin cookies ni datos personales. Fuera de
-// Vercel (por ejemplo en desarrollo) no envía nada. Nunca envía lo que va después del "#": ahí
-// viajan los datos de un enlace de "Compartir", que no deben salir del navegador.
-inject({ beforeSend: (event) => ({ ...event, url: event.url.replace(/#.*$/, '') }) });
+// Contador de visitas (Vercel Web Analytics) y velocidad de carga con visitas reales (Vercel Speed
+// Insights): sin cookies ni datos personales. Fuera de Vercel (por ejemplo en desarrollo) no envían
+// nada. Ninguno envía lo que va después del "#": ahí viajan los datos de un enlace de "Compartir",
+// que no deben salir del navegador.
+const sinHash = <T extends { url: string }>(event: T): T => ({ ...event, url: event.url.replace(/#.*$/, '') });
+inject({ beforeSend: sinHash });
+injectSpeedInsights({ beforeSend: sinHash });
 
 // Globo de los botones "i" de todas las páginas.
 installInfoTips();
